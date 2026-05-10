@@ -5,9 +5,10 @@ import claudio1 from "../assets/claudio1.png";
 interface Props {
 	title: string;
 	description?: string;
+	url?: string;
 }
 
-const { title, description } = Astro.props;
+const { title, description, url } = Astro.props;
 ---
 
 <!doctype html>
@@ -33,7 +34,13 @@ const { title, description } = Astro.props;
 				card: "summary_large_image",
 			}}
 			extend={{
-				link: [{ rel: "icon", href: "/favicon.ico" }],
+				link: [
+					{ rel: "icon", href: "/favicon.ico" },
+					{ rel: "canonical", href: "#" },
+					{ rel: "prev", href: url },
+					{ rel: "next", href: url },
+					{ rel: "alternate", href: url }
+				],
 				meta: [
 					{
 						name: "twitter:image",
