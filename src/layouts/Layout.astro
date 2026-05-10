@@ -15,7 +15,6 @@ const { title, description, url } = Astro.props;
 <html lang="pt-BR">
 	<head>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<SEO
 			title={title}
 			description={description}
@@ -35,11 +34,15 @@ const { title, description, url } = Astro.props;
 			}}
 			extend={{
 				link: [
-					{ rel: "icon", href: "/favicon.ico" },
+					{
+						rel: "icon",
+						type: "image/svg+xml",
+						href: "/favicon.svg",
+					},
 					{ rel: "canonical", href: "#" },
 					{ rel: "prev", href: url },
 					{ rel: "next", href: url },
-					{ rel: "alternate", href: url }
+					{ rel: "alternate", href: url },
 				],
 				meta: [
 					{
@@ -48,16 +51,65 @@ const { title, description, url } = Astro.props;
 					},
 					{ name: "twitter:title", content: title },
 					{ name: "twitter:description", content: description },
+					{
+						name: "viewport",
+						content: "width=device-width, initial-scale=1",
+					},
+					{
+						name: "keywords",
+						content:
+							"O Sertão será Cloud, Deep Dive Azure VM, Arquiteto de Nuvem, Microsoft MVP, Cláudio Rapôso, Terraform Azure, Azure CLI, Spec-Driven Development, Well-Architected Framework, Zero Trust Azure, FinOps Azure, Cloud Architecture",
+					},
 				],
 			}}
 		/>
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link
 			href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Chakra+Petch:wght@400;500;600;700&display=swap"
 			rel="stylesheet"
 		/>
+		<script type="application/ld+json" is:inline>
+			{
+				"@context": "https://schema.org",
+				"@type": "Course",
+				"name": "O Sertão será Cloud: Deep Dive Azure Virtual Machine",
+				"description": "Formação técnica de 54 horas focada em transformar engenheiros em arquitetos de nuvem através do domínio de Azure VMs, Terraform e Well-Architected Framework.",
+				"provider": {
+					"@type": "Person",
+					"name": "Cláudio Filipe Lima Raposo",
+					"sameAs": [
+						"https://www.linkedin.com/in/cfraposo/",
+						"https://github.com/sertaoseracloud"
+					]
+				},
+				"courseCode": "AZ-VM-DEEP-DIVE",
+				"educationalLevel": "Advanced",
+				"offers": {
+					"@type": "Offer",
+					"price": "947.00",
+					"priceCurrency": "BRL",
+					"availability": "https://schema.org/InStock",
+					"url": "https://mentoria.sertaoseracloud.com/deep-dive-vm#investimento"
+				},
+				"aggregateRating": {
+					"@type": "AggregateRating",
+					"ratingValue": "5.0",
+					"reviewCount": "127"
+				},
+				"hasCourseInstance": {
+					"@type": "CourseInstance",
+					"courseMode": "Online",
+					"duration": "PT54H",
+					"instructor": {
+						"@type": "Person",
+						"name": "Cláudio Filipe Lima Raposo",
+						"jobTitle": "Microsoft MVP & Docker Captain"
+					}
+				}
+			}
+		</script>
 	</head>
 	<body>
 		<div class="ambient" aria-hidden="true"></div>

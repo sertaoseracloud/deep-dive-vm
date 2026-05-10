@@ -44,32 +44,3 @@ All commands are run from the root of the project, from a terminal:
 ## 👀 Want to learn more?
 
 Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
-
-
-src/
- ├── layouts/
- │    └── Layout.astro
- ├── components/
- │    ├── layout/
- │    │    ├── UrgencyBar.astro
- │    │    ├── Navbar.astro
- │    │    ├── Footer.astro
- │    │    └── StickyCta.astro
- │    ├── sections/
- │    │    ├── Hero.astro
- │    │    ├── TrustBand.astro
- │    │    ├── PainPoints.astro
- │    │    ├── Method.astro
- │    │    ├── Curriculum.astro
- │    │    ├── Mentor.astro
- │    │    ├── ForWho.astro
- │    │    ├── Bonuses.astro
- │    │    ├── Testimonials.astro
- │    │    ├── Pricing.astro
- │    │    └── FAQ.astro
- │    └── ui/
- │         ├── Button.astro
- │         ├── SectionHead.astro
- │         └── ModuleDetails.astro
- └── pages/
-      └── index.astro

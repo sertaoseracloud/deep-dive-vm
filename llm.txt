@@ -1,1 +1,0 @@
-Landing Page project – Astro site with SEO metadata, Open Graph, Twitter cards, sitemap, and robots.txt. Includes Seo.astro component, @astrojs/seo and @astrojs/sitemap integrations, and Layout.astro renders <Seo /> for global head management.
