@@ -1,0 +1,10 @@
+<svg class="star-mark" viewBox="0 0 24 24" fill="url(#bgs)">
+        <defs>
+          <radialGradient id="bgs" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#FFFFFF"></stop>
+            <stop offset="40%" stop-color="#00FFFF"></stop>
+            <stop offset="100%" stop-color="#1A3AC8"></stop>
+          </radialGradient>
+        </defs>
+        <path d="M12 2l2.09 6.26H20l-4.95 3.64L16.9 18 12 14.27 7.1 18l1.85-6.1L4 8.26h5.91z"></path>
+      </svg>

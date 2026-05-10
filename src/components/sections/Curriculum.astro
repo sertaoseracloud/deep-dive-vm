@@ -1,0 +1,378 @@
+---
+import SectionHead from "../ui/SectionHead.astro";
+import ModuleDetails from "../ui/ModuleDetails.astro";
+---
+
+<section id="ementa">
+    <div class="container">
+        <SectionHead
+            eyebrow="EMENTA INSTRUCIONAL · 6 MÓDULOS"
+            titleHtml='Do <span class="flame">hipervisor</span> à governança financeira · em sequência cirúrgica.'
+            lede="Cada módulo destrava o seguinte. Sem atalhos, sem furos. A trilha foi desenhada para que você termine projetando arquiteturas inteiras, não apenas executando comandos isolados."
+        />
+
+        <div class="modules-meta">
+            <span><b>54h</b> CARGA TOTAL</span>
+            <div class="sep"></div>
+            <span><b>06</b> MÓDULOS</span>
+            <div class="sep"></div>
+            <span><b>5 FRENTES</b> POR MÓDULO</span>
+            <div class="sep"></div>
+            <span><b>30</b> BLOCOS PRÁTICOS</span>
+        </div>
+
+        <ModuleDetails
+            num="M.01"
+            title="Fundamentos e Arquitetura de Máquinas Virtuais"
+            subtitle="Hipervisor, Azure Boost, Geração 1 vs. 2, UEFI & Secure Boot."
+            hours="08H"
+            isOpen={true}
+        >
+            <div class="track">
+                <div class="head">TEORIA</div>
+                <p>
+                    IaaS avançado, camada do hipervisor, descarregamento via
+                    Azure Boost e a evolução arquitetural Geração 1 → 2 (UEFI,
+                    Secure Boot, limites de armazenamento).
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">PORTAL</div>
+                <p>
+                    Assistente de provisionamento, escolha de assinatura, grupos
+                    de recursos, regiões e imagens do Marketplace · Windows,
+                    Ubuntu, Red Hat.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">AZURE CLI</div>
+                <p>
+                    Provisionamento imperativo com <code>az vm create</code>,
+                    credenciais administrativas seguras e seleção automatizada
+                    de imagens.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">TERRAFORM</div>
+                <p>
+                    Provider <code>azurerm</code>, <code
+                        >azurerm_resource_group</code
+                    > e <code>azurerm_linux_virtual_machine</code> · paradigma declarativo
+                    e idempotente.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">SDD + WAF</div>
+                <p>
+                    Escreva a primeira VM em <code>spec.md</code> e gere o Terraform
+                    alinhado ao pilar <b>Operational Excellence</b> do Well-Architected.
+                </p>
+            </div>
+        </ModuleDetails>
+
+        <ModuleDetails
+            num="M.02"
+            title="Taxonomia, Dimensionamento e Armazenamento"
+            subtitle="Famílias de instâncias, discos gerenciados vs. efêmeros, expansão sem downtime."
+            hours="10H"
+        >
+            <div class="track">
+                <div class="head">TEORIA</div>
+                <p>
+                    Famílias: Propósito Geral, Computação, Memória,
+                    Armazenamento. Discos Gerenciados vs. volatilidade dos
+                    Discos Efêmeros do SO.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">PORTAL</div>
+                <p>
+                    Redimensionamento via recomendações do Azure Advisor,
+                    anexação de discos de dados e expansão minimizando downtime.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">AZURE CLI</div>
+                <p>
+                    <code>az vm list-sizes</code>, <code>az vm resize</code>, <code
+                        >az vm disk attach</code
+                    > · operações em terminal com precisão cirúrgica.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">TERRAFORM</div>
+                <p>
+                    Variável <code>size</code> dinâmica, <code
+                        >azurerm_managed_disk</code
+                    > com <code
+                        >azurerm_virtual_machine_data_disk_attachment</code
+                    >.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">SDD + WAF</div>
+                <p>
+                    Spec descreve família, IOPS e ciclo de vida · IaC gerado
+                    respeita <b>Cost Optimization</b> e <b
+                        >Performance Efficiency</b
+                    >.
+                </p>
+            </div>
+        </ModuleDetails>
+
+        <ModuleDetails
+            num="M.03"
+            title="Rede, Segurança e Modelo Zero Trust"
+            subtitle="VNets, NSGs, ASGs, Azure Bastion · segmentação e tráfego controlado ponta a ponta."
+            hours="10H"
+        >
+            <div class="track">
+                <div class="head">TEORIA</div>
+                <p>
+                    Arquitetura de Virtual Networks, segmentação por sub-redes,
+                    NSGs vs. ASGs e o papel do Azure Bastion na eliminação de
+                    IPs públicos expostos.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">PORTAL</div>
+                <p>
+                    Criação visual e priorização hierárquica de regras com Tags
+                    de Serviço, implantação do Bastion para acesso criptografado
+                    via navegador.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">AZURE CLI</div>
+                <p>
+                    Automação completa com <code
+                        >az network nsg rule create</code
+                    > · bloqueios e liberações sob controle de versão.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">TERRAFORM</div>
+                <p>
+                    Topologia inteira via código: VNet, sub-rede <code
+                        >AzureBastionSubnet</code
+                    >, <code>azurerm_bastion_host</code> · proteção declarativa.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">SDD + WAF</div>
+                <p>
+                    Spec define segmentação, regras NSG e Bastion · IaC validado
+                    contra o pilar <b>Security</b> do Well-Architected.
+                </p>
+            </div>
+        </ModuleDetails>
+
+        <ModuleDetails
+            num="M.04"
+            title="Alta Disponibilidade, Resiliência e Continuidade"
+            subtitle="Availability Sets, Zones, Scale Sets, Site Recovery · projetando para sobreviver."
+            hours="08H"
+        >
+            <div class="track">
+                <div class="head">TEORIA</div>
+                <p>
+                    SLAs: Availability Sets (rack/energia) vs. Availability
+                    Zones (datacenter inteiro). VM Scale Sets e Azure Site
+                    Recovery.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">PORTAL</div>
+                <p>
+                    Simulação prática de DR entre Zones com Azure Site Recovery
+                    · orquestração ao vivo e testes de failover.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">AZURE CLI</div>
+                <p>
+                    <code>az vm availability-set create</code> e comandos de escalonamento
+                    horizontal moderno via linha de comando.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">TERRAFORM</div>
+                <p>
+                    <code>azurerm_linux_virtual_machine_scale_set</code> com parâmetro
+                    <code>zones</code> para distribuição geométrica resiliente.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">SDD + WAF</div>
+                <p>
+                    Spec declara SLA-alvo, Zones e DR · Scale Set gerado
+                    certifica o pilar <b>Reliability</b> ponta a ponta.
+                </p>
+            </div>
+        </ModuleDetails>
+
+        <ModuleDetails
+            num="M.05"
+            title="Criptografia e Proteção de Dados"
+            subtitle="SSE, Encryption at Host, Confidential VMs, vTPM e Key Vault."
+            hours="08H"
+        >
+            <div class="track">
+                <div class="head">TEORIA</div>
+                <p>
+                    Modelos de Server Side Encryption, transição da criptografia
+                    legada para Encryption at Host, Confidential VMs nativas e
+                    Virtual TPM.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">PORTAL</div>
+                <p>
+                    Vinculação visual de Customer-Managed Keys ao Azure Key
+                    Vault para encriptação de volumes durante a criação.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">AZURE CLI</div>
+                <p>
+                    Identidade gerenciada autorizada a consumir políticas e
+                    chaves via <code>az keyvault set-policy</code>.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">TERRAFORM</div>
+                <p>
+                    Extensão Key Vault em HCL e <code
+                        >azurerm_disk_encryption_set</code
+                    > travando o estado da infraestrutura.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">SDD + WAF</div>
+                <p>
+                    Spec exige CMK + Encryption at Host + vTPM · IaC selado pelo
+                    pilar <b>Security</b> com auditabilidade completa.
+                </p>
+            </div>
+        </ModuleDetails>
+
+        <ModuleDetails
+            num="M.06"
+            title="Governança, Custos e Observabilidade"
+            subtitle="Reserved Instances, Spot, Savings Plans, Cost Management, VM Insights."
+            hours="10H"
+        >
+            <div class="track">
+                <div class="head">TEORIA</div>
+                <p>
+                    Modelos de precificação: Pay-As-You-Go, Reserved, Savings
+                    Plans e Spot Instances. Diferença entre métricas de Host e
+                    Guest.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">PORTAL</div>
+                <p>
+                    Azure Cost Management granular, Azure Monitor + VM Insights
+                    e centralização de logs no Log Analytics Workspace.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">AZURE CLI</div>
+                <p>
+                    Automações utilitárias para auto-shutdown, scripts de Spot
+                    com <code>--priority Spot</code> e monitoramento de teto financeiro.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">TERRAFORM</div>
+                <p>
+                    Instâncias efêmeras com <code>priority = "Spot"</code>,
+                    política de despejo e <code
+                        >azurerm_log_analytics_workspace</code
+                    > integrado.
+                </p>
+            </div>
+            <div class="track">
+                <div class="head">SDD + WAF</div>
+                <p>
+                    Spec define tags, budgets e telemetria · IaC entrega <b
+                        >Cost Optimization</b
+                    > + <b>Operational Excellence</b> auditáveis.
+                </p>
+            </div>
+        </ModuleDetails>
+    </div>
+</section>
+
+<style>
+    .modules-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 24px;
+        padding: 18px 24px;
+        border: 1px solid var(--hairline);
+        background: rgba(10, 15, 30, 0.55);
+        margin-bottom: 36px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--texto-secundario);
+        align-items: center;
+        border-radius: 2px;
+    }
+
+    .modules-meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .modules-meta b {
+        color: var(--nucleo-eletrico);
+        font-weight: 500;
+    }
+
+    .modules-meta .sep {
+        width: 1px;
+        height: 14px;
+        background: var(--hairline);
+    }
+
+    :global(.track) {
+        margin-bottom: 24px;
+    }
+
+    :global(.track:last-child) {
+        margin-bottom: 0;
+    }
+
+    :global(.track .head) {
+        display: flex;
+        align-items: center;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        color: var(--nucleo-eletrico);
+        margin-bottom: 8px;
+        font-weight: 600;
+    }
+
+    :global(.track p) {
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--texto-secundario);
+        margin: 0;
+        padding-left: 20px;
+        border-left: 1px solid var(--hairline);
+    }
+
+    :global(.track code) {
+        font-family: "JetBrains Mono", monospace;
+        background: rgba(0, 255, 255, 0.05);
+        color: var(--nucleo-eletrico);
+        padding: 2px 4px;
+        font-size: 0.95em;
+    }
+</style>

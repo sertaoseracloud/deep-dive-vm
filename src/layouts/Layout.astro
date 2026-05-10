@@ -1,0 +1,152 @@
+---
+import { SEO } from "astro-seo";
+import claudio1 from "../assets/claudio1.png";
+
+interface Props {
+	title: string;
+	description?: string;
+}
+
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="pt-BR">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<SEO
+			title={title}
+			description={description}
+			openGraph={{
+				basic: {
+					title: title,
+					type: "website",
+					image: claudio1.src,
+				},
+				image: {
+					alt: "Mentoria O Sertao será Cloud - Deep Dive Azure VM",
+				},
+			}}
+			twitter={{
+				creator: "@sertaoseracloud", // Ajustado conforme o perfil do mentor
+				card: "summary_large_image",
+			}}
+			extend={{
+				link: [{ rel: "icon", href: "/favicon.ico" }],
+				meta: [
+					{
+						name: "twitter:image",
+						content: claudio1.src,
+					},
+					{ name: "twitter:title", content: title },
+					{ name: "twitter:description", content: description },
+				],
+			}}
+		/>
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Chakra+Petch:wght@400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+	</head>
+	<body>
+		<div class="ambient" aria-hidden="true"></div>
+		<slot />
+	</body>
+</html>
+
+<style is:global>
+	:root {
+		--chama-primaria: #1a3ac8;
+		--chama-hover: #2548e0;
+		--nucleo-eletrico: #00ffff;
+		--abismo-profundo: #0a0f1e;
+		--sub-nivel: #1b293c;
+		--neutro-escuro: #000000;
+		--texto-principal: #ffffff;
+		--texto-secundario: #d1d9e6;
+		--texto-terciario: #8a99b5;
+		--sucesso: #00e5a8;
+		--alerta: #ffb547;
+
+		/* Variável crítica para a renderização da grade */
+		--grid-line: rgba(0, 255, 255, 0.05);
+		--hairline: rgba(209, 217, 230, 0.12);
+		--hairline-strong: rgba(0, 255, 255, 0.32);
+	}
+
+	body {
+		margin: 0;
+		padding: 0;
+		background-color: var(--abismo-profundo);
+		color: var(--texto-principal);
+		font-family: "Space Grotesk", system-ui, sans-serif;
+		min-height: 100vh;
+		overflow-x: hidden;
+	}
+
+	/* O fundo radial original */
+	.ambient {
+		position: fixed;
+		inset: 0;
+		z-index: 0;
+		pointer-events: none;
+		background:
+			radial-gradient(
+				ellipse 60% 45% at 18% 12%,
+				rgba(0, 180, 255, 0.18),
+				transparent 60%
+			),
+			radial-gradient(
+				ellipse 70% 55% at 82% 100%,
+				rgba(26, 58, 200, 0.22),
+				transparent 65%
+			),
+			var(--abismo-profundo);
+	}
+
+	/* Renderização da Malha de Grade (Grid) */
+	.ambient::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		background-image:
+			linear-gradient(var(--grid-line) 1px, transparent 1px),
+			linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+		background-size: 56px 56px;
+		mask-image: radial-gradient(
+			ellipse 70% 70% at 50% 30%,
+			black 30%,
+			transparent 85%
+		);
+		-webkit-mask-image: radial-gradient(
+			ellipse 70% 70% at 50% 30%,
+			black 30%,
+			transparent 85%
+		);
+	}
+
+	.container {
+		max-width: 1240px;
+		margin: 0 auto;
+		padding: 0 32px;
+	}
+	/* ————————————————————————————————
+     Section primitives (Fiel ao original)
+  ———————————————————————————————— */
+	section {
+		position: relative;
+		z-index: 1;
+		padding: 96px 0;
+		background: transparent; /* Garante a visibilidade do fundo ambient */
+	}
+
+	@media (max-width: 720px) {
+		section {
+			padding: 64px 0;
+		}
+	}
+</style>

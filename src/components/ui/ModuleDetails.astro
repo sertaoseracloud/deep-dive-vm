@@ -1,0 +1,208 @@
+---
+interface Props {
+    num: string;
+    title: string;
+    subtitle: string;
+    hours: string;
+    isOpen?: boolean;
+}
+
+const { num, title, subtitle, hours, isOpen = false } = Astro.props;
+---
+
+<details class="module" open={isOpen}>
+    <summary>
+        <span class="module-num">{num}</span>
+        <span class="module-title">
+            {title}
+            <small>{subtitle}</small>
+        </span>
+        <span class="module-hours">{hours}</span>
+        <span class="module-toggle">+</span>
+    </summary>
+    <div class="module-body">
+        <div class="module-tracks">
+            <slot />
+        </div>
+    </div>
+</details>
+
+<style>
+    .module {
+        border: 1px solid var(--hairline);
+        border-radius: 2px;
+        background: rgba(27, 41, 60, 0.3);
+        overflow: hidden;
+        transition: border-color 0.25s;
+        margin-top: 12px;
+    }
+
+    .module[open] {
+        border-color: var(--hairline-strong);
+        background: rgba(27, 41, 60, 0.55);
+    }
+
+    .module summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 22px 28px;
+        display: grid;
+        grid-template-columns: auto 1fr auto auto;
+        gap: 24px;
+        align-items: center;
+    }
+
+    .module summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .module summary:hover {
+        background: rgba(0, 255, 255, 0.03);
+    }
+
+    .module-num {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        color: var(--nucleo-eletrico);
+        background: rgba(0, 255, 255, 0.06);
+        border: 1px solid var(--hairline-strong);
+        padding: 6px 10px;
+    }
+
+    .module-title {
+        font-family: "Chakra Petch", sans-serif;
+        font-weight: 600;
+        font-size: 19px;
+        color: var(--texto-principal);
+        line-height: 1.25;
+    }
+
+    .module-title small {
+        display: block;
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 400;
+        font-size: 13px;
+        color: var(--texto-secundario);
+        margin-top: 4px;
+        letter-spacing: 0;
+        text-transform: none;
+    }
+
+    .module-hours {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--texto-secundario);
+        letter-spacing: 0.14em;
+    }
+
+    .module-toggle {
+        width: 28px;
+        height: 28px;
+        border: 1px solid var(--hairline);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--nucleo-eletrico);
+        transition:
+            transform 0.25s,
+            background 0.25s;
+    }
+
+    .module[open] .module-toggle {
+        transform: rotate(45deg);
+        background: rgba(0, 255, 255, 0.08);
+    }
+
+    .module-body {
+        padding: 8px 28px 28px;
+        border-top: 1px dashed var(--hairline);
+        margin: 0;
+    }
+
+    .module-tracks {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+        margin-top: 18px;
+    }
+
+    /* Estilos herdados para os elementos colocados dentro do slot */
+    .module-tracks :global(.track) {
+        border: 1px solid var(--hairline);
+        padding: 16px;
+        background: rgba(10, 15, 30, 0.6);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .module-tracks :global(.track .head) {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--nucleo-eletrico);
+    }
+
+    .module-tracks :global(.track .head svg) {
+        width: 14px;
+        height: 14px;
+    }
+
+    .module-tracks :global(.track p) {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--texto-secundario);
+    }
+
+    .module-tracks :global(.track p code) {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        color: #9fffff;
+        background: rgba(0, 255, 255, 0.05);
+        padding: 1px 5px;
+        border-radius: 2px;
+    }
+
+    /* Media Queries de Responsividade */
+    @media (max-width: 1180px) {
+        .module-tracks {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media (max-width: 760px) {
+        .module-tracks {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 720px) {
+        .module summary {
+            grid-template-columns: auto 1fr auto;
+            gap: 16px;
+            padding: 18px 20px;
+        }
+        .module summary .module-hours {
+            display: none;
+        }
+        .module summary,
+        .module-body {
+            min-height: 44px;
+        }
+        .module-body {
+            padding: 8px 20px 22px;
+        }
+    }
+
+    @media (max-width: 520px) {
+        .module-tracks {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>

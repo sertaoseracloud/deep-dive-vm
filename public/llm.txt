@@ -1,0 +1,33 @@
+# Landing Page - Deep Dive Azure VM Mentoria
+
+Descrição: Landing page para mentoria especializada em Azure Virtual Machines, focada no curso "Deep Dive: Azure Virtual Machine".
+
+## Conteúdo Principal
+- Hero section com título principal e call-to-action
+- Seção de confiança (TrustBand) com logos de parceiros
+- Pontos de dor (PainPoints) para alunos iniciantes
+- Método de ensino (Method) com abordagem prática
+- Currículo detalhado (Curriculum)
+- Apresentação do mentor (Mentor)
+- Público-alvo (ForWho)
+- Bônus exclusivos (Bonuses)
+- Depoimentos de alunos (Testimonials)
+- Tabela de preços (Pricing)
+- FAQ (Frequently Asked Questions)
+- Rodapé com informações de contato e CNPJ
+
+## Palavras‑chave Principais
+Azure VM, mentoria cloud, curso Azure, virtual machine, cloud computing, O Sertão será Cloud, Azure Brasil, certificação Azure, aprendizado prático, mentoria online.
+
+## Estrutura Técnica
+- Framework: Astro Islands Architecture
+- SEO: @astrojs/seo com meta tags, Open Graph, Twitter Cards
+- Sitemap: @astrojs/sitemap
+- Acessibilidade: WCAG AA, semântica HTML5
+- Performance: Core Web Vitals otimizados
+
+## Informações de Contato
+- CNPJ: [Informar CNPJ]
+- Email: [Informar contato]
+- Telefone: [Informar telefone]
+- Endereço: [Informar endereço]

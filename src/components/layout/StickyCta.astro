@@ -1,0 +1,71 @@
+---
+import Button from "../ui/Button.astro";
+---
+
+<div class="sticky-cta">
+    <div class="meta">
+        DESDE <b>12× R$ 78,92</b>
+    </div>
+
+    <Button href="#investimento" variant="primary" customClass="sticky-btn">
+        Quero começar →
+    </Button>
+</div>
+
+<style>
+    .sticky-cta {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 60;
+        background: rgba(10, 15, 30, 0.94);
+        backdrop-filter: blur(14px);
+        border-top: 1px solid var(--hairline-strong);
+        padding: 12px 16px;
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    /* Comportamento de visibilidade e injeção de margem global no Body */
+    @media (max-width: 720px) {
+        .sticky-cta {
+            display: flex;
+        }
+
+        /* O modificador :global avisa o Astro para aplicar esta regra à tag <body> do Layout,
+       evitando que a barra fixa cubra as informações finais do rodapé. */
+        :global(body) {
+            padding-bottom: 76px;
+        }
+    }
+
+    .meta {
+        flex: 1;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--texto-secundario);
+    }
+
+    .meta b {
+        display: block;
+        font-family: "Chakra Petch", sans-serif;
+        font-size: 16px;
+        color: var(--texto-principal);
+        text-transform: none;
+        letter-spacing: 0;
+        font-weight: 600;
+        margin-top: 2px;
+    }
+
+    /* Redução do botão global para encaixar na barra de dispositivos móveis */
+    :global(.sticky-btn) {
+        padding: 12px 18px !important;
+        font-size: 12px !important;
+        min-height: 44px !important;
+    }
+</style>

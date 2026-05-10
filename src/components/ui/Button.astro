@@ -1,0 +1,117 @@
+---
+interface Props {
+  href: string;
+  variant?: "primary" | "ghost" | "solid-core";
+  size?: "normal" | "massive";
+  customClass?: string;
+}
+
+const {
+  href,
+  variant = "primary",
+  size = "normal",
+  customClass = "",
+} = Astro.props;
+
+// Mapeamento fiel das classes do index.html
+const classList = [
+  "btn",
+  variant, // primary, ghost, ou solid-core
+  size === "massive" ? "massive" : "",
+  customClass,
+]
+  .filter(Boolean)
+  .join(" ");
+---
+
+<a href={href} class={classList}>
+  <slot />
+</a>
+
+<style>
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 18px 28px;
+    background: var(--chama-primaria);
+    color: #fff;
+    font-family: "Chakra Petch", sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    transition: all 0.25s;
+    cursor: pointer;
+    box-shadow:
+      var(--glow-cobalt),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    text-align: left;
+    text-decoration: none;
+    width: fit-content;
+  }
+
+  /* Transição da seta (exato do index.html) */
+  .btn :global(.arrow svg) {
+    transition: transform 0.25s;
+    flex-shrink: 0;
+  }
+
+  .btn:hover :global(.arrow svg) {
+    transform: translateX(4px);
+  }
+
+  /* Variante Primary */
+  .btn.primary:hover {
+    background: var(--chama-hover);
+    box-shadow:
+      0 0 36px rgba(0, 255, 255, 0.6),
+      inset 0 0 0 1px rgba(0, 255, 255, 0.5);
+  }
+
+  /* Variante Massive */
+  .btn.massive {
+    padding: 22px 40px;
+    font-size: 16px;
+  }
+
+  /* Variante Solid Core */
+  .btn.solid-core {
+    background: var(--nucleo-eletrico);
+    color: var(--abismo-profundo);
+    box-shadow: var(--glow-cyan);
+  }
+
+  .btn.solid-core:hover {
+    background: #5cffff;
+    box-shadow: 0 0 48px rgba(0, 255, 255, 0.9);
+  }
+
+  /* Variante Ghost */
+  .btn.ghost {
+    background: transparent;
+    border: 1px solid var(--hairline-strong);
+    color: var(--nucleo-eletrico);
+    box-shadow: none;
+  }
+
+  .btn.ghost:hover {
+    background: rgba(0, 255, 255, 0.06);
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+  }
+
+  :global(.price-cta) {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Touch target para mobile */
+  @media (max-width: 720px) {
+    .btn {
+      min-height: 44px;
+    }
+  }
+</style>

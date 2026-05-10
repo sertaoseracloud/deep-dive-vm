@@ -1,0 +1,52 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+import UrgencyBar from "../components/layout/UrgencyBar.astro";
+import NavBar from "../components/layout/NavBar.astro";
+import Footer from "../components/layout/Footer.astro";
+import StickyCta from "../components/layout/StickyCta.astro";
+
+import Hero from "../components/sections/Hero.astro";
+import TrustBand from "../components/sections/TrustBand.astro";
+import PainPoints from "../components/sections/PainPoints.astro";
+import Method from "../components/sections/Method.astro";
+import Curriculum from "../components/sections/Curriculum.astro";
+import Mentor from "../components/sections/Mentor.astro";
+import ForWho from "../components/sections/ForWho.astro";
+import Bonuses from "../components/sections/Bonuses.astro";
+import Testimonials from "../components/sections/Testimonials.astro";
+import Pricing from "../components/sections/Pricing.astro";
+import Faq from "../components/sections/Faq.astro";
+import LegalModals from "../components/ui/LegalModals.astro";
+
+// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
+// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+---
+
+<Layout
+	title="Deep Dive Azure Virtual Machine · Mentoria O Sertao será Cloud"
+	description="A formação definitiva para Engenheiros que querem se tornar Arquitetos de Nuvem dominando Azure Virtual Machines · 54h de imersão, do Portal ao Terraform. Professor: Cláudio Filipe Lima Raposo, Microsoft MVP & Docker Captain."
+>
+	
+
+
+	<UrgencyBar />
+	<NavBar />
+	<a href="#main" class="skip-link">Pular para o conteúdo</a>
+	<main id="main">
+		<Hero />
+		<TrustBand />
+		<PainPoints />
+		<Method />
+		<Curriculum />
+		<Mentor />
+		<ForWho />
+		<Bonuses />
+		<Testimonials />
+		<Pricing />
+		<Faq />
+		<Footer />
+		<StickyCta />
+		<LegalModals />
+	</main>
+</Layout>

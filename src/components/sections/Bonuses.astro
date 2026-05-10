@@ -1,0 +1,160 @@
+---
+import SectionHead from "../ui/SectionHead.astro";
+---
+
+<section class="bonuses" id="bonus">
+    <div class="container">
+        <SectionHead
+            center={true}
+            eyebrow="BÔNUS EXCLUSIVOS DESTA TURMA"
+            titleHtml='Você não leva só a mentoria. Leva o <span class="flame">arsenal completo</span>.'
+            lede="3 bônus liberados no ato da matrícula · válidos apenas para a turma atual."
+        />
+
+        <div class="bonus-grid">
+            <div class="bonus-card">
+                <div class="bonus-num">
+                    <span>BÔNUS 01</span>
+                    <span class="price"><s>R$ 497</s> GRÁTIS</span>
+                </div>
+                <h3>Toolkit Terraform O Sertao será Cloud</h3>
+                <p>
+                    Repositório privado com <b>30+ módulos Terraform</b> production-ready:
+                    VMs, Scale Sets, Bastion, Key Vault, Log Analytics · código que
+                    você cola no projeto e adapta.
+                </p>
+            </div>
+
+            <div class="bonus-card featured">
+                <div class="bonus-num">
+                    <span>BÔNUS 02 · DESTAQUE</span>
+                    <span class="price"><s>R$ 1.997</s> GRÁTIS</span>
+                </div>
+                <h3>6 Sessões de Mentoria 1:1 com Cláudio</h3>
+                <p>
+                    Seis sessões individuais de <b>60 minutos</b> com o professor
+                    para revisar sua arquitetura real, destravar bloqueios técnicos
+                    e validar decisões antes da produção. Agendamento direto na agenda
+                    do Cláudio.
+                </p>
+            </div>
+
+            <div class="bonus-card">
+                <div class="bonus-num">
+                    <span>BÔNUS 03</span>
+                    <span class="price"><s>R$ 597</s> GRÁTIS</span>
+                </div>
+                <h3>Professor Convidado nas Gravações</h3>
+                <p>
+                    Participação de <b>Marcelo Gonçalves</b> (<i
+                        >Cloud in Focus</i
+                    >) gravando conteúdo junto ao Cláudio · duas vozes, dois
+                    ângulos de campo sobre Azure em escala. Não é masterclass
+                    solta: ele aparece <b>dentro dos módulos</b> agregando contexto
+                    real.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    .bonuses {
+        background: linear-gradient(
+            180deg,
+            rgba(10, 15, 30, 0),
+            rgba(27, 41, 60, 0.45) 40%
+        );
+    }
+
+    .bonus-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+    }
+
+    @media (max-width: 880px) {
+        .bonus-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .bonus-card {
+        border: 1px solid var(--hairline);
+        background: rgba(10, 15, 30, 0.55);
+        padding: 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        position: relative;
+        overflow: hidden;
+        border-radius: 2px;
+    }
+
+    /* Efeito de brilho radial no topo direito */
+    .bonus-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 80px;
+        height: 80px;
+        background: radial-gradient(
+            circle at 100% 0%,
+            rgba(0, 255, 255, 0.15),
+            transparent 70%
+        );
+        pointer-events: none;
+    }
+
+    /* Estilo específico para o bônus em destaque (Mentoria 1:1) */
+    .bonus-card.featured {
+        border-color: var(--hairline-strong);
+        background: linear-gradient(
+            180deg,
+            rgba(0, 255, 255, 0.05),
+            rgba(10, 15, 30, 0.55)
+        );
+    }
+
+    .bonus-num {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--nucleo-eletrico);
+    }
+
+    .bonus-num .price {
+        font-family: "Space Grotesk", sans-serif;
+        color: var(--texto-principal);
+        font-weight: 500;
+        text-transform: none;
+        letter-spacing: 0.02em;
+    }
+
+    .bonus-num .price s {
+        color: var(--texto-terciario);
+        margin-right: 6px;
+        font-weight: 300;
+    }
+
+    .bonus-card h3 {
+        font-family: "Chakra Petch", sans-serif;
+        font-weight: 600;
+        font-size: 20px;
+        margin: 0;
+        line-height: 1.2;
+        color: var(--texto-principal);
+    }
+
+    .bonus-card p {
+        margin: 0;
+        color: var(--texto-secundario);
+        font-size: 14px;
+        line-height: 1.55;
+    }
+</style>

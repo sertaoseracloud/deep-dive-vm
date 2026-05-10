@@ -1,0 +1,118 @@
+---
+import Button from "../ui/Button.astro";
+---
+
+<nav class="nav" aria-label="Navegação principal">
+  <div class="container nav-row">
+    <a href="#top" class="brand">
+      <svg class="star-mark" viewBox="0 0 24 24" fill="url(#bgs)">
+        <defs>
+          <radialGradient id="bgs" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#FFFFFF"></stop>
+            <stop offset="40%" stop-color="#00FFFF"></stop>
+            <stop offset="100%" stop-color="#1A3AC8"></stop>
+          </radialGradient>
+        </defs>
+        <path d="M12 2l2.09 6.26H20l-4.95 3.64L16.9 18 12 14.27 7.1 18l1.85-6.1L4 8.26h5.91z"></path>
+      </svg>
+      <span class="name">O Sertao será Cloud<small>Deep Dive · Azure VM</small></span>
+    </a>
+
+    <div class="nav-links">
+      <a href="#metodo">Método</a>
+      <a href="#ementa">Ementa</a>
+      <a href="#mentor">Professor</a>
+      <a href="#bonus">Bônus</a>
+      <a href="#investimento">Investimento</a>
+      <a href="#faq">FAQ</a>
+    </div>
+
+    <Button href="#investimento" variant="primary" customClass="nav-cta">
+      Garantir Vaga
+    </Button>
+  </div>
+</nav>
+
+<style>
+  /* A classe .nav volta a atuar apenas como container fixo e fundo embaçado */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: rgba(10, 15, 30, 0.85);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  /* O container interno gerencia o alinhamento e o espaçamento vertical (padding) */
+  .nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: "Chakra Petch", sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-decoration: none;
+    color: var(--texto-principal);
+  }
+
+  .brand .star-mark {
+    width: 28px;
+    height: 28px;
+    filter: drop-shadow(0 0 10px rgba(0, 255, 255, 0.7));
+  }
+
+  .brand .name {
+    font-size: 15px;
+  }
+
+  .brand .name small {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    color: var(--texto-secundario);
+    font-weight: 400;
+    margin-top: 1px;
+    text-transform: uppercase;
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+
+  .nav-links a {
+    text-decoration: none;
+    font-size: 13px;
+    color: var(--texto-secundario);
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover {
+    color: var(--nucleo-eletrico);
+  }
+
+  /* O modificador :global() garante que o Astro aplique estas regras de redução 
+    diretamente na tag <a> gerada pelo componente Button.astro 
+  */
+  :global(.nav-cta) {
+    padding: 10px 18px !important;
+    font-size: 12px !important;
+    min-height: auto !important;
+  }
+
+  @media (max-width: 980px) {
+    .nav-links {
+      display: none;
+    }
+  }
+</style>

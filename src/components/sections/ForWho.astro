@@ -1,0 +1,293 @@
+---
+import SectionHead from "../ui/SectionHead.astro";
+---
+
+<section id="selecao">
+    <div class="container">
+        <SectionHead
+            center={true}
+            eyebrow="SELEÇÃO DE TURMA"
+            titleHtml='Este curso é · e <span class="flame">não é</span> · para você.'
+        />
+
+        <div class="for-who">
+            <div class="card is-for">
+                <h3>
+                    <span class="ic">
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.5"
+                        >
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </span>
+                    É para você se…
+                </h3>
+                <ul>
+                    <li>
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.5"
+                        >
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        É <b>Engenheiro Pleno ou Sênior</b> e quer atravessar o teto
+                        invisível para Arquiteto.
+                    </li>
+                    <li>
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.5"
+                        >
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Já mexeu com Azure de leve, mas quer <b
+                            >fluência total</b
+                        >: Portal, CLI, Terraform.
+                    </li>
+                    <li>
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.5"
+                        >
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Quer dominar a <b>ferramenta</b> de ponta a ponta · do Portal
+                        ao Terraform.
+                    </li>
+                    <li>
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.5"
+                        >
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        É consultor / freelancer e quer <b>cobrar mais</b> entregando
+                        arquitetura, não tarefa.
+                    </li>
+                    <li>
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.5"
+                        >
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Quer projetar para <b>resiliência, segurança e custo</b> ·
+                        não só "subir e ver se aguenta".
+                    </li>
+                </ul>
+            </div>
+
+            <div class="card is-not">
+                <h3>
+                    <span class="ic">
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.5"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </span>
+                    Não é para você se…
+                </h3>
+                <ul>
+                    <li>
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.5"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        Procura curso introdutório de "o que é nuvem". Aqui, vamos
+                        fundo.
+                    </li>
+                    <li>
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.5"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        Não está disposto a <b>colocar a mão</b> no Portal, CLI e
+                        Terraform durante 54h.
+                    </li>
+                    <li>
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.5"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        Espera "fórmula mágica" para cargo Arquiteto sem domínio técnico
+                        real.
+                    </li>
+                    <li>
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.5"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        Quer apenas badges em LinkedIn sem profundidade arquitetural.
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    .for-who {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        align-items: stretch;
+    }
+
+    @media (max-width: 720px) {
+        .for-who {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .for-who .card {
+        border: 1px solid var(--hairline);
+        background: rgba(10, 15, 30, 0.5);
+        padding: 32px 32px 36px;
+        border-radius: 2px;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .for-who .card.is-for {
+        border-color: rgba(0, 229, 168, 0.3);
+        background: linear-gradient(
+            180deg,
+            rgba(0, 229, 168, 0.04),
+            rgba(10, 15, 30, 0.5)
+        );
+    }
+
+    .for-who .card.is-not {
+        border-color: rgba(209, 217, 230, 0.15);
+    }
+
+    .for-who h3 {
+        font-family: "Chakra Petch", sans-serif;
+        font-weight: 600;
+        font-size: 16px;
+        letter-spacing: 0.04em;
+        margin: 0 0 22px;
+        padding-bottom: 18px;
+        border-bottom: 1px dashed var(--hairline);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-transform: uppercase;
+    }
+
+    .for-who h3 .ic {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid currentColor;
+    }
+
+    .for-who .is-for h3 {
+        color: var(--sucesso);
+    }
+
+    .for-who .is-not h3 {
+        color: var(--texto-terciario);
+    }
+
+    .for-who ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .for-who li {
+        position: relative;
+        padding-left: 30px;
+        font-size: 14.5px;
+        color: var(--texto-secundario);
+        line-height: 1.55;
+        text-wrap: pretty;
+    }
+
+    .for-who li svg {
+        position: absolute;
+        left: 0;
+        top: 4px;
+    }
+
+    .for-who li b {
+        color: var(--texto-principal);
+        font-weight: 500;
+    }
+
+    .is-for li svg {
+        color: var(--sucesso);
+    }
+
+    .is-not li svg {
+        color: var(--texto-terciario);
+    }
+</style>

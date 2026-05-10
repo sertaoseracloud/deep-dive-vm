@@ -1,0 +1,153 @@
+---
+import SectionHead from "../ui/SectionHead.astro";
+---
+
+<section class="pain" id="pain">
+    <div class="container">
+        <SectionHead
+            eyebrow="O TETO INVISÍVEL"
+            titleHtml='Você é um engenheiro técnico · mas <span class="flame">ainda não é ouvido</span> nas decisões.'
+            lede="Reconhece algum desses sintomas?"
+        />
+
+        <div class="pain-grid">
+            <div class="pain-card">
+                <span class="num">01 // SINTOMA</span>
+                <h3>
+                    Você cria VMs no Portal "no chute" e reza para o tamanho
+                    aguentar a produção.
+                </h3>
+                <p>
+                    Sem critério para escolher famílias de instância,
+                    dimensionamento, discos gerenciados vs. efêmeros · e o custo
+                    no fim do mês é uma surpresa amarga.
+                </p>
+            </div>
+
+            <div class="pain-card">
+                <span class="num">02 // SINTOMA</span>
+                <h3>
+                    Sua infraestrutura mora em prints, planilhas e scripts que
+                    ninguém entende.
+                </h3>
+                <p>
+                    Sem Terraform de verdade. Sem reprodutibilidade. Cada novo
+                    ambiente é uma noite mal dormida e um deploy de risco.
+                </p>
+            </div>
+
+            <div class="pain-card">
+                <span class="num">03 // SINTOMA</span>
+                <h3>
+                    "Zero Trust", "Bastion", "Confidential VMs" são termos que
+                    aparecem em reuniões que você não conduz.
+                </h3>
+                <p>
+                    Você quer subir de Senior para Arquiteto, mas não tem
+                    repertório para falar de segmentação, Key Vault,
+                    criptografia no host e governança.
+                </p>
+            </div>
+
+            <div class="pain-card">
+                <span class="num">04 // SINTOMA</span>
+                <h3>
+                    Toda decisão importante de arquitetura é tomada por outro ·
+                    e você só executa.
+                </h3>
+                <p>
+                    Você sabe que <em>poderia</em> liderar. Falta o vocabulário técnico
+                    de elite e a visão sistêmica que só uma imersão profunda entrega.
+                </p>
+            </div>
+
+            <div class="pain-card">
+                <span class="num">05 // SINTOMA</span>
+                <h3>
+                    Em arquiteturas complexas, você ainda provisiona máquinas no
+                    improviso · sem spec, sem rastreabilidade.
+                </h3>
+                <p>
+                    Topologias multi-tier com Scale Sets, Bastion, Key Vault e
+                    Confidential VMs exigem <b>Spec-Driven Development</b> · descrever
+                    a intenção (SLA, IOPS, criptografia, segmentação) e gerar IaC
+                    validado contra o Well-Architected. Sem isso, cada nova VM vira
+                    uma escolha solta que ninguém audita.
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    .pain {
+        background: linear-gradient(
+            180deg,
+            transparent,
+            rgba(10, 15, 30, 0.6) 30%,
+            rgba(10, 15, 30, 0.6) 70%,
+            transparent
+        );
+    }
+
+    .pain-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+
+    @media (max-width: 720px) {
+        .pain-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .pain-card {
+        border: 1px solid var(--hairline);
+        background: rgba(27, 41, 60, 0.35);
+        padding: 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        border-radius: 2px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .pain-card::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3px;
+        background: linear-gradient(
+            180deg,
+            transparent,
+            rgba(255, 90, 90, 0.5),
+            transparent
+        );
+    }
+
+    .pain-card .num {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        color: rgba(255, 140, 140, 0.8);
+    }
+
+    .pain-card h3 {
+        font-family: "Chakra Petch", sans-serif;
+        font-weight: 600;
+        font-size: 19px;
+        margin: 0;
+        color: var(--texto-principal);
+        line-height: 1.25;
+    }
+
+    .pain-card p {
+        margin: 0;
+        color: var(--texto-secundario);
+        font-size: 14px;
+    }
+</style>
