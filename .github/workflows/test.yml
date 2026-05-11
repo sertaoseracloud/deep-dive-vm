@@ -21,8 +21,7 @@ jobs:
       - name: Integration tests
         run: npm run test:integration
       - name: npm audit (supply-chain gate)
-        run: npm audit --audit-level=high
-        continue-on-error: true
+        run: npm audit --audit-level=high --omit=dev
       - uses: actions/upload-artifact@v4
         if: always()
         with:
