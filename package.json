@@ -14,7 +14,8 @@
     "test:extract": "node src/scripts/extract.js",
     "test:visual": "npx playwright test --project=chromium",
     "lighthouse": "lighthouse http://localhost:4321/deep-dive-vm/ --output json --output-path lighthouse-report.json --chrome-flags=\"--headless --no-sandbox\" && node src/scripts/check-lighthouse.js",
-    "lighthouse:ci": "npm run build && npx astro preview & sleep 3 && npm run lighthouse"
+    "lighthouse:ci": "npm run build && npx astro preview & sleep 3 && npm run lighthouse",
+    "capture:baselines": "node src/scripts/capture-baselines.js"
   },
   "dependencies": {
     "@playwright/test": "^1.59.1",
