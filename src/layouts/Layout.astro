@@ -115,6 +115,24 @@ const { title, description, url } = Astro.props;
 </html>
 
 <style is:global>
+	/* Skip-link: hidden off-screen, revealed on focus */
+	.skip-link {
+		position: absolute;
+		top: -100%;
+		left: 0;
+		z-index: 9999;
+		padding: 0.5rem 1rem;
+		background: var(--abismo-profundo, #000);
+		color: var(--nucleo-eletrico, #0ff);
+		font-size: 0.875rem;
+		text-decoration: none;
+		border: 1px solid currentColor;
+		transition: top 0.2s;
+	}
+	.skip-link:focus {
+		top: 0;
+	}
+
 	:root {
 		--chama-primaria: #1a3ac8;
 		--chama-hover: #2548e0;
