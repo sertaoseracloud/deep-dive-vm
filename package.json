@@ -28,5 +28,8 @@
     "remark-gfm": "^4.0.1",
     "sharp": "^0.34.5",
     "unified": "^11.0.5"
+  },
+  "devDependencies": {
+    "lighthouse": "^13.3.0"
   }
 }
