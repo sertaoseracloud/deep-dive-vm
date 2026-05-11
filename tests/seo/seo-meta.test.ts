@@ -16,6 +16,7 @@ import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST_INDEX = join(__dirname, "../../dist/index.html");
+const DIST_DIR = join(__dirname, "../../dist");
 
 let html = "";
 
@@ -126,5 +127,36 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
       expect(altMatch).not.toBeNull();
       expect(altMatch![1].trim().length).toBeGreaterThan(0);
     }
+  });
+
+  it("11. JSON-LD <script type=application/ld+json> is present and parseable with @context and @type", () => {
+    const match = html.match(
+      /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i
+    );
+    expect(match).not.toBeNull();
+    const parsed = JSON.parse(match![1]);
+    expect(parsed["@context"]).toBeTruthy();
+    expect(parsed["@type"]).toBeTruthy();
+  });
+
+  it("12. Heading hierarchy: no H2 before first H1, no heading level skip", () => {
+    const headingMatches = [...html.matchAll(/<(h[1-6])[\s>]/gi)];
+    const levels = headingMatches.map((m) => parseInt(m[1].slice(1), 10));
+    expect(levels).toContain(1);
+    const firstH1Index = levels.indexOf(1);
+    const firstH2Index = levels.indexOf(2);
+    if (firstH2Index !== -1) {
+      expect(firstH2Index).toBeGreaterThan(firstH1Index);
+    }
+    for (let i = 1; i < levels.length; i++) {
+      const diff = levels[i] - levels[i - 1];
+      if (diff > 0) {
+        expect(diff).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it("13. dist/sitemap-index.xml exists after build", () => {
+    expect(existsSync(join(DIST_DIR, "sitemap-index.xml"))).toBe(true);
   });
 });
