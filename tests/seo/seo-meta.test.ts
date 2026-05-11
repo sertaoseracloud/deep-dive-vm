@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 /**
  * Static SEO meta-tag assertions.
@@ -13,7 +14,8 @@ import { resolve } from "node:path";
  * side-effects during parallel test runs and to keep test time predictable.
  */
 
-const DIST_INDEX = resolve("dist/index.html");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DIST_INDEX = join(__dirname, "../../dist/index.html");
 
 let html = "";
 
