@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 
 // Fixture paths anchored to this file's location, not process.cwd()
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const FIXTURES_DIR = join(__dirname, "../../fixtures/content/sections");
+const FIXTURES_DIR = join(__dirname, "../fixtures/content/sections");
 
 // ── Zod schemas ────────────────────────────────────────────────────────────────
 

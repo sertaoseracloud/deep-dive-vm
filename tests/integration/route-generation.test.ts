@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 // Fixture paths anchored to this file's location, not process.cwd()
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const FIXTURES_SECTIONS_DIR = join(__dirname, "../../fixtures/content/sections");
+const FIXTURES_SECTIONS_DIR = join(__dirname, "../fixtures/content/sections");
 
 /**
  * Derives a URL slug from a fixture file path.
