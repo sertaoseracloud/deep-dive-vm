@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,9 +9,6 @@ const PROJECT_ROOT = join(__dirname, "../../..");
 let builtHtml = "";
 
 beforeAll(() => {
-  if (!existsSync(join(PROJECT_ROOT, "dist/index.html"))) {
-    execSync("npm run build", { cwd: PROJECT_ROOT, stdio: "inherit" });
-  }
   builtHtml = readFileSync(join(PROJECT_ROOT, "dist/index.html"), "utf-8");
 });
 
