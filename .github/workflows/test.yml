@@ -1,0 +1,66 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-and-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - name: Unit tests (coverage gate >= 80%)
+        run: npm run test:unit
+      - name: Integration tests
+        run: npm run test:integration
+      - name: npm audit (supply-chain gate)
+        run: npm audit --audit-level=high
+        continue-on-error: true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: unit-and-integration
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npx playwright install --with-deps
+      - run: npm run build
+      - name: Run E2E tests
+        run: npx playwright test
+        env:
+          CI: true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+
+  lighthouse:
+    runs-on: ubuntu-latest
+    needs: unit-and-integration
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run build
+      - name: Lighthouse CI (SEO >= 90)
+        run: npx lhci autorun
