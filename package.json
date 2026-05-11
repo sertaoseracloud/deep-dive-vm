@@ -9,10 +9,24 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "extract": "node src/scripts/extract.js",
+    "test:extract": "node src/scripts/extract.js",
+    "test:visual": "npx playwright test --project=chromium",
+    "lighthouse": "echo 'Lighthouse: requires a running server. Run: npx lighthouse http://localhost:4321'"
   },
   "dependencies": {
+    "@playwright/test": "^1.59.1",
     "astro": "^6.3.1",
-    "astro-seo": "^1.1.0"
+    "astro-seo": "^1.1.0",
+    "gray-matter": "^4.0.3",
+    "pixelmatch": "^7.2.0",
+    "playwright": "^1.59.1",
+    "rehype-parse": "^9.0.1",
+    "rehype-remark": "^10.0.1",
+    "remark": "^15.0.1",
+    "remark-gfm": "^4.0.1",
+    "sharp": "^0.34.5",
+    "unified": "^11.0.5"
   }
 }
