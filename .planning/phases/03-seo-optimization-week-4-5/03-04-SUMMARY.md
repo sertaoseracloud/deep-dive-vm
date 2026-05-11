@@ -14,7 +14,7 @@ dependency_graph:
   provides:
     - "Phase 3 full-suite verification: all 5 requirement IDs confirmed satisfied"
     - "Lighthouse scores: Performance 91, Accessibility 96, Best-practices 96, SEO 100"
-    - "Checkpoint state for human visual sign-off (Task 2)"
+    - "Human visual sign-off received: images correct, fonts load with acceptable FOUT, no layout issues, no JS errors"
   affects:
     - "Phase 04 continuous validation — can rely on Phase 3 gates being fully green"
 tech_stack:
@@ -50,7 +50,7 @@ completed: "2026-05-11"
 - **Duration:** ~6 min
 - **Started:** 2026-05-11T22:47:48Z
 - **Completed:** 2026-05-11T22:53:26Z
-- **Tasks completed:** 1 (Task 2 is checkpoint — awaiting human sign-off)
+- **Tasks completed:** 2/2 (all tasks complete — human visual sign-off received)
 - **Files modified:** 0 (verification-only plan)
 
 ## Accomplishments
@@ -65,7 +65,8 @@ completed: "2026-05-11"
 
 | Task | Name | Commit | Notes |
 |------|------|--------|-------|
-| 1 | Full test suite and build verification | see below | Verification-only; SUMMARY.md committed as plan artifact |
+| 1 | Full test suite and build verification | ee9202b | Verification-only; SUMMARY.md committed as plan artifact |
+| 2 | Human sign-off on visual and functional quality | — | Checkpoint approved: images correct, fonts FOUT expected/acceptable, no JS errors, no layout shifts |
 
 ## Verification Results
 
@@ -143,22 +144,18 @@ All 3 PNG images as WebP: YES
 | seo-test-expansion | 13 assertions in seo-meta.test.ts, all passing | SATISFIED — 13/13 PASS |
 | seo-sitemap | @astrojs/sitemap installed, dist/sitemap-index.xml present | SATISFIED — sitemap-index.xml exists |
 
-## Checkpoint State
+## Human Sign-Off (Task 2)
 
-Task 2 is a `checkpoint:human-verify` gate — awaiting human sign-off on visual and functional quality.
+**Status: APPROVED (2026-05-11)**
 
-**Preview server command:** `npm run preview`
+The human reviewed the preview and confirmed:
+- Hero portrait image renders correctly (no broken image, no distortion, fills the frame)
+- Mentor portraits (Cláudio + Marcelo) load correctly below the fold
+- Custom fonts (Space Grotesk, Chakra Petch) appear — brief FOUT before fonts load is expected and correct
+- No layout issues or broken sections on full-page scroll
+- No JavaScript console errors
 
-**Verification checklist for human:**
-1. Visit the preview URL in a browser
-2. Confirm hero portrait image loads correctly (no broken image, no distortion)
-3. Confirm mentor portraits (Cláudio + Marcelo) load below the fold
-4. Confirm fonts appear (Space Grotesk, Chakra Petch) — brief FOUT before load is expected and correct
-5. Scroll full page — confirm no layout shifts or broken sections
-6. DevTools > Network > filter "webp" — hero and mentor images served as .webp
-7. DevTools > Network > filter "fonts.googleapis" — font CSS appears after first paint (not render-blocking)
-8. DevTools > Console — no JavaScript errors
-9. Visit `[preview-url]/deep-dive-vm/sitemap-index.xml` or confirm `dist/sitemap-index.xml` has valid XML
+All Phase 3 visual and functional quality criteria are met. Phase 3 is now fully complete.
 
 ## Deviations from Plan
 
@@ -193,7 +190,7 @@ No new security-relevant surface introduced by this verification-only plan. All 
 
 ## Next Phase Readiness
 
-Phase 3 is complete pending human visual sign-off (Task 2). All 5 requirement IDs are satisfied. Phase 4 (continuous validation) can proceed with confidence that:
+Phase 3 is complete. Human visual sign-off received (Task 2 approved). All 5 requirement IDs are satisfied. Phase 4 (continuous validation) can proceed with confidence that:
 - Lighthouse CI is blocking on Performance >= 80 and Accessibility >= 90
 - All 13 SEO static assertions provide regression coverage
 - WebP images reduce page weight significantly (total ~68kB vs ~1051kB for original PNGs)
