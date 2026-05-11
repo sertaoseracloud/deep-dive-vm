@@ -4,6 +4,7 @@ interface Props {
   variant?: "primary" | "ghost" | "solid-core";
   size?: "normal" | "massive";
   customClass?: string;
+  testid?: string;
 }
 
 const {
@@ -11,6 +12,7 @@ const {
   variant = "primary",
   size = "normal",
   customClass = "",
+  testid,
 } = Astro.props;
 
 // Mapeamento fiel das classes do index.html
@@ -24,7 +26,7 @@ const classList = [
   .join(" ");
 ---
 
-<a href={href} class={classList}>
+<a href={href} class={classList} data-testid={testid}>
   <slot />
 </a>
 
