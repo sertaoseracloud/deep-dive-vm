@@ -2,14 +2,29 @@ import { getViteConfig } from "astro/config";
 
 export default getViteConfig({
   test: {
-    environment: "happy-dom",
     globals: true,
-    globalSetup: ["./tests/unit/setup.ts"],
-    setupFiles: ["./vitest.setup.ts"],
-    include: [
-      "tests/unit/**/*.test.ts",
-      "tests/integration/**/*.test.ts",
-      "tests/seo/**/*.test.ts",
+    projects: [
+      {
+        test: {
+          name: "seo",
+          include: ["tests/seo/**/*.test.ts"],
+          environment: "node",
+          globalSetup: ["./tests/unit/setup.ts"],
+          setupFiles: ["./vitest.setup.ts"],
+        },
+      },
+      {
+        test: {
+          name: "unit-integration",
+          include: [
+            "tests/unit/**/*.test.ts",
+            "tests/integration/**/*.test.ts",
+          ],
+          environment: "happy-dom",
+          globalSetup: ["./tests/unit/setup.ts"],
+          setupFiles: ["./vitest.setup.ts"],
+        },
+      },
     ],
     exclude: ["tests/e2e/**"],
     coverage: {
