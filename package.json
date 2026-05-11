@@ -13,7 +13,8 @@
     "extract": "node src/scripts/extract.js",
     "test:extract": "node src/scripts/extract.js",
     "test:visual": "npx playwright test --project=chromium",
-    "lighthouse": "echo 'Lighthouse: requires a running server. Run: npx lighthouse http://localhost:4321'"
+    "lighthouse": "lighthouse http://localhost:4321/deep-dive-vm/ --output json --output-path lighthouse-report.json --chrome-flags=\"--headless --no-sandbox\" && node src/scripts/check-lighthouse.js",
+    "lighthouse:ci": "npm run build && npx astro preview & sleep 3 && npm run lighthouse"
   },
   "dependencies": {
     "@playwright/test": "^1.59.1",
