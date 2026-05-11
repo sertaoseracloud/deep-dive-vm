@@ -39,7 +39,7 @@ const { title, description, url } = Astro.props;
 						type: "image/svg+xml",
 						href: "/deep-dive-vm/favicon.svg",
 					},
-					{ rel: "canonical", href: "#" },
+					{ rel: "canonical", href: url ?? Astro.url.href },
 					{ rel: "prev", href: url },
 					{ rel: "next", href: url },
 					{ rel: "alternate", href: url },
