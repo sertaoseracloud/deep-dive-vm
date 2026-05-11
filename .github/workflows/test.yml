@@ -21,7 +21,7 @@ jobs:
       - name: Integration tests
         run: npm run test:integration
       - name: npm audit (supply-chain gate)
-        run: npm audit --audit-level=high --omit=dev
+        run: npm audit --audit-level=high
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -65,3 +65,9 @@ jobs:
         run: npx vitest run tests/seo
       - name: Lighthouse CI (SEO >= 90)
         run: npx lhci autorun
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-report
+          path: .lighthouseci/
+          retention-days: 30
