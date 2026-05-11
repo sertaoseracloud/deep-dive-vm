@@ -116,6 +116,9 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
     // Find all <img> tags
     const imgTags = html.match(/<img[^>]*>/gi) ?? [];
 
+    // Guard: ensure the page actually has img elements so the loop does not pass vacuously
+    expect(imgTags.length).toBeGreaterThan(0);
+
     for (const tag of imgTags) {
       const altMatch = tag.match(/alt=["']([^"']*)["']/i);
       expect(altMatch).not.toBeNull();
