@@ -31,7 +31,7 @@ export default defineConfig({
   ],
   webServer: {
     command: "npm run preview",
-    url: "http://localhost:4321",
+    url: "http://localhost:4321/deep-dive-vm",
     reuseExistingServer: !process.env.CI,
   },
 });
