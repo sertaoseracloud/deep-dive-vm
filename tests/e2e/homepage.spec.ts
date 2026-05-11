@@ -38,10 +38,7 @@ test.describe("Section visibility", () => {
 
   test("<main> element is present", async ({ page }) => {
     await page.goto("/");
-    // index.astro wraps sections inside a main element or body; check body as fallback
-    const mainCount = await page.locator("main").count();
-    const bodyCount = await page.locator("body").count();
-    expect(mainCount + bodyCount).toBeGreaterThan(0);
+    await expect(page.locator("main")).toBeVisible();
   });
 
   test("<footer> element is visible", async ({ page }) => {
