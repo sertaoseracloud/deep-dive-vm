@@ -61,5 +61,7 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: npm run build
+      - name: SEO static tests
+        run: npx vitest run tests/seo
       - name: Lighthouse CI (SEO >= 90)
         run: npx lhci autorun

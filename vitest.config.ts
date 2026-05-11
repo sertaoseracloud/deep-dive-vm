@@ -10,7 +10,6 @@ export default defineConfig(
       include: [
         "tests/unit/**/*.test.ts",
         "tests/integration/**/*.test.ts",
-        "tests/seo/**/*.test.ts",
       ],
       exclude: ["tests/e2e/**"],
       coverage: {
