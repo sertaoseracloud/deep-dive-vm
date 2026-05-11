@@ -21,27 +21,29 @@ test.describe("Keyboard navigation", () => {
   }) => {
     await page.goto("./");
 
-    const focused: string[] = [];
+    const focused: Array<{ tag: string; text: string }> = [];
     for (let i = 0; i < 6; i++) {
       await page.keyboard.press("Tab");
       const el = await page.evaluate(() => {
         const el = document.activeElement;
         return el
-          ? `${el.tagName}:${el.getAttribute("href") ?? el.textContent?.trim().slice(0, 20)}`
-          : "none";
+          ? { tag: el.tagName, text: el.getAttribute("href") ?? el.textContent?.trim().slice(0, 20) ?? "" }
+          : { tag: "NONE", text: "" };
       });
       focused.push(el);
     }
 
-    // At least 3 elements received focus
-    expect(focused.length).toBeGreaterThanOrEqual(3);
+    // Focus should never be lost to body
+    expect(focused.map((f) => f.tag)).not.toContain("NONE");
 
-    // At least 2 entries should be anchor ("A:") elements
-    const anchorCount = focused.filter((entry) => entry.startsWith("A:")).length;
-    expect(anchorCount).toBeGreaterThanOrEqual(2);
+    // At least 2 distinct anchor elements received focus
+    const anchorFocused = focused.filter((f) => f.tag === "A");
+    expect(anchorFocused.length).toBeGreaterThanOrEqual(2);
 
-    // Focus should never be lost to body (no entry should be "none")
-    expect(focused).not.toContain("none");
+    // No element appeared twice in sequence (no stuck focus)
+    for (let i = 1; i < focused.length; i++) {
+      expect(focused[i].text).not.toBe(focused[i - 1].text);
+    }
   });
 
   test("skip link is the first focusable element", async ({ page }) => {
@@ -82,15 +84,18 @@ test.describe("Focus-visible", () => {
     page,
   }) => {
     await page.goto("./");
-    // Tab once to move focus to skip link
-    await page.keyboard.press("Tab");
-    // Tab again to move to the next interactive element (NavBar brand link)
-    await page.keyboard.press("Tab");
-    const outlineStyle = await page.evaluate(() => {
-      const el = document.activeElement;
-      if (!el) return "none";
-      return window.getComputedStyle(el).outlineStyle;
-    });
+    // Tab past skip link to the first navigation element
+    await page.keyboard.press("Tab"); // skip link
+    await page.keyboard.press("Tab"); // first nav link
+
+    // Assert the focused element is an anchor (not body or skip link)
+    const tagName = await page.evaluate(() => document.activeElement?.tagName);
+    expect(tagName).toBe("A");
+
+    // Now check it has a visible focus ring
+    const outlineStyle = await page.evaluate(
+      () => window.getComputedStyle(document.activeElement as Element).outlineStyle
+    );
     expect(outlineStyle).not.toBe("none");
     expect(outlineStyle).not.toBe("");
   });
