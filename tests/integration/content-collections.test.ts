@@ -3,9 +3,12 @@ import { z } from "zod";
 import matter from "gray-matter";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
-// Fixture paths (relative to project root)
-const FIXTURES_DIR = resolve("tests/fixtures/content/sections");
+// Fixture paths anchored to this file's location, not process.cwd()
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const FIXTURES_DIR = join(__dirname, "../../fixtures/content/sections");
 
 // ── Zod schemas ────────────────────────────────────────────────────────────────
 
