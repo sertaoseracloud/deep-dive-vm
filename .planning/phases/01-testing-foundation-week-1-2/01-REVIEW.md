@@ -3,272 +3,214 @@ phase: "01"
 plan: "01"
 status: "issues_found"
 depth: standard
-files_reviewed: 25
+files_reviewed: 20
+files_reviewed_list:
+  - vitest.config.ts
+  - .lighthouserc.json
+  - .github/workflows/test.yml
+  - playwright.config.ts
+  - package.json
+  - src/layouts/Layout.astro
+  - tests/e2e/homepage.spec.ts
+  - tests/seo/seo-meta.test.ts
+  - tests/unit/components/Button.test.ts
+  - tests/unit/components/SectionHead.test.ts
+  - tests/unit/components/Layout.test.ts
+  - tests/unit/components/NavBar.test.ts
+  - tests/unit/components/Footer.test.ts
+  - tests/unit/components/UrgencyBar.test.ts
+  - tests/unit/components/StickyCta.test.ts
+  - tests/unit/components/Hero.test.ts
+  - tests/unit/components/Pricing.test.ts
+  - tests/unit/components/Faq.test.ts
+  - tests/integration/content-collections.test.ts
+  - tests/integration/route-generation.test.ts
 findings:
-  critical: 4
-  warning: 7
-  info: 5
-  total: 16
+  critical: 2
+  warning: 4
+  info: 3
+  total: 9
 date: 2026-05-11
 ---
 
-# Code Review: Phase 01 — Testing Foundation
+# Phase 01: Code Review Report (Re-review Pass)
+
+**Reviewed:** 2026-05-11T00:00:00Z
+**Depth:** standard
+**Files Reviewed:** 20
+**Status:** issues_found
 
 ## Summary
 
-Reviewed 25 source files covering the full testing foundation: vitest config, playwright config, CI workflow, 11 unit component tests, 2 integration tests, 1 E2E spec, 1 SEO test suite, 3 fixture files, and the main page entry point with its Layout component.
+This is a re-review pass following the fixes applied to the 4 Critical and 7 Warning findings from the first review. All 11 prior findings are confirmed fixed:
 
-Overall quality is above average for a first foundation phase. Test structure is clear, fixtures are well-formed, and the CI pipeline is sound. However, four blocking issues were found: a hardcoded `href="#"` canonical URL in production markup (which will hurt SEO), a security-degraded `npm audit` gate that silently passes on high-severity vulnerabilities, a `@playwright/test` dependency placed in `dependencies` instead of `devDependencies` (ships to production bundles), and an SEO test that can never run in CI because the build step is missing from the unit-and-integration job. Seven warnings cover fragile test patterns, a mismatch between the webServer health-check URL and the baseURL, and a misleading link-relation misuse in Layout. Five info items address minor quality gaps.
+- CR-01: Canonical URL is now correctly `url ?? Astro.url.href` in `Layout.astro:42`
+- CR-02: `npm audit` is now blocking (no `continue-on-error`)
+- CR-03: `@playwright/test` and `playwright` are now in `devDependencies`
+- CR-04: SEO tests now run in the `lighthouse` job after `npm run build`
+- WR-01: `webServer.url` now includes the base path with trailing slash
+- WR-02: Deprecated `rel="prev"`, `rel="next"`, `rel="alternate"` links removed
+- WR-03: `<main>` E2E assertion now uses `toBeVisible()` directly
+- WR-04: SEO test 10 now guards against zero `<img>` tags
+- WR-05: Integration fixture paths are anchored to `import.meta.url`
+- WR-06: Footer copyright regex updated (see WR-03 below for residual issue)
+- WR-07: `numberOfRuns` is now 3 in `.lighthouserc.json`
 
----
-
-## Critical Findings
-
-### CR-01 — Canonical URL is hardcoded to `"#"` in production
-
-**File:** `src/layouts/Layout.astro:43`
-**Issue:** The canonical link is emitted as `<link rel="canonical" href="#">`. A fragment-only canonical is invalid and will be indexed as a literal `#` by search engines. This directly defeats the canonical SEO guarantee the test suite (`seo-meta.test.ts` test 9) attempts to verify — the test checks only that the attribute is non-empty, so it passes while the value is wrong.
-**Impact:** Every page is canonicalized to `#`. Search engines may treat the page as having no canonical, causing duplicate-content penalties.
-**Fix:**
-```astro
-{ rel: "canonical", href: url ?? Astro.url.href },
-```
-Remove the placeholder `"#"` and use the `url` prop (already passed from `index.astro`) or fall back to `Astro.url.href`.
+However, the rewrite introducing build-based unit tests has introduced new defects. Two blockers were found: the coverage threshold gate that CI claims to enforce does not exist in configuration, and the `execSync("npm run build")` guard in every unit test `beforeAll` will trigger concurrent builds in the CI `unit-and-integration` job (which has no build step), corrupting `dist/` and producing non-deterministic test failures. Four warnings and three info items were also found.
 
 ---
 
-### CR-02 — `npm audit` gate is non-blocking (`continue-on-error: true`)
+## Critical Issues
 
-**File:** `.github/workflows/test.yml:25`
-**Issue:** The supply-chain security gate runs `npm audit --audit-level=high` but immediately follows it with `continue-on-error: true`. This means the CI pipeline will succeed and code will be merged even when high-severity vulnerabilities are detected. The gate is cosmetic — it logs but does not block.
-**Impact:** A dependency with a known RCE or credential-theft vulnerability would not block a merge. The audit step provides false assurance.
-**Fix:**
-```yaml
-- name: npm audit (supply-chain gate)
-  run: npm audit --audit-level=high
-  # Remove continue-on-error entirely, or set it to false.
-  # If known false-positives exist, use --omit=dev or an .nsprc allowlist instead.
-```
-If there are currently failing audit findings that must be excepted, address them explicitly rather than silencing the entire gate.
+### CR-01: Coverage threshold gate is declared in CI but not configured in Vitest
 
----
-
-### CR-03 — `@playwright/test` and `playwright` are in `dependencies`, not `devDependencies`
-
-**File:** `package.json:26–27`
-**Issue:** Both `@playwright/test` and `playwright` are listed under `dependencies` (runtime). These are pure test tools. Placing them in `dependencies` means they are bundled into any production install (`npm install --production`), significantly increasing the deployment footprint and attack surface.
-**Impact:** Production deployments include browser-automation binaries. Hosting environments that run `npm install --production` (or equivalent) will download ~150 MB of Playwright browser binaries unnecessarily. Also, `npm audit` will report their vulnerabilities as production-scope issues.
-**Fix:**
-```json
-"devDependencies": {
-  "@playwright/test": "^1.59.1",
-  "playwright": "^1.59.1",
-  ...
-}
-```
-Move both entries from `dependencies` to `devDependencies`.
-
----
-
-### CR-04 — SEO test suite (`seo-meta.test.ts`) is never run in CI and will throw on missing `dist/`
-
-**File:** `.github/workflows/test.yml:20–21` and `tests/seo/seo-meta.test.ts:20–26`
-**Issue:** The SEO tests read `dist/index.html`, which requires a prior `npm run build`. The CI job `unit-and-integration` runs `npm run test:unit` and `npm run test:integration` but never executes `npm run build`. The `vitest.config.ts` includes `tests/seo/**/*.test.ts` in the unit test glob. At runtime, the `beforeAll` hook will throw `Error: dist/index.html not found`, causing the entire SEO suite to hard-fail (not skip) with an unhandled error. The build is performed only in the separate `e2e` and `lighthouse` jobs, but those jobs do not run the SEO vitest suite.
-**Impact:** Either the SEO tests always fail in CI (if `dist/` is absent) or they are silently never executed. The coverage gate (80%) will also be computed without SEO-related execution.
-**Fix:** Add a build step to the `unit-and-integration` job before the test commands, or move the SEO tests into the `lighthouse` job where the build already runs:
-```yaml
-- run: npm run build
-- name: SEO meta tests
-  run: npx vitest run tests/seo
-```
-Alternatively, restructure the `beforeAll` to skip gracefully instead of throwing when `dist/` is absent, and exclude `tests/seo/**` from the vitest include glob, running it only after a build.
-
----
-
-## Warning Findings
-
-### WR-01 — Playwright `webServer` health-check URL does not include the base path
-
-**File:** `playwright.config.ts:33–36`
-**Issue:** `baseURL` is `http://localhost:4321/deep-dive-vm` but `webServer.url` is `http://localhost:4321` (no base path). Playwright uses `webServer.url` to determine when the server is ready by polling it for an HTTP 200. The root path `/` may return 404 on the Astro preview server for this project (since it is mounted at `/deep-dive-vm`), so the readiness check could succeed prematurely on a redirect/404 response, or fail unnecessarily.
-**Impact:** Flaky E2E startup in CI or local runs if the root route is not served.
+**File:** `vitest.config.ts:13-22` / `.github/workflows/test.yml:19`
+**Issue:** The CI step is named `"Unit tests (coverage gate >= 80%)"` and the `test:unit` script runs with `--coverage`, but `vitest.config.ts` defines no `coverage.thresholds` block. Vitest will report coverage numbers and always exit 0 regardless of the actual percentage. The 80% gate is a label on the CI step, not an enforced constraint. A PR that drops coverage to 0% will pass CI.
 **Fix:**
 ```ts
-webServer: {
-  command: "npm run preview",
-  url: "http://localhost:4321/deep-dive-vm",
-  reuseExistingServer: !process.env.CI,
+// vitest.config.ts
+coverage: {
+  provider: "v8",
+  include: ["src/**"],
+  exclude: [
+    "src/assets/**",
+    "src/pages/**",
+    "src/**/*.astro",
+  ],
+  reporter: ["text", "json", "html"],
+  thresholds: {
+    lines: 80,
+    functions: 80,
+    branches: 80,
+    statements: 80,
+  },
 },
 ```
 
 ---
 
-### WR-02 — `rel="prev"`, `rel="next"`, and `rel="alternate"` misused as canonical supplements
+### CR-02: Concurrent `execSync("npm run build")` calls across unit test files will corrupt `dist/`
 
-**File:** `src/layouts/Layout.astro:44–46`
-**Issue:** The `<head>` emits `<link rel="prev">`, `<link rel="next">`, and `<link rel="alternate">` all pointing to the same `url` prop value. These link relations have specific semantics (pagination and language alternates). Using them with identical hrefs for a single-page site is meaningless noise that can confuse crawlers. `rel="prev"` and `rel="next"` were deprecated by Google in 2019.
-**Impact:** Adds invalid/deprecated markup to every page. Crawlers may interpret `rel="alternate"` without an `hreflang` as an alternate language version of the same URL, causing indexing confusion.
-**Fix:** Remove all three link entries entirely, or replace `rel="alternate"` with a proper `hreflang` if multi-language support is planned:
-```astro
-// Delete lines emitting rel="prev", rel="next", rel="alternate"
+**File:** `tests/unit/components/Button.test.ts:14-16` (and identical pattern in all 9 other unit test files)
+**Issue:** Every unit test file contains this `beforeAll` guard:
+```ts
+if (!existsSync(join(PROJECT_ROOT, "dist/index.html"))) {
+  execSync("npm run build", { cwd: PROJECT_ROOT, stdio: "inherit" });
+}
+```
+In the CI `unit-and-integration` job, `npm run build` is never run before tests. Vitest runs test files in parallel by default (multiple worker threads). All 10 unit test files will simultaneously evaluate the `!existsSync` check — all find `dist/index.html` absent — and all will independently invoke `execSync("npm run build")`. This means up to 10 concurrent `astro build` processes write to the same `dist/` directory simultaneously. The result is non-deterministic: files may be partially written, overwritten mid-stream, or corrupted. Even if only one build "wins," `astro build` clears `dist/` at the start of each run, so concurrent builds will delete each other's output.
+
+Additionally, `execSync` is synchronous but Vitest worker threads are independent OS processes; the `existsSync` check is not atomic, creating a TOCTOU race.
+
+**Fix:** Add an explicit build step to the CI `unit-and-integration` job before the test commands:
+```yaml
+- run: npm run build
+- name: Unit tests (coverage gate >= 80%)
+  run: npm run test:unit
+- name: Integration tests
+  run: npm run test:integration
+```
+Then remove the `execSync` build guard from all unit test `beforeAll` hooks (keep only the `existsSync` + `readFileSync`). The build step in CI ensures `dist/` is populated before any parallel test workers start. For local development, document in README that `npm run build` must be run once before `npm run test:unit`.
+
+---
+
+## Warnings
+
+### WR-01: `npm audit --omit=dev` silently ignores vulnerabilities in all devDependencies
+
+**File:** `.github/workflows/test.yml:24`
+**Issue:** The audit command is `npm audit --audit-level=high --omit=dev`. The `--omit=dev` flag removes all devDependencies from the audit scope. This means vulnerabilities in `vitest`, `@playwright/test`, `happy-dom`, `@lhci/cli`, and every other test tool are not reported and do not fail CI. Since these tools run arbitrary code during CI (executing test processes, spawning browsers), a compromised dev dependency is a CI supply-chain risk.
+**Impact:** The audit gate provides false assurance — the scope that contains the most actively exploitable tooling (test runners, browser automation) is silently excluded.
+**Fix:** Run `npm audit --audit-level=high` without `--omit=dev`. If specific dev dependencies have known unfixable advisories, use an `.nswrc` allowlist or `npm audit --omit=dev` only as a secondary fallback with explicit documentation explaining what is excluded and why.
+
+---
+
+### WR-02: `seo-meta.test.ts` uses CWD-relative `resolve()` for `dist/index.html`
+
+**File:** `tests/seo/seo-meta.test.ts:16`
+**Issue:** `const DIST_INDEX = resolve("dist/index.html")` uses `node:path`'s `resolve` with a relative string, which anchors to `process.cwd()`. The integration tests (WR-05 from the prior review) were correctly fixed to use `import.meta.url` anchoring, but the same pattern was not applied to the SEO test file. In CI the cwd is the checkout root so this works, but running the test from an IDE or a different working directory silently resolves to the wrong path and throws the "dist/index.html not found" error.
+**Fix:**
+```ts
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DIST_INDEX = join(__dirname, "../../dist/index.html");
 ```
 
 ---
 
-### WR-03 — `<main>` element test assertion always passes regardless of structure
+### WR-03: Footer copyright regex `/© 202[0-9]/` breaks in 2030
 
-**File:** `tests/e2e/homepage.spec.ts:40–44`
-**Issue:** The test asserts `mainCount + bodyCount > 0`. Since `<body>` is always present on any valid HTML page, this assertion can never fail even if `<main>` is completely absent. The test provides no real safety net.
-**Impact:** A regression removing `<main>` would not be caught by this test.
+**File:** `tests/unit/components/Footer.test.ts:35`
+**Issue:** The prior review (WR-06) flagged the year literal `2026`. The fix changed it to `/© 202[0-9]/`, which matches years 2020–2029 only. This test will produce a false negative starting January 1, 2030 if the footer's copyright year is updated to 2030 (or any year in the 2030s). The suggested fix from the prior review was to use `new Date().getFullYear()` dynamically.
 **Fix:**
 ```ts
-test("<main> element is present and visible", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.locator("main")).toBeVisible();
+it("contains copyright year in footer disclaimer", () => {
+  const year = new Date().getFullYear().toString();
+  expect(builtHtml).toMatch(new RegExp(`© ${year}`));
 });
 ```
 
 ---
 
-### WR-04 — SEO test 10 (alt attribute) passes vacuously when no `<img>` tags exist
+### WR-04: Lighthouse job has no artifact upload for LHCI reports
 
-**File:** `tests/seo/seo-meta.test.ts:115–124`
-**Issue:** The loop `for (const tag of imgTags)` is never entered if the built page has no `<img>` tags. The test passes trivially, providing no guarantee about alt text. This is a false green — if images are later added without alt text, the test still passes until the build is updated and tests are re-run deliberately.
-**Impact:** Alt-text regressions go undetected.
-**Fix:** Add a guard asserting at least one image is present, or restructure:
-```ts
-const imgTags = html.match(/<img[^>]*>/gi) ?? [];
-expect(imgTags.length).toBeGreaterThan(0); // Fail explicitly if no images
-for (const tag of imgTags) { ... }
-```
-If decorative-only images are intentional, document why this check is acceptable.
-
----
-
-### WR-05 — `content-collections.test.ts` uses `resolve()` with a relative path (CWD-dependent)
-
-**File:** `tests/integration/content-collections.test.ts:8` and `tests/integration/route-generation.test.ts:6`
-**Issue:** `resolve("tests/fixtures/content/sections")` without a base anchor relies on `process.cwd()` being the project root. Vitest typically sets cwd to the project root, but this is not guaranteed when tests are run from a different directory or when IDE runners are used.
-**Impact:** Tests fail with "no such file" when run from any directory other than the project root.
-**Fix:** Use `import.meta.url` or `__dirname` as the anchor:
-```ts
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const FIXTURES_DIR = join(__dirname, "../../fixtures/content/sections");
-```
-
----
-
-### WR-06 — `Footer.test.ts` copyright assertion is year-specific and will break in 2027
-
-**File:** `tests/unit/components/Footer.test.ts:16`
-**Issue:** The regex `/Sertao|2026|Raposo|Cloud/i` includes the literal year `2026`. If the footer's copyright year is updated to `2027` and the Sertao/Raposo/Cloud text is removed or changed, this assertion fails for the wrong reason.
-**Impact:** Test maintenance burden; potential false negatives when the footer is legitimately updated.
-**Fix:** Remove the year literal from the test or make it dynamic:
-```ts
-const currentYear = new Date().getFullYear().toString();
-expect(html).toMatch(new RegExp(`Sertao|${currentYear}|Raposo|Cloud`, "i"));
-```
-Or remove the year alternative entirely and rely on brand-name matching only.
-
----
-
-### WR-07 — `numberOfRuns: 1` in `.lhcirc.json` produces unreliable Lighthouse scores
-
-**File:** `.lhcirc.json:5`
-**Issue:** Lighthouse CI is configured to run exactly one audit per URL. A single run can vary by ±5–10 points due to timing, CPU throttling, and simulated network conditions. With a hard `minScore: 0.9` for SEO (set as `"error"`), a single unlucky run can fail the build even when the page is genuinely good.
-**Impact:** Flaky CI — Lighthouse failures that are not real regressions create noise and erode trust in the pipeline.
+**File:** `.github/workflows/test.yml:53-68`
+**Issue:** The `lighthouse` job runs LHCI with `target: temporary-public-storage`, which uploads to a public ephemeral URL (valid for ~7 days). However, the job has no `actions/upload-artifact` step to persist the report in the workflow run. When the LHCI `target` link expires, there is no retrievable record of what the scores were at that commit. The `e2e` job correctly persists its `playwright-report/` as a named artifact. The lighthouse job should do the same.
 **Fix:**
-```json
-"numberOfRuns": 3
+```yaml
+- name: Lighthouse CI (SEO >= 90)
+  run: npx lhci autorun
+- uses: actions/upload-artifact@v4
+  if: always()
+  with:
+    name: lhci-report
+    path: .lighthouseci/
 ```
-Three runs and median scoring is the minimum recommended by the Lighthouse CI documentation to get stable results.
 
 ---
 
-## Info Findings
+## Info
 
-### IN-01 — Snapshot tests create implicit coupling to implementation details
+### IN-01: `jsdom` is listed in `devDependencies` but is no longer used
 
-**File:** `tests/unit/components/Button.test.ts:74–80`, `SectionHead.test.ts:73–85`, `NavBar.test.ts:18–23`, `Footer.test.ts:19–24`, `UrgencyBar.test.ts:18–23`, `StickyCta.test.ts:18–23`, `Hero.test.ts:29–33`, `Pricing.test.ts:18–23`, `Faq.test.ts:18–23`
-**Issue:** Nine of the test files contain snapshot tests (`toMatchSnapshot()`). Snapshot tests in component unit tests tend to assert everything, including whitespace, class order, and Astro-generated attribute ordering. This makes them brittle — any intentional styling change requires a snapshot update, and reviewers often accept snapshot updates without verifying the diff is correct.
-**Impact:** Low signal-to-noise ratio; snapshots become stale and rubber-stamped.
-**Fix:** Consider replacing pure render snapshots with targeted structural assertions (check presence of specific elements/attributes). Reserve snapshots for regression testing after explicit stabilization.
+**File:** `package.json:43`
+**Issue:** `vitest.config.ts` switched the test environment from `jsdom` to `happy-dom`. The `jsdom` package (`^25.0.1`) remains in `devDependencies`. It is not referenced anywhere in the test configuration or test files. This is dead dependency weight that increases install time and the npm audit surface.
+**Fix:** Remove `"jsdom": "^25.0.1"` from `devDependencies` and run `npm install` to update the lockfile.
 
 ---
 
-### IN-02 — `vitest.config.ts` excludes `src/pages/**` from coverage without explanation
+### IN-02: `vitest.config.ts` comment says `.astro` files "are not instrumentable with v8" but the exclusion also silently covers TypeScript source in `.astro` files that could have unit-testable logic
 
 **File:** `vitest.config.ts:19`
-**Issue:** `src/pages/**` is excluded from coverage computation. This means the `index.astro` page (which imports and composes every section) is not tracked in the 80% coverage threshold. The exclusion is reasonable for Astro pages but should be documented.
-**Impact:** Coverage numbers do not reflect the actual component-composition logic in pages.
-**Fix:** Add a comment explaining the exclusion rationale:
+**Issue:** The exclusion comment is accurate but incomplete. Some `.astro` component files may contain significant TypeScript logic in the frontmatter block that could and should be extracted into `.ts` utility modules and unit tested. As-is, the blanket exclusion of `src/**/*.astro` means any logic growth inside Astro components is silently excluded from coverage without a signal to the developer. This is a documentation/discoverability gap.
+**Fix:** Add a note in the comment:
 ```ts
-exclude: [
-  "src/assets/**",
-  "src/pages/**", // Astro pages are integration-tested via E2E, not unit coverage
-],
+"src/**/*.astro", // Astro components are not instrumentable with v8 — complex
+                  // logic should be extracted to .ts utilities and unit tested separately
 ```
 
 ---
 
-### IN-03 — `index.astro` contains a leftover Astro boilerplate comment
+### IN-03: Unit test files all share identical `beforeAll` boilerplate with no shared abstraction
 
-**File:** `src/pages/index.astro:22–23`
-**Issue:** Lines 22–23 contain the default Astro scaffold comment: `// Welcome to Astro! Wondering what to do next? Check out the Astro documentation...`. This is copy-paste residue from the project template.
-**Impact:** Cosmetic noise in production source code.
-**Fix:** Delete the two comment lines.
-
----
-
-### IN-04 — `aggregateRating.reviewCount` is hardcoded to `"127"` in structured data
-
-**File:** `src/layouts/Layout.astro:98–99`
-**Issue:** The JSON-LD structured data has `"reviewCount": "127"` hardcoded. This is a static number that will become stale. Google may penalize pages where structured data does not reflect actual content.
-**Impact:** Stale/misleading structured data; potential Search Console warnings.
-**Fix:** Either source this value from a content file/constant that is maintained, or remove the `aggregateRating` block until real review data is available.
-
----
-
-### IN-05 — `test:integration` npm script does not invoke the coverage runner
-
-**File:** `package.json:16`
-**Issue:** `"test:integration": "vitest run --reporter=verbose tests/integration"` runs integration tests without `--coverage`. This means the 80% coverage gate in `vitest.config.ts` is only enforced when running `test:unit`, not when running `test:integration` separately. If a developer runs only `test:integration`, they receive no coverage feedback.
-**Impact:** Coverage gate can be bypassed by running tests individually.
-**Fix:** Either add `--coverage` to `test:integration` or document that coverage is only measured via `test:all`. The CI pipeline runs `test:unit` (which does include `--coverage`) so the gate holds in CI, but local developer experience is inconsistent.
-
----
-
-## Files Reviewed
-
-- `vitest.config.ts`
-- `vitest.setup.ts`
-- `.lhcirc.json`
-- `.github/workflows/test.yml`
-- `playwright.config.ts`
-- `package.json`
-- `.gitignore`
-- `tests/unit/components/Button.test.ts`
-- `tests/unit/components/SectionHead.test.ts`
-- `tests/unit/components/Layout.test.ts`
-- `tests/unit/components/NavBar.test.ts`
-- `tests/unit/components/Footer.test.ts`
-- `tests/unit/components/UrgencyBar.test.ts`
-- `tests/unit/components/StickyCta.test.ts`
-- `tests/unit/components/Hero.test.ts`
-- `tests/unit/components/Pricing.test.ts`
-- `tests/unit/components/Faq.test.ts`
-- `tests/integration/content-collections.test.ts`
-- `tests/integration/route-generation.test.ts`
-- `tests/e2e/homepage.spec.ts`
-- `tests/seo/seo-meta.test.ts`
-- `tests/fixtures/content/sections/hero.md`
-- `tests/fixtures/content/sections/faq.md`
-- `tests/fixtures/content/sections/pricing.md`
-- `src/pages/index.astro`
-- `src/layouts/Layout.astro` *(cross-referenced — source of CR-01 and WR-02)*
-- `src/components/ui/Button.astro` *(cross-referenced — validates Button test assertions)*
+**File:** All 10 files in `tests/unit/components/`
+**Issue:** The same 10-line `beforeAll` block (import, `__dirname`, `PROJECT_ROOT`, `existsSync`, `execSync`, `readFileSync`) is copy-pasted identically into every unit test file. If the build guard logic needs to change (e.g., to fix CR-02), all 10 files must be updated individually. This violates DRY and increases the chance of inconsistent updates.
+**Fix:** Extract the shared setup into a Vitest setup file or a shared helper:
+```ts
+// tests/unit/setup/built-html.ts
+import { readFileSync, existsSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+export const PROJECT_ROOT = join(__dirname, "../../..");
+export function getBuiltHtml(): string {
+  const p = join(PROJECT_ROOT, "dist/index.html");
+  if (!existsSync(p)) throw new Error(`dist/index.html not found. Run 'npm run build' first.`);
+  return readFileSync(p, "utf-8");
+}
+```
+Each test file then calls `getBuiltHtml()` in `beforeAll`. A single change fixes all files.
 
 ---
 
