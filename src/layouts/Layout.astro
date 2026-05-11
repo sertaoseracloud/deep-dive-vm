@@ -9,6 +9,11 @@ interface Props {
 }
 
 const { title, description, url } = Astro.props;
+
+const siteOrigin = "https://mentoria.sertaoseracloud.com";
+const ogImageUrl = `${siteOrigin}/deep-dive-vm${claudio1.src}`;
+const resolvedDescription = description ?? "Formação técnica focada em Azure VMs com Microsoft MVP.";
+const offersUrl = `${siteOrigin}/deep-dive-vm#investimento`;
 ---
 
 <!doctype html>
@@ -17,15 +22,15 @@ const { title, description, url } = Astro.props;
 		<meta charset="utf-8" />
 		<SEO
 			title={title}
-			description={description}
+			description={resolvedDescription}
 			openGraph={{
 				basic: {
 					title: title,
 					type: "website",
-					image: claudio1.src,
+					image: ogImageUrl,
 				},
 				optional: {
-					description: description,
+					description: resolvedDescription,
 				},
 				image: {
 					alt: "Mentoria O Sertao será Cloud - Deep Dive Azure VM",
@@ -47,10 +52,10 @@ const { title, description, url } = Astro.props;
 				meta: [
 					{
 						name: "twitter:image",
-						content: claudio1.src,
+						content: ogImageUrl,
 					},
 					{ name: "twitter:title", content: title },
-					{ name: "twitter:description", content: description },
+					{ name: "twitter:description", content: resolvedDescription },
 					{
 						name: "viewport",
 						content: "width=device-width, initial-scale=1",
@@ -78,46 +83,39 @@ const { title, description, url } = Astro.props;
 				href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Chakra+Petch:wght@400;500;600;700&display=swap"
 			/>
 		</noscript>
-		<script type="application/ld+json" is:inline>
-			{
-				"@context": "https://schema.org",
-				"@type": "Course",
-				"name": "O Sertão será Cloud: Deep Dive Azure Virtual Machine",
-				"description": "Formação técnica de 54 horas focada em transformar engenheiros em arquitetos de nuvem através do domínio de Azure VMs, Terraform e Well-Architected Framework.",
-				"provider": {
+		<script type="application/ld+json" set:html={JSON.stringify({
+			"@context": "https://schema.org",
+			"@type": "Course",
+			"name": "O Sertão será Cloud: Deep Dive Azure Virtual Machine",
+			"description": "Formação técnica de 54 horas focada em transformar engenheiros em arquitetos de nuvem através do domínio de Azure VMs, Terraform e Well-Architected Framework.",
+			"provider": {
+				"@type": "Person",
+				"name": "Cláudio Filipe Lima Raposo",
+				"sameAs": [
+					"https://www.linkedin.com/in/cfraposo/",
+					"https://github.com/sertaoseracloud"
+				]
+			},
+			"courseCode": "AZ-VM-DEEP-DIVE",
+			"educationalLevel": "Advanced",
+			"offers": {
+				"@type": "Offer",
+				"price": "947.00",
+				"priceCurrency": "BRL",
+				"availability": "https://schema.org/InStock",
+				"url": offersUrl
+			},
+			"hasCourseInstance": {
+				"@type": "CourseInstance",
+				"courseMode": "Online",
+				"duration": "PT54H",
+				"instructor": {
 					"@type": "Person",
 					"name": "Cláudio Filipe Lima Raposo",
-					"sameAs": [
-						"https://www.linkedin.com/in/cfraposo/",
-						"https://github.com/sertaoseracloud"
-					]
-				},
-				"courseCode": "AZ-VM-DEEP-DIVE",
-				"educationalLevel": "Advanced",
-				"offers": {
-					"@type": "Offer",
-					"price": "947.00",
-					"priceCurrency": "BRL",
-					"availability": "https://schema.org/InStock",
-					"url": "https://mentoria.sertaoseracloud.com/deep-dive-vm#investimento"
-				},
-				"aggregateRating": {
-					"@type": "AggregateRating",
-					"ratingValue": "5.0",
-					"reviewCount": "127"
-				},
-				"hasCourseInstance": {
-					"@type": "CourseInstance",
-					"courseMode": "Online",
-					"duration": "PT54H",
-					"instructor": {
-						"@type": "Person",
-						"name": "Cláudio Filipe Lima Raposo",
-						"jobTitle": "Microsoft MVP & Docker Captain"
-					}
+					"jobTitle": "Microsoft MVP & Docker Captain"
 				}
 			}
-		</script>
+		})} />
 	</head>
 	<body>
 		<div class="ambient" aria-hidden="true"></div>
