@@ -33,5 +33,6 @@ export default defineConfig({
     command: "npm run preview",
     url: "http://localhost:4321/deep-dive-vm/",
     reuseExistingServer: !process.env.CI,
+    timeout: 60 * 1000, // 60 seconds for preview server to start
   },
 });
