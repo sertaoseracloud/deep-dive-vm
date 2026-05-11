@@ -1,34 +1,60 @@
-import { describe, it, expect } from "vitest";
-import { experimental_AstroContainer as AstroContainer } from "astro/container";
-import Hero from "../../../src/components/sections/Hero.astro";
+import { describe, it, expect, beforeAll } from "vitest";
+import { readFileSync, existsSync } from "node:fs";
+import { execSync } from "node:child_process";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = join(__dirname, "../../..");
+
+let builtHtml = "";
+
+beforeAll(() => {
+  if (!existsSync(join(PROJECT_ROOT, "dist/index.html"))) {
+    execSync("npm run build", { cwd: PROJECT_ROOT, stdio: "inherit" });
+  }
+  builtHtml = readFileSync(join(PROJECT_ROOT, "dist/index.html"), "utf-8");
+});
 
 describe("Hero component", () => {
-  it("renders exactly one <h1> in output", async () => {
-    const container = await AstroContainer.create();
-    const html = await container.renderToString(Hero, { props: {} });
-    const h1Matches = html.match(/<h1[^>]*>/g) ?? [];
+  it("renders exactly one <h1> in the full page output", () => {
+    const h1Matches = builtHtml.match(/<h1[^>]*>/g) ?? [];
     expect(h1Matches.length).toBe(1);
   });
 
-  it("<h1> text content is non-empty", async () => {
-    const container = await AstroContainer.create();
-    const html = await container.renderToString(Hero, { props: {} });
-    // Extract content between h1 tags
-    const match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
+  it("<h1> text content is non-empty", () => {
+    const match = builtHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
     expect(match).not.toBeNull();
     const content = match![1].replace(/<[^>]+>/g, "").trim();
     expect(content.length).toBeGreaterThan(0);
   });
 
-  it("at least one <a> button/link exists in the section", async () => {
-    const container = await AstroContainer.create();
-    const html = await container.renderToString(Hero, { props: {} });
-    expect(html).toMatch(/<a[^>]+href/);
+  it("at least one <a> button/link exists in the hero section", () => {
+    // Hero section contains multiple CTA links
+    expect(builtHtml).toMatch(/<a[^>]+href="#investimento"/);
   });
 
-  it("snapshot", async () => {
-    const container = await AstroContainer.create();
-    const html = await container.renderToString(Hero, { props: {} });
-    expect(html).toMatchSnapshot();
+  it("hero section has id=top", () => {
+    expect(builtHtml).toContain('id="top"');
+  });
+
+  it("hero has class hero", () => {
+    expect(builtHtml).toMatch(/class="hero"/);
+  });
+
+  it("hero contains primary CTA (Quero ser Arquiteto de Nuvem)", () => {
+    expect(builtHtml).toContain("Quero ser Arquiteto de Nuvem");
+  });
+
+  it("hero contains ghost CTA (Ver Ementa Completa)", () => {
+    expect(builtHtml).toContain("Ver Ementa Completa");
+  });
+
+  it("hero-title h1 class is present", () => {
+    expect(builtHtml).toContain("hero-title");
+  });
+
+  it("hero-points list items are present", () => {
+    expect(builtHtml).toContain("hero-points");
   });
 });
