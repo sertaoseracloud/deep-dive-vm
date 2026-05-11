@@ -22,3 +22,13 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# Lighthouse report (large JSON, uploaded via LHCI — do not commit)
+lighthouse-report.json
+
+# Test coverage output
+coverage/
+
+# Playwright report
+playwright-report/
+test-results/

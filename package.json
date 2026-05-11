@@ -10,10 +10,12 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "extract": "node src/scripts/extract.js",
-    "test:extract": "node src/scripts/extract.js",
     "test:visual": "npx playwright test --project=chromium",
-    "lighthouse": "lighthouse http://localhost:4321/deep-dive-vm/ --output json --output-path lighthouse-report.json --chrome-flags=\"--headless --no-sandbox\" && node src/scripts/check-lighthouse.js",
+    "test:unit": "vitest run --reporter=verbose --coverage",
+    "test:integration": "vitest run --reporter=verbose tests/integration",
+    "test:unit:watch": "vitest --watch",
+    "test:all": "vitest run --coverage",
+    "lighthouse": "lighthouse https://mentoria.sertaoseracloud.com/deep-dive-vm/ --output json --output-path lighthouse-report.json --chrome-flags=\"--headless --no-sandbox\"",
     "lighthouse:ci": "npm run build && npx astro preview & sleep 3 && npm run lighthouse",
     "capture:baselines": "node src/scripts/capture-baselines.js"
   },
@@ -29,9 +31,17 @@
     "remark": "^15.0.1",
     "remark-gfm": "^4.0.1",
     "sharp": "^0.34.5",
-    "unified": "^11.0.5"
+    "unified": "^11.0.5",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "lighthouse": "^13.3.0"
+    "@axe-core/playwright": "^4.10.1",
+    "@lhci/cli": "^0.14.0",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@vitest/coverage-v8": "^2.1.8",
+    "jsdom": "^25.0.1",
+    "lighthouse": "^13.3.0",
+    "vitest": "^2.1.8"
   }
 }
