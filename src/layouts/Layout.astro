@@ -24,6 +24,9 @@ const { title, description, url } = Astro.props;
 					type: "website",
 					image: claudio1.src,
 				},
+				optional: {
+					description: description,
+				},
 				image: {
 					alt: "Mentoria O Sertao será Cloud - Deep Dive Azure VM",
 				},
@@ -64,9 +67,17 @@ const { title, description, url } = Astro.props;
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 		<link
+			rel="preload"
+			as="style"
 			href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Chakra+Petch:wght@400;500;600;700&display=swap"
-			rel="stylesheet"
+			onload="this.onload=null;this.rel='stylesheet'"
 		/>
+		<noscript>
+			<link
+				rel="stylesheet"
+				href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Chakra+Petch:wght@400;500;600;700&display=swap"
+			/>
+		</noscript>
 		<script type="application/ld+json" is:inline>
 			{
 				"@context": "https://schema.org",

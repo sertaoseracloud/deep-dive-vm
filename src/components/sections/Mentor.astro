@@ -1,5 +1,6 @@
 ---
 import SectionHead from "../ui/SectionHead.astro";
+import { Image } from "astro:assets";
 import claudio2 from "../../assets/claudio2.png";
 import marcelo from "../../assets/marcelo.png";
 ---
@@ -8,7 +9,7 @@ import marcelo from "../../assets/marcelo.png";
     <div class="container">
         <div class="mentor-grid">
             <div class="mentor-portrait">
-                <img src={claudio2.src} alt="Cláudio Filipe Lima Raposo" />
+                <Image src={claudio2} alt="Cláudio Filipe Lima Raposo" loading="lazy" />
                 <div class="brackets">
                     <span></span><span></span><span></span><span></span>
                 </div>
@@ -114,9 +115,10 @@ import marcelo from "../../assets/marcelo.png";
                 </div>
             </div>
             <div class="mentor-portrait">
-                <img
-                    src={marcelo.src}
+                <Image
+                    src={marcelo}
                     alt="Marcelo Gonçalves · Cloud in Focus"
+                    loading="lazy"
                 />
                 <div class="brackets">
                     <span></span><span></span><span></span><span></span>
