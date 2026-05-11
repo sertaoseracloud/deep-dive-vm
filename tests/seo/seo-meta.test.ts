@@ -63,32 +63,32 @@ function countMatches(h: string, pattern: RegExp): number {
 describe("SEO meta-tag static assertions (dist/index.html)", () => {
   it("1. <title> tag is present and <= 60 characters", () => {
     const title = extractTitle(html);
-    expect(title).not.toBeNull();
+    expect(title, "<title> tag must be present in dist/index.html").toBeTruthy();
     expect(title!.length).toBeLessThanOrEqual(60);
   });
 
   it("2. <meta name=description> content is present and between 10–160 chars", () => {
     const desc = extractMetaContent(html, "description");
-    expect(desc).not.toBeNull();
+    expect(desc, "<meta name=description> must be present").toBeTruthy();
     expect(desc!.length).toBeGreaterThanOrEqual(10);
     expect(desc!.length).toBeLessThanOrEqual(160);
   });
 
   it("3. <meta property=og:title> is present and non-empty", () => {
     const ogTitle = extractMetaContent(html, "og:title");
-    expect(ogTitle).not.toBeNull();
+    expect(ogTitle, "<meta property=og:title> must be present").toBeTruthy();
     expect(ogTitle!.length).toBeGreaterThan(0);
   });
 
   it("4. <meta property=og:description> is present and non-empty", () => {
     const ogDesc = extractMetaContent(html, "og:description");
-    expect(ogDesc).not.toBeNull();
+    expect(ogDesc, "<meta property=og:description> must be present").toBeTruthy();
     expect(ogDesc!.length).toBeGreaterThan(0);
   });
 
   it("5. <meta property=og:image> is present and non-empty", () => {
     const ogImage = extractMetaContent(html, "og:image");
-    expect(ogImage).not.toBeNull();
+    expect(ogImage, "<meta property=og:image> must be present").toBeTruthy();
     expect(ogImage!.length).toBeGreaterThan(0);
   });
 
@@ -99,7 +99,7 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
 
   it("7. <meta name=twitter:card> is present and non-empty", () => {
     const twitterCard = extractMetaContent(html, "twitter:card");
-    expect(twitterCard).not.toBeNull();
+    expect(twitterCard, "<meta name=twitter:card> must be present").toBeTruthy();
     expect(twitterCard!.length).toBeGreaterThan(0);
   });
 
@@ -111,7 +111,7 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
   it("9. <link rel=canonical> is present with a non-empty href", () => {
     const canonicalMatch = html.match(/<link[^>]+rel=["']canonical["'][^>]*href=["']([^"']*)["']/i)
       ?? html.match(/<link[^>]+href=["']([^"']*)["'][^>]*rel=["']canonical["']/i);
-    expect(canonicalMatch).not.toBeNull();
+    expect(canonicalMatch, "<link rel=canonical> must be present").toBeTruthy();
     expect(canonicalMatch![1].length).toBeGreaterThan(0);
   });
 
@@ -133,10 +133,16 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
     const match = html.match(
       /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i
     );
-    expect(match).not.toBeNull();
-    const parsed = JSON.parse(match![1]);
-    expect(parsed["@context"]).toBeTruthy();
-    expect(parsed["@type"]).toBeTruthy();
+    expect(match, "JSON-LD script block must be present in dist/index.html").toBeTruthy();
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(match![1]);
+    } catch (e) {
+      throw new Error(`JSON-LD is not valid JSON: ${(e as Error).message}`);
+    }
+    expect((parsed as Record<string, unknown>)["@context"]).toBeTruthy();
+    expect((parsed as Record<string, unknown>)["@type"]).toBeTruthy();
   });
 
   it("12. Heading hierarchy: no H2 before first H1, no heading level skip", () => {
