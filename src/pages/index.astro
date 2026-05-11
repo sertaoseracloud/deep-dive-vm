@@ -28,10 +28,10 @@ import LegalModals from "../components/ui/LegalModals.astro";
 	description="Formação de 54h para Engenheiros dominarem Azure VMs · Portal, CLI e Terraform · com Cláudio Raposo, Microsoft MVP."
 	url={Astro.url.toString()}
 >
+	<a href="#main" class="skip-link">Pular para o conteúdo</a>
 	<UrgencyBar />
 	<NavBar />
-	<a href="#main" class="skip-link">Pular para o conteúdo</a>
-	<main id="main">
+	<main id="main" tabindex="-1">
 		<Hero />
 		<TrustBand />
 		<PainPoints />
