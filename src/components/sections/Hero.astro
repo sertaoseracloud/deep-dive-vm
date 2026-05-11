@@ -1,5 +1,6 @@
 ---
 import Button from "../ui/Button.astro";
+import { Image } from "astro:assets";
 import claudio1 from "../../assets/claudio1.png";
 ---
 
@@ -200,9 +201,11 @@ import claudio1 from "../../assets/claudio1.png";
         </div>
 
         <div class="hero-portrait-wrap">
-            <img
-                src={claudio1.src}
+            <Image
+                src={claudio1}
                 alt="Cláudio Filipe Lima Raposo segurando uma chama elétrica azul"
+                loading="eager"
+                fetchpriority="high"
             />
             <div class="brackets">
                 <span></span><span></span><span></span><span></span>
