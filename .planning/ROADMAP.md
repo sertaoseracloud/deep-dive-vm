@@ -1,66 +1,26 @@
 # Roadmap: Testing & SEO Optimization
 
-## Phase 1: Testing Foundation (Week 1-2)
+## Milestones
 
-1. **Unit Test Implementation**
-   - Create Vitest tests for:
-     - All Astro components (Posts, Cards, Header, Footer)
-     - Utility functions (slug generation, date formatting)
-     - Data processing with Zod schemas
-   - Implement TDD cycle:
-     - Write failing tests first
-     - Refactor production code
-     - Add passing tests
+- ✅ **v1.0 Testing & SEO Optimization** — Phases 1-4 (shipped 2026-05-12)
 
-2. **Integration Test Setup**
-   - Develop tests for:
-     - Content Collections data flow
-     - Route generation with dynamic parameters
-     - Zod schema validation in content processing
-   - Configure GitHub Actions workflow
-     - Run tests on every push
-     - Report coverage metrics
+## Phases
 
-## Phase 2: E2E Testing (Week 3-4)
+<details>
+<summary>✅ v1.0 Testing & SEO Optimization (Phases 1-4) — SHIPPED 2026-05-12</summary>
 
-1. **Critical User Journeys**
-   - Home page load and navigation
-   - Search functionality (if implemented)
-   - Form validation scenarios (if applicable)
-   - Responsive design across breakpoints
+- [x] Phase 1: Testing Foundation (1/1 plans) — completed 2026-05-11
+- [x] Phase 2: E2E Testing (1/1 plans) — completed 2026-05-11
+- [x] Phase 3: SEO Optimization (4/4 plans) — completed 2026-05-11
+- [x] Phase 4: Continuous Validation (4/4 plans) — completed 2026-05-12
 
-2. **Accessibility Testing**
-   - Keyboard navigation flow
-   - Screen reader compatibility
-   - Lighthouse accessibility audit
+</details>
 
-## Phase 3: SEO Optimization (Week 4-5)
+## Progress
 
-1. **Technical SEO Audit**
-   - Lighthouse CI configuration
-   - Static site generation performance
-   - Structured data implementation
-
-2. **Content Optimization**
-   - Meta tag generation with dynamic data
-   - Heading hierarchy validation
-   - Alt text implementation for images
-
-## Phase 4: Continuous Validation
-
-1. **Test Coverage Enforcement**
-   - Minimum 95% code coverage
-   - Regular coverage reporting
-2. **SEO Health Monitoring**
-   - Weekly Lighthouse scores
-   - Automated SEO quality gates in CI
-
-**Goal:** Enforce 95% coverage gate in CI; publish live coverage badge from a `badges` branch; run Lighthouse on a weekly cron; persist LHCI score history as filesystem JSON committed to main.
-
-**Plans:** 4 plans
-
-Plans:
-- [x] 04-01-PLAN.md — Raise vitest coverage thresholds to 95% on all four metrics (D-01/02/03)
-- [x] 04-02-PLAN.md — Pre-create `badges` orphan branch, add badge publish CI step, add README badge link (D-07/08/09)
-- [x] 04-03-PLAN.md — Create `.github/workflows/lighthouse-weekly.yml` with Sunday midnight UTC cron (D-04/05/06)
-- [x] 04-04-PLAN.md — Change LHCI upload.target to `filesystem`, commit `.lighthouseci/*.json` to main with `[skip ci]` (D-10/11/12/13)
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|---------------|--------|-----------|
+| 1. Testing Foundation | v1.0 | 1/1 | Complete | 2026-05-11 |
+| 2. E2E Testing | v1.0 | 1/1 | Complete | 2026-05-11 |
+| 3. SEO Optimization | v1.0 | 4/4 | Complete | 2026-05-11 |
+| 4. Continuous Validation | v1.0 | 4/4 | Complete | 2026-05-12 |
