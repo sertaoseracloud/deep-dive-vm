@@ -6,7 +6,7 @@ This project is a content-driven landing page built with Astro, focusing on perf
 
 ## Goals
 
-- Implement comprehensive test coverage (unit >= 80%, integration, e2e) with TDD approach.
+- Implement comprehensive test coverage (unit >= 95%, integration, e2e) with continuous validation in CI.
 - Validate and improve SEO metrics (meta tags, headings, structured data, performance).
 - Maintain high code quality and ensure all tests pass in CI.
 
@@ -25,3 +25,10 @@ This project is a content-driven landing page built with Astro, focusing on perf
 - Zod (validation)
 - Tailwind CSS
 - React (if any components)
+
+
+## Current State
+
+Phase 04 complete (2026-05-12) — 95% coverage gate enforced in CI; shields.io coverage badge published from `badges` branch; Lighthouse weekly cron active (`0 0 * * 0`); LHCI JSON persisted to `lhci-results` orphan branch.
+
+Last updated: 2026-05-12
