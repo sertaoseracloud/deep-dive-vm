@@ -55,7 +55,7 @@
    - Weekly Lighthouse scores
    - Automated SEO quality gates in CI
 
-**Goal:** Enforce 95% coverage gate in CI; publish live coverage badge from a `badges` branch; run Lighthouse on a weekly cron; persist LHCI score history (SQLite primary, filesystem fallback).
+**Goal:** Enforce 95% coverage gate in CI; publish live coverage badge from a `badges` branch; run Lighthouse on a weekly cron; persist LHCI score history as filesystem JSON committed to main.
 
 **Plans:** 4 plans
 
@@ -63,4 +63,4 @@ Plans:
 - [ ] 04-01-PLAN.md — Raise vitest coverage thresholds to 95% on all four metrics (D-01/02/03)
 - [ ] 04-02-PLAN.md — Pre-create `badges` orphan branch, add badge publish CI step, add README badge link (D-07/08/09)
 - [ ] 04-03-PLAN.md — Create `.github/workflows/lighthouse-weekly.yml` with Sunday midnight UTC cron (D-04/05/06)
-- [ ] 04-04-PLAN.md — Change LHCI upload.target to `lhci` SQLite (with filesystem fallback); commit lhci.db back to main (D-10/11/12)
+- [ ] 04-04-PLAN.md — Change LHCI upload.target to `filesystem`, commit `.lighthouseci/*.json` to main with `[skip ci]` (D-10/11/12/13)

@@ -510,22 +510,18 @@ The badge commit step belongs after the `actions/upload-artifact` step in the `u
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **SQLite vs. filesystem — implementer should decide at execution time**
-   - What we know: D-10/D-12 specify SQLite server + git commit. CONTEXT.md itself says "the executor should evaluate whether this is feasible."
-   - What's unclear: Whether a stateless GitHub Actions runner can reliably start an LHCI server, generate a build token (requires prior `lhci wizard` run), run autorun against it, and commit the binary db back without race conditions.
-   - Recommendation: Attempt the SQLite path first. If the build token step is blocking (requires interactive `lhci wizard`), fall back to `filesystem` target and capture as artifact. Document the decision in SUMMARY.md.
+1. **SQLite vs. filesystem — RESOLVED: filesystem JSON chosen (D-10/D-11/D-12)**
+   - Decision: `upload.target: "filesystem"`, `upload.outputDir: ".lighthouseci"`. No `@lhci/server`, no `sqlite3`, no `LHCI_BUILD_TOKEN`.
+   - Rationale: Stateless CI cannot reliably host a persistent SQLite server; filesystem JSON is committed to main with `[skip ci]` (D-13).
 
-2. **`badges` branch — pre-creation required**
-   - What we know: The branch does not currently exist (`git branch -a` shows only `main` and `migration-nextjs`).
-   - What's unclear: Whether pre-creation should be a Wave 0 task (manual step in plan) or handled by CI logic.
-   - Recommendation: Plan a Wave 0 task: "Create `badges` orphan branch" as a manual pre-execution step.
+2. **`badges` branch — RESOLVED: Wave 0 manual step in 04-02 Task 1**
+   - Decision: Orphan branch `badges` pre-created with seed `badges/coverage.json` as the first task in Plan 04-02.
+   - No CI logic handles missing branch; it must exist before the first CI run.
 
-3. **`lhci.db` `.gitignore` question (from D-10 note)**
-   - What we know: User explicitly placed `lhci.db` in repo root of `main` and noted "consider adding to `.gitignore` if history becomes unwieldy."
-   - What's unclear: Current `.gitignore` contents — `lhci.db` may already be listed.
-   - Recommendation: Check `.gitignore` in Wave 0; if `lhci.db` is listed, remove it (or the CI git-commit step will silently no-op).
+3. **`lhci.db` `.gitignore` question — RESOLVED: not applicable**
+   - Decision: `lhci.db` is not used (filesystem target chosen). Plan 04-04 Task 2 verifies `.lighthouseci/` is not in `.gitignore`.
 
 ---
 
