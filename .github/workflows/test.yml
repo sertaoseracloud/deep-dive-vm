@@ -9,6 +9,8 @@ on:
 jobs:
   unit-and-integration:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,6 +29,36 @@ jobs:
         with:
           name: coverage-report
           path: coverage/
+      - name: Publish coverage badge
+        if: github.ref == 'refs/heads/main'
+        run: |
+          STMTS=$(node -e "
+            const fs = require('fs');
+            if (!fs.existsSync('coverage/coverage-summary.json')) {
+              process.stdout.write('0%');
+              process.exit(0);
+            }
+            const raw = fs.readFileSync('coverage/coverage-summary.json', 'utf8');
+            const json = JSON.parse(raw);
+            if (!json.total) { process.stdout.write('0%'); process.exit(0); }
+            process.stdout.write(json.total.statements.pct.toFixed(1) + '%');
+          ")
+          COLOR="brightgreen"
+          if [[ "$STMTS" == "0%" ]]; then COLOR="red"; fi
+          PCT=${STMTS//%/}
+          if [[ "$STMTS" != "0%" ]] && (( $(echo "$PCT < 75" | bc -l) )); then COLOR="red"
+          elif [[ "$STMTS" != "0%" ]] && (( $(echo "$PCT < 90" | bc -l) )); then COLOR="yellow"; fi
+          JSON="{\"schemaVersion\":1,\"label\":\"coverage\",\"message\":\"${STMTS}\",\"color\":\"${COLOR}\"}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin badges
+          git checkout badges
+          mkdir -p badges
+          echo "$JSON" > badges/coverage.json
+          git add badges/coverage.json
+          git diff --staged --quiet || git commit -m "chore: update coverage badge [skip ci]"
+          git push origin badges
+          git checkout main
 
   e2e-chromium:
     runs-on: ubuntu-latest

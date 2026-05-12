@@ -1,5 +1,7 @@
 # Astro Starter Kit: Basics
 
+![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/sertaoseracloud/deep-dive-vm/badges/badges/coverage.json)
+
 ```sh
 npm create astro@latest -- --template basics
 ```
