@@ -34,7 +34,7 @@ decisions:
 metrics:
   duration: "~15 minutes"
   completed: "2026-05-12"
-  tasks_completed: 3
+  tasks_completed: 4
   tasks_total: 4
   files_created: 1
   files_modified: 2
@@ -51,7 +51,7 @@ metrics:
 | 1 | Pre-create badges orphan branch with seed coverage.json | badges:04743af (origin) | badges/coverage.json on origin/badges |
 | 2 | Add job permissions and Publish coverage badge step to test.yml | 2791cff | .github/workflows/test.yml |
 | 3 | Add shields.io endpoint badge to README.md | 9403472 | README.md |
-| 4 | Human verification checkpoint | — | awaiting |
+| 4 | Human verification checkpoint | approved | — |
 
 ## What Was Built
 
@@ -118,7 +118,7 @@ None — all wiring is complete. The badge will show `0%` (red) until the first 
 
 ## Checkpoint Status
 
-**Task 4 (human-verify):** Awaiting first main push + CI run to confirm badge renders on GitHub README without recursive CI loop.
+**Task 4 (human-verify):** APPROVED — user confirmed badge renders correctly on GitHub README.
 
 ## Self-Check
 
@@ -127,3 +127,6 @@ None — all wiring is complete. The badge will show `0%` (red) until the first 
 - [x] Commit `9403472` exists: `git log --oneline | grep 9403472`
 - [x] YAML parses: `node -e` check prints `ok`
 - [x] README badge count: `grep -c "img.shields.io/endpoint" README.md` = 1
+- [x] Human verification: user approved badge rendering — no CI loop observed
+
+## Self-Check: PASSED
