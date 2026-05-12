@@ -51,8 +51,14 @@ jobs:
           JSON="{\"schemaVersion\":1,\"label\":\"coverage\",\"message\":\"${STMTS}\",\"color\":\"${COLOR}\"}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin badges
-          git checkout badges
+          git fetch origin badges 2>/dev/null || true
+          if git show-ref --verify --quiet refs/remotes/origin/badges; then
+            git checkout badges
+          else
+            git checkout --orphan badges
+            git rm -rf . --quiet || true
+            mkdir -p badges
+          fi
           mkdir -p badges
           echo "$JSON" > badges/coverage.json
           git add badges/coverage.json
