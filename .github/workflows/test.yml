@@ -42,10 +42,12 @@ jobs:
             process.stdout.write(json.total.statements.pct.toFixed(1) + '%');
           ")
           COLOR="brightgreen"
-          if [[ "$STMTS" == "0%" ]]; then COLOR="red"; fi
           PCT=${STMTS//%/}
-          if [[ "$STMTS" != "0%" ]] && (( $(echo "$PCT < 75" | bc -l) )); then COLOR="red"
-          elif [[ "$STMTS" != "0%" ]] && (( $(echo "$PCT < 90" | bc -l) )); then COLOR="yellow"; fi
+          PCT_INT=${PCT%.*}   # truncate decimal — pure bash, no bc dependency
+          if [[ "$STMTS" == "0%" ]]; then COLOR="red"
+          elif (( PCT_INT < 75 )); then COLOR="red"
+          elif (( PCT_INT < 90 )); then COLOR="yellow"
+          fi
           JSON="{\"schemaVersion\":1,\"label\":\"coverage\",\"message\":\"${STMTS}\",\"color\":\"${COLOR}\"}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
