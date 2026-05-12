@@ -5,12 +5,11 @@ on:
     - cron: '0 0 * * 0'   # Sunday midnight UTC
   workflow_dispatch:        # manual trigger for testing
 
-permissions:
-  contents: write            # required for git push of .lighthouseci/ JSON (Plan 04-04)
-
 jobs:
   lighthouse-weekly:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write         # scoped to this job only; required for git push of .lighthouseci/ JSON (Plan 04-04)
     steps:
       - uses: actions/checkout@v4
         with:
