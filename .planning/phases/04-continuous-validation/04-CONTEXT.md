@@ -1,12 +1,12 @@
 # Phase 4: Continuous Validation - Context
 
-**Gathered:** 2026-05-11
+**Gathered:** 2026-05-12 (updated)
 **Status:** Ready for planning
 
 <domain>
 ## Phase Boundary
 
-Enforce quality gates automatically: raise test coverage threshold to 95%, add a weekly scheduled Lighthouse audit, surface coverage results via a static badge, and persist LHCI score history in a SQLite database committed to the repo root. No new feature development — this phase is entirely CI/CD and configuration changes.
+Enforce quality gates automatically: raise test coverage threshold to 95%, add a weekly scheduled Lighthouse audit, surface coverage results via a static badge, and persist LHCI score history as filesystem JSON committed to the repo root. No new feature development — this phase is entirely CI/CD and configuration changes.
 
 </domain>
 
@@ -14,12 +14,12 @@ Enforce quality gates automatically: raise test coverage threshold to 95%, add a
 ## Implementation Decisions
 
 ### Coverage Threshold
-- **D-01:** Raise `thresholds` in `vitest.config.ts` from 80% → 95% on **all four metrics**: `statements`, `branches`, `functions`, `lines`.
-- **D-02:** The gate is **hard** (CI fails if below 95%). The existing `--coverage` flag in `test:unit` already exits non-zero when thresholds aren't met — raising the number keeps this behavior.
+- **D-01:** Raise `thresholds` in `vitest.config.ts` from removed → 95% on **all four metrics**: `statements`, `branches`, `functions`, `lines`.
+- **D-02:** The gate is **hard** (CI fails if below 95%). The existing `--coverage` flag in `test:unit` already exits non-zero when thresholds aren't met — adding the thresholds at 95% keeps this behavior.
 - **D-03:** Do NOT add utility modules first. Raise to 95% as-is. The `.astro` exclusion means the coverable surface is currently thin; the gate will still enforce quality as the surface grows.
 
 ### Weekly Lighthouse
-- **D-04:** Add a **new** GitHub Actions workflow file (e.g., `.github/workflows/lighthouse-weekly.yml`) with a `schedule: cron: '0 0 * * 0'` (Sunday midnight UTC).
+- **D-04:** Add a **new** GitHub Actions workflow file (`.github/workflows/lighthouse-weekly.yml`) with `schedule: cron: '0 0 * * 0'` (Sunday midnight UTC).
 - **D-05:** The weekly job runs **`npm run build && npx lhci autorun`** — same as the push workflow (build fresh from source, then audit). No dependency on the live deployed URL.
 - **D-06:** The weekly job is separate from `test.yml` — does not gate pushes, runs independently on schedule.
 
@@ -29,9 +29,12 @@ Enforce quality gates automatically: raise test coverage threshold to 95%, add a
 - **D-09:** No Codecov or third-party account required.
 
 ### LHCI Score Persistence
-- **D-10:** Run a **local LHCI SQLite server**. The `lhci.db` file lives in the **repo root** of `main` (user's choice — note: binary file grows over time; consider adding `lhci.db` to `.gitignore` if history becomes unwieldy).
-- **D-11:** Change `upload.target` in `.lighthouserc.json` from `"temporary-public-storage"` to `"lhci"` pointing at the local SQLite server.
-- **D-12:** CI starts the LHCI server, runs `npx lhci autorun`, and the server commits `lhci.db` back to main. (Implementation detail: the executor should evaluate whether this is feasible in stateless CI or if a simpler approach like LHCI's built-in `--config.upload.target=filesystem` JSON output is more practical.)
+- **D-10:** Use **`filesystem` JSON target** for LHCI uploads. Output dir: `.lighthouseci/`. Zero extra dependencies — no `@lhci/server`, no `sqlite3`, no `LHCI_BUILD_TOKEN` secret needed.
+- **D-11:** Change `upload.target` in `.lighthouserc.json` from `"temporary-public-storage"` to `"filesystem"` and add `upload.outputDir: ".lighthouseci"`.
+- **D-12:** CI commits `.lighthouseci/*.json` files to `main` after each LHCI run. History is browsable via git log.
+
+### Machine Commit Loop Prevention
+- **D-13:** **`[skip ci]` is MANDATORY** in every machine commit message that writes generated files (badge JSON to `badges` branch, LHCI JSON to `main`). Failure to include `[skip ci]` causes infinite CI loop. All plans and executor tasks in this phase MUST enforce this convention.
 
 ### Claude's Discretion
 - Badge branch name (`badges` or `gh-pages`) — pick whichever doesn't conflict with existing GitHub Pages setup.
@@ -46,10 +49,10 @@ Enforce quality gates automatically: raise test coverage threshold to 95%, add a
 
 ### CI Configuration
 - `.github/workflows/test.yml` — Existing CI workflow. The weekly workflow must mirror the lighthouse job's steps without conflicting.
-- `.lighthouserc.json` — LHCI gate configuration. `upload.target` must be changed for SQLite persistence.
+- `.lighthouserc.json` — LHCI gate configuration. `upload.target` must be changed to `"filesystem"` with `outputDir: ".lighthouseci"`.
 
 ### Coverage Configuration
-- `vitest.config.ts` — Thresholds to raise from 80% → 95%. Coverage reporters already configured (text, json, html).
+- `vitest.config.ts` — Thresholds currently removed; must be added at 95% on all four metrics. Coverage reporters already configured (text, json, html).
 - `coverage/coverage-summary.json` — Output of v8 JSON reporter. The badge CI step reads this file to extract the overall statement % for the badge.
 
 ### Project Requirements
@@ -62,7 +65,7 @@ Enforce quality gates automatically: raise test coverage threshold to 95%, add a
 ## Existing Code Insights
 
 ### Reusable Assets
-- `.github/workflows/test.yml` `lighthouse` job (lines ~55–72): Template for the weekly workflow. Copy and adapt with `schedule:` trigger instead of `push:`/`pull_request:`.
+- `.github/workflows/test.yml` `lighthouse` job (lines ~76–97): Template for the weekly workflow. Copy and adapt with `schedule:` trigger instead of `push:`/`pull_request:`.
 - `coverage/coverage-summary.json`: Already produced by `npm run test:unit` via `@vitest/coverage-v8`. Contains `total.statements.pct` — the field to read for the badge.
 
 ### Established Patterns
@@ -70,8 +73,8 @@ Enforce quality gates automatically: raise test coverage threshold to 95%, add a
 - LHCI artifacts currently use `retention-days: 30` — the `lighthouse-weekly.yml` should also specify retention for its artifacts.
 
 ### Integration Points
-- The `badges` branch must be created before the first CI run writes to it.
-- `lhci.db` in the repo root requires the LHCI server to be running locally during CI — the executor should research whether `@lhci/cli` supports a filesystem JSON target as a simpler alternative to SQLite server.
+- The `badges` branch must be created before the first CI run writes to it (orphan branch pre-created as Wave 0 requirement).
+- `.lighthouseci/` will accumulate JSON files on every CI run — add to `.gitignore` only the transient lock files if any; the result JSON files themselves must be committed.
 
 </code_context>
 
@@ -80,7 +83,8 @@ Enforce quality gates automatically: raise test coverage threshold to 95%, add a
 
 - The weekly cron job should run on **Sunday midnight UTC** (`cron: '0 0 * * 0'`).
 - Badge JSON format compatible with shields.io endpoint badge: `{ "schemaVersion": 1, "label": "coverage", "message": "95%", "color": "brightgreen" }`.
-- LHCI SQLite: user explicitly chose `lhci.db` in repo root (not a dedicated branch). Planner should flag the binary growth concern and offer the filesystem JSON alternative as a de-risk if SQLite proves impractical in CI.
+- LHCI filesystem target config in `.lighthouserc.json`: `"upload": { "target": "filesystem", "outputDir": ".lighthouseci" }`.
+- D-13 machine commit example: `git commit -m "ci: update coverage badge [skip ci]"`.
 
 </specifics>
 
@@ -89,11 +93,12 @@ Enforce quality gates automatically: raise test coverage threshold to 95%, add a
 
 - Codecov integration for PR diff annotations — out of scope; user chose static badge instead.
 - Auditing the live deployed URL (`https://mentoria.sertaoseracloud.com/deep-dive-vm/`) — out of scope; weekly job uses build-fresh approach.
-- Extending artifact retention to 90 days — superseded by SQLite persistence decision.
+- Extending artifact retention to 90 days — superseded by filesystem JSON persistence decision.
+- SQLite LHCI server with dashboard UI — deferred; filesystem JSON target chosen for simplicity (no `@lhci/server`, no `sqlite3`, no `LHCI_BUILD_TOKEN`).
 
 </deferred>
 
 ---
 
 *Phase: 4-continuous-validation*
-*Context gathered: 2026-05-11*
+*Context gathered: 2026-05-12*

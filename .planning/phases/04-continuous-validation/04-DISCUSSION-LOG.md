@@ -3,9 +3,9 @@
 > **Audit trail only.** Do not use as input to planning, research, or execution agents.
 > Decisions are captured in CONTEXT.md — this log preserves the alternatives considered.
 
-**Date:** 2026-05-11
+**Date:** 2026-05-11 (updated 2026-05-12)
 **Phase:** 4-continuous-validation
-**Areas discussed:** Coverage threshold, Weekly Lighthouse, Coverage visibility, LHCI score persistence
+**Areas discussed:** Coverage threshold, Weekly Lighthouse, Coverage visibility, LHCI score persistence, LHCI persistence path (update), Machine-commit loop prevention
 
 ---
 
@@ -115,3 +115,37 @@
 - Codecov integration for PR diff annotations (out of scope — user chose static badge)
 - Auditing the live deployed URL (out of scope — build-fresh approach chosen)
 - Extending artifact retention to 90 days (superseded by SQLite persistence decision)
+
+---
+
+## [Update 2026-05-12] LHCI Persistence Path
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| filesystem JSON | `upload.target: "filesystem"`, `.lighthouseci/` output. Zero extra deps. | ✓ |
+| SQLite server | `@lhci/server` + `sqlite3` + `LHCI_BUILD_TOKEN` + `lhci.db` in repo. | |
+
+**User's choice:** filesystem JSON (Recommended)
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| `.lighthouseci/` committed to main | Simple, no extra branch. | ✓ |
+| Dedicated `lhci-history` branch | Clean main, requires orphan branch pre-creation. | |
+
+**User's choice:** `.lighthouseci/` in main
+
+**Notes:** Supersedes original D-10/D-11/D-12 SQLite decisions. Eliminates all Wave 0 SQLite dependencies.
+
+---
+
+## [Update 2026-05-12] Machine-Commit Loop Prevention
+
+| Option | Description | Selected |
+|--------|-------------|----------|
+| `[skip ci]` in commit message | Native GitHub Actions support. Zero config changes. | ✓ |
+| Branch filter in test.yml | Requires workflow edits, doesn't cover all cases. | |
+| Separate bot PAT | Secret management overhead. | |
+
+**User's choice:** `[skip ci]` in commit message — hard rule (D-13)
+
+**Notes:** Mandatory for all machine commits: badge JSON to `badges` branch, LHCI JSON to `main`. Prevents infinite CI loops.
