@@ -1,6 +1,6 @@
-Especificação Técnica de Quality Assurance e Arquitetura de Validação
+# Especificação Técnica de Quality Assurance e Arquitetura de Validação
 
-1. Estratégia de Testes e Ferramental
+### 1. Estratégia de Testes e Ferramental
 
 A estratégia centraliza a validação na análise estática e na verificação rigorosa durante o tempo de compilação. A ausência de servidores de aplicação e de infraestrutura provisionada exige que todas as garantias de qualidade sejam resolvidas antes da geração dos arquivos finais. O código fonte e a lógica de apresentação dos componentes Astro requerem a implementação do framework Vitest. Esta ferramenta atua na camada de testes de unidade e isola a verificação de funções utilitárias e regras de renderização. O objetivo assegura que lógicas individuais processem entradas estáticas rigorosamente conforme os requisitos arquiteturais.
 
@@ -8,7 +8,7 @@ A validação do conteúdo aplica controle estrito sobre os documentos Markdown.
 
 A automação de integração necessita de auditoria prévia contínua. A ferramenta Actionlint deve inspecionar os arquivos de configuração do GitHub Actions. O procedimento garante a conformidade sintática e previne falhas de execução na esteira de compilação. A validação estática dos fluxos de trabalho assegura que os gatilhos baseados em eventos do repositório operem sem anomalias lógicas ou falhas de declaração de variáveis de ambiente.
 
-2. Validação de Fluxos e Arquitetura
+### 2. Validação de Fluxos e Arquitetura
 
 O padrão de comunicação do sistema adota a separação absoluta entre produtores e consumidores de dados no estágio de construção estática. Os arquivos Markdown mantidos no repositório Git atuam como produtores primários de informação. Os componentes Astro assumem o papel de consumidores e executam a transformação estrutural dos dados brutos em linguagem de marcação estática de alta performance.
 
@@ -16,7 +16,7 @@ Os procedimentos de teste para a integração entre estas camadas exigem a inje�
 
 A validação de fluxo de ponta a ponta ocorre exclusivamente sobre os artefatos estáticos compilados. O ambiente de teste emula as características exatas do GitHub Pages. A especificação técnica designa o framework Playwright para conduzir a navegação automatizada. A ferramenta verifica rotas geradas estaticamente e atesta a integridade de todos os links internos em um servidor local instanciado temporariamente no processo de integração. O foco atesta que a geração de rotas dinâmicas mapeou corretamente os caminhos físicos no diretório de saída final.
 
-3. Critérios de Cobertura e Robustez
+### 3. Critérios de Cobertura e Robustez
 
 Os requisitos de aceitação técnica para aprovação automática no fluxo de publicação obedecem a métricas rígidas de resiliência aplicadas à compilação em ambiente de integração.
 

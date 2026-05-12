@@ -1,18 +1,18 @@
-Especificação Técnica de Gestão de Produto e Governança de Conteúdo
+# Especificação Técnica de Gestão de Produto e Governança de Conteúdo
 
-1. Estratégia de Produto e Gestão de Ciclo de Vida
+### 1. Estratégia de Produto e Gestão de Ciclo de Vida
 
 A gestão do produto opera sob o paradigma de conteúdo como código. A ausência de um painel de administração tradicional transfere o controle de estado do produto integralmente para o repositório Git. Arquivos Markdown representam as entidades do negócio, abrangendo páginas de conversão, documentações ou publicações. O ciclo de vida de uma nova funcionalidade de interface ou de uma campanha de conteúdo obedece ao fluxo de ramificações do sistema de controle de versão.
 
 A concepção de um novo escopo de produto ocorre em ramificações isoladas. A transição para o ambiente de produção exige a abertura e a resolução de requisições de integração em processos de revisão de código. O modelo de versionamento estabelece um histórico estruturado de todas as alterações, viabilizando a auditoria reversa de decisões de produto e a rastreabilidade da autoria de cada modificação. O versionamento semântico requer o uso de marcações no repositório para delimitar os ciclos de entrega. O procedimento consolida blocos de modificações de interface e adições de texto em pacotes de lançamento empacotados, conferindo controle exato sobre o que é publicado na hospedagem estática.
 
-1. Contratos de Conteúdo e Governança de Dados
+### 2. Contratos de Conteúdo e Governança de Dados
 
 A governança do produto impõe parâmetros estritos sobre a estrutura da informação. Os requisitos de negócio são codificados de forma imutável nos esquemas de validação do Astro Content Collections. A definição do produto estipula a obrigatoriedade de propriedades específicas no cabeçalho dos documentos estáticos. Os atributos incluem identificadores de taxonomia, datas programadas para publicação, descrições para otimização de busca e sinalizadores de estado para controle de exibição condicional.
 
 O motor de conformidade técnica utiliza a biblioteca Zod para aplicar estas regras operacionais. A submissão de um documento com omissão de metadados estruturais aciona o bloqueio programado na esteira de compilação. A interrupção mecanizada protege a integridade do produto e assegura que nenhuma página chegue ao servidor de hospedagem sem os parâmetros exigidos para o mapeamento correto de rotas e rastreamento analítico. A automação das regras de negócio atua como a primeira barreira de qualidade, removendo a dependência de revisão manual sobre o preenchimento de campos e garantindo a padronização absoluta do banco de dados baseado em arquivos.
 
-1. Observabilidade Estática e Gerenciamento de Entregas
+### 3. Observabilidade Estática e Gerenciamento de Entregas
 
 O acompanhamento de métricas de uso e comportamento do usuário requer a injeção estática de rastreadores de telemetria durante o tempo de construção. O ambiente sem infraestrutura de backend exige que a captura de eventos de produto ocorra exclusivamente no lado do cliente. O pipeline de integração no GitHub Actions possui a diretriz de acoplar os identificadores analíticos e os mapas de eventos de conversão aos componentes Astro antes da renderização do documento HTML final. A arquitetura viabiliza a extração de dados sobre a jornada de navegação, funis de retenção e engajamento em uma topologia de arquivos estáticos.
 

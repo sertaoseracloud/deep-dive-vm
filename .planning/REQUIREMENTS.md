@@ -1,110 +1,84 @@
-# REQUIREMENTS.md
+# Requirements: Testing & SEO Enhancement
 
-## Project Overview
+## Functional Requirements
 
-  Migrate the existing high‑conversion landing‑page
-  copy into Markdown files consumed by an Astro
-  site, preserving exact layout, hierarchy, and
-  visual fidelity. Target audience: potential
-  customers. The migration must improve SEO,
-  page‑load performance, and conversion rates while
-  ensuring zero visual differences versus the legacy
-   page.
+### Testing (TDD Focus)
 
-## Core Requirements
+1. **Unit Tests**
+   - All Astro components must have unit tests covering:
+     - Props validation (Zod schemas)
+     - Conditional rendering logic
+     - Slot/content distribution
+     - CSS class application
+   - Utility functions must be tested with various input types (edge cases, null, undefined)
+   - Target: 95%+ statement and branch coverage
+   - Framework: Vitest with DOM simulation (jsdom)
 
-### 1. Content Migration
+2. **Integration Tests**
+   - Validate data flow from Content Collections to components
+   - Test page generation with different content variations
+   - Verify Zod schema validation works correctly
+   - Test Astro API usage (getCollection, getEntry, etc.)
+   - Framework: Vitest + Astro testing utilities
 
-- **1.1** Extract **all** existing landing‑page
-  copy (HTML, CMS entries, PDFs) and convert it to
-  Markdown.
-- **1.2** Separate each page into:
-  - **Frontmatter**: `title`, `description`,
-  `ctaText`, `ctaLink`, `seoMeta`, `slug`, `layout`.
-  - **Body**: Markdown content preserving
-  headings, bold, lists, and inline formatting.
-- **1.3** Preserve the original hierarchy (h1, h2,
-   …) and content density.
+3. **End-to-End Tests**
+   - Critical user journeys:
+     - Home page load and navigation
+     - Form submission (if any)
+     - Responsive behavior across breakpoints
+     - Accessibility compliance (keyboard navigation, screen readers)
+   - Framework: Playwright with Chromium, Firefox, WebKit
+   - Test on CI with actual browser binaries
 
-### 2. Asset Management
+### SEO Requirements
 
-- **2.1** Move all images, SVGs, and downloadable
-  assets to `public/` or `src/assets/`.
-- **2.2** Rewrite relative links in Markdown to
-  point to the new locations.
-- **2.3** Optimize images to WebP/AVIF and
-  generate responsive `srcset`s.
+1. **Technical SEO**
+   - Each page must have:
+     - Unique, descriptive title tag (< 60 characters)
+     - Compelling meta description (< 160 characters)
+     - Open Graph tags (title, description, image, type)
+     - Twitter Card tags
+     - Canonical URL tag
+     - Proper heading hierarchy (single H1 per page)
+     - Semantic HTML5 elements (header, nav, main, section, footer)
+     - Alt text for all images (descriptive, not empty unless decorative)
+     - JSON-LD structured data where applicable (Organization, WebPage, FAQ if relevant)
 
-### 3. SEO & Structured Data
+2. **Performance SEO**
+   - LCP < 2.5s on mobile and desktop
+   - FCP < 1.8s
+   - CLS < 0.1
+   - First Input Delay < 100ms
+   - Proper image optimization (WebP/AVIF, responsive sizes, lazy loading)
+   - Minimize render-blocking resources
+   - Leverage browser caching
 
-- **3.1** Generate canonical tags for every page
-  using the old‑URL → new‑route mapping.
-- **3.2** Populate meta tags (`title`,
-  `description`, `og:*`, `twitter:*`) from
-  frontmatter.
-- **3.3** Inject JSON‑LD blocks (Product, FAQ,
-  Review) where applicable.
-- **3.4** Create a sitemap (`@astrojs/sitemap`)
-  and robots.txt reflecting the new structure.
+3. **Validation & Monitoring**
+   - Automated SEO audit in CI (using Lighthouse CI)
+   - Thresholds: SEO score >= 90, Performance >= 80, Accessibility >= 90, Best Practices >= 80
+   - Regular reporting on SEO health
 
-### 4. Performance
+## Non-Functional Requirements
 
-- **4.1** Ensure the Astro build outputs pure
-  static HTML with **≤ 10 KB** JavaScript payload
-  for the landing page.
-- **4.2** Meet **Lighthouse** targets: **FCP
-  < 1 s**, **LCP < 2.5 s**, **CLS ≤ 0.1**.
-- **4.3** Enable incremental builds for future
-  content updates.
+### Development Process
 
-### 5. Validation & Testing
+- **TDD Mandate**: Write failing tests before implementing features
+- **Test Maintenance**: Treat test code with same rigor as production code
+- **CI/CD Integration**: All tests must pass on every push to main branch
+- **Coverage Reporting**: Generate coverage reports and enforce minimum thresholds
 
-- **5.1** Run `markdownlint` and custom Astro
-  validation scripts on every PR.
-- **5.2** Use a link‑checker to verify no broken
-  internal or external links.
-- **5.3** Compare generated HTML against the
-  legacy page using an HTML‑diff tool (pixel‑perfect
-   visual diff is a must‑pass check).
-- **5.4** Verify SEO metrics (meta tags, canonical
-   URLs, structured data) with Google Search
-  Console’s URL Inspection tool.
+### Quality Standards
 
-### 6. Deployment & Rollout
-
-- **6.1** Deploy to a staging environment first;
-  perform full SEO and performance audits.
-- **6.2** Configure Netlify/Vercel redirects from
-  old URLs to new Astro routes (`_redirects` or
-  `vercel.json`).
-- **6.3** After sign‑off, push to production with
-  a **single‑branch** release.
-
-## Non‑Functional Constraints
-
-- **Timeline**: Complete migration by **next
-  month** (date target: 2026‑06‑10).
-- **No Git actions**: All changes will be
-  committed manually by the user (as per config).
-- **Granularity**: Medium – tasks broken into
-  logical groups but not to the level of individual
-  lines.
-- **Agent Mode**: Enabled – research agents may be
-   used for any future deep‑dive questions.
+- Code formatting with Prettier
+- Linting with ESLint (Astro and TypeScript rules)
+- No console.log statements in production code
+- Proper error handling and logging
 
 ## Acceptance Criteria
 
-- All landing‑page copy is present in Markdown
-  with correct frontmatter.
-- SEO scores are equal to or higher than the
-  legacy page (per Google Search Console).
-- Lighthouse performance metrics meet the
-  thresholds above.
-- Visual regression testing reports **PASS** (no
-  differences in hierarchy, styling, or content).
-- No broken links or missing assets in the
-  production build.
-
-  ---
-
-  *Last updated: 2026‑05‑10*
+- [ ] Unit test coverage >= 80% for src/components and src/lib
+- [ ] Integration tests pass for all content collection types
+- [ ] E2E tests cover home page and critical user flows
+- [ ] Lighthouse SEO score >= 90 in CI
+- [ ] All new features developed with TDD (tests written first)
+- [ ] Accessibility audit passes (axe-core or similar)

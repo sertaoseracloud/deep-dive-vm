@@ -1,12 +1,12 @@
-Especificação Técnica de Quality Assurance para Testes de Integração
+# Especificação Técnica de Quality Assurance para Testes de Integração
 
-1. Estratégia de Testes e Ferramental
+### 1. Estratégia de Testes e Ferramental
 
 A camada de testes de integração afere a comunicação estrutural entre o sistema de arquivos do repositório, o motor de processamento de dados e a arquitetura de roteamento. O ambiente operacional permanece circunscrito ao contexto do repositório Git e da execução isolada no GitHub Actions, sem dependência de instâncias de rede externas. O ferramental mantém a base no Vitest, estendendo o escopo para englobar a API nativa do Astro e o ciclo de vida de montagem dos módulos.
 
 O objetivo técnico foca na fronteira exata onde os arquivos Markdown são consumidos, validados pelos esquemas estruturais e convertidos em pacotes de dados processáveis. A estratégia utiliza conjuntos de diretórios de teste virtuais ou controlados. A esteira executa a resolução das dependências internas, verificando se a combinação de múltiplos módulos e funções utilitárias opera de forma sincronizada na construção da árvore de propriedades que alimentará a camada de apresentação visual.
 
-1. Validação de Fluxos e Arquitetura
+### 2. Validação de Fluxos e Arquitetura
 
 A validação de fluxo nesta etapa inspeciona o mapeamento de rotas dinâmicas e o carregamento relacional de conteúdo. O mecanismo de integração verifica a execução de geração de caminhos estáticos. O teste atesta que o fornecimento de um repositório com uma quantidade delimitada de documentos Markdown resulta na construção de uma matriz exata de endereços estruturados, validando a lógica de paginação e a indexação do sistema.
 
@@ -14,7 +14,7 @@ A arquitetura de dados requer a verificação de consistência relacional entre 
 
 O processamento do corpo do documento exige testes de integração do conversor estático. A validação submete marcações complexas e componentes interativos encapsulados dentro do texto para certificar que a abstração arquitetada preserva a integridade da linguagem de marcação original e aplica os transformadores de código corretamente na conversão.
 
-1. Critérios de Cobertura e Robustez
+### 3. Critérios de Cobertura e Robustez
 
 Os critérios de aceitação técnica para a integração determinam a validação rigorosa da integridade referencial. O modelo de falha injeta propositalmente identificadores órfãos e referências cruzadas inexistentes nos diretórios de teste. O sistema exige a interrupção determinística do processo de compilação. O comportamento captura a quebra de contrato relacional e impede o avanço do fluxo de automação, protegendo a estabilidade da fase final de montagem estática.
 

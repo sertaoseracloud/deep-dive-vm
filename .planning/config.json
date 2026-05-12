@@ -1,5 +1,6 @@
 {
-  "granularity": "medium",
-  "git_usage": "none",
-  "agent_mode": "enabled"
+  "auto": true,
+  "focus": "testing and SEO",
+  "tdd": true,
+  "seo": true
 }

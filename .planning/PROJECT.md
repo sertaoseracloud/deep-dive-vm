@@ -1,56 +1,27 @@
-# Content Migration to Markdown
+# Project: Landing Page Deep Dive
 
-## What This Is
+## Overview
 
-Migrate the existing high‑conversion landing‑page copy into Markdown files used by an Astro site, preserving exact layout, hierarchy, and visual fidelity. The target audience is potential customers.
+This project is a content-driven landing page built with Astro, focusing on performance, accessibility, and SEO. The goal is to deliver a fast, engaging experience while ensuring robust testing practices (unit, integration, e2e) using TDD methodology and to optimize SEO to meet industry best practices.
 
-## Core Value
+## Goals
 
-Ensure the copy remains visually identical while gaining version‑controlled, easily editable Markdown, improving SEO, load time, and conversion rates.
+- Implement comprehensive test coverage (unit >= 80%, integration, e2e) with TDD approach.
+- Validate and improve SEO metrics (meta tags, headings, structured data, performance).
+- Maintain high code quality and ensure all tests pass in CI.
 
-## Requirements
+## Scope
 
-### Validated
+- Unit tests for Astro components and utility functions.
+- Integration tests for page composition and data flow.
+- End-to-end tests covering critical user journeys.
+- SEO audit and optimization of meta tags, headings, alt text, and performance.
 
-- None yet – the migration will validate the approach.
+## Technology Stack
 
-### Active
-
-- Migrate **all** existing landing‑page copy into Markdown, separating frontmatter (titles, CTA text, links, SEO metadata) from body content.
-- Preserve visual hierarchy (headings, bold, lists) exactly as in the legacy page.
-- Generate HTML via Astro's `<Content/>` component without altering the markup structure.
-- Verify SEO score meets target thresholds.
-- Meet load‑time performance targets.
-- Achieve conversion‑rate increase compared to the legacy page.
-- Ensure zero visual differences versus the legacy page.
-
-### Out of Scope
-
-- Creating new copy or content revisions.
-- Building additional pages beyond the landing page.
-- Internationalization/localization.
-
-## Context
-
-- Existing Astro project at `C:\Repo\landing-page\deep-dive-vm`.
-- Content currently embedded in Astro components; needs extraction.
-- Specs folder contains accessibility, QA, and test documentation.
-- Goal is to modernize delivery while keeping proven copy.
-
-## Constraints
-
-- **Timeline**: Complete migration by next month.
-- **Performance**: Load‑time must stay within current benchmarks or improve.
-- **SEO**: Maintain or improve current SEO scores.
-- **Visual fidelity**: HTML output from Astro must match legacy page pixel‑perfectly.
-
-## Key Decisions
-
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| Use Astro frontmatter for fixed parameters | Enables component props and SEO metadata injection | ✓ Good |
-| Separate body content into Markdown | Keeps long‑form copy editable and versioned | ✓ Good |
-| Validate via HTML diff against legacy page | Guarantees visual fidelity | — Pending |
-
----
-*Last updated: 2026‑05‑10 after initial project definition*
+- Astro
+- Vitest (unit testing)
+- Playwright (integration/e2e)
+- Zod (validation)
+- Tailwind CSS
+- React (if any components)
