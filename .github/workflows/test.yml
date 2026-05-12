@@ -18,10 +18,8 @@ jobs:
           node-version: "22"
           cache: "npm"
       - run: npm ci
-      - name: Unit tests (coverage gate >= 95%)
-        run: npm run test:unit
-      - name: Integration tests
-        run: npm run test:integration
+      - name: Unit + Integration tests (coverage gate >= 95%)
+        run: npm run test:all
       - name: npm audit (supply-chain gate)
         run: npm audit --audit-level=high
       - uses: actions/upload-artifact@v4
