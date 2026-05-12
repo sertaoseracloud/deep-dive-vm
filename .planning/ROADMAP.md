@@ -60,7 +60,7 @@
 **Plans:** 4 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Raise vitest coverage thresholds to 95% on all four metrics (D-01/02/03)
-- [ ] 04-02-PLAN.md — Pre-create `badges` orphan branch, add badge publish CI step, add README badge link (D-07/08/09)
-- [ ] 04-03-PLAN.md — Create `.github/workflows/lighthouse-weekly.yml` with Sunday midnight UTC cron (D-04/05/06)
-- [ ] 04-04-PLAN.md — Change LHCI upload.target to `filesystem`, commit `.lighthouseci/*.json` to main with `[skip ci]` (D-10/11/12/13)
+- [x] 04-01-PLAN.md — Raise vitest coverage thresholds to 95% on all four metrics (D-01/02/03)
+- [x] 04-02-PLAN.md — Pre-create `badges` orphan branch, add badge publish CI step, add README badge link (D-07/08/09)
+- [x] 04-03-PLAN.md — Create `.github/workflows/lighthouse-weekly.yml` with Sunday midnight UTC cron (D-04/05/06)
+- [x] 04-04-PLAN.md — Change LHCI upload.target to `filesystem`, commit `.lighthouseci/*.json` to main with `[skip ci]` (D-10/11/12/13)
