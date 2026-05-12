@@ -1,0 +1,32 @@
+name: Weekly Lighthouse Audit
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'   # Sunday midnight UTC
+  workflow_dispatch:        # manual trigger for testing
+
+permissions:
+  contents: write            # required for git push of .lighthouseci/ JSON (Plan 04-04)
+
+jobs:
+  lighthouse-weekly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0    # needed for git push in Plan 04-04
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run build
+      - name: Lighthouse CI weekly audit
+        run: npx lhci autorun
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-weekly-report
+          path: .lighthouseci/
+          retention-days: 30
