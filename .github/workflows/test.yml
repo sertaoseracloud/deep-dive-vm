@@ -67,6 +67,8 @@ jobs:
   e2e-chromium:
     runs-on: ubuntu-latest
     needs: unit-and-integration
+    permissions:
+      contents: read   # no write needed — artifacts are uploaded, not committed
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -89,6 +91,8 @@ jobs:
   e2e-cross-browser:
     runs-on: ubuntu-latest
     needs: e2e-chromium
+    permissions:
+      contents: read   # no write needed — artifacts are uploaded, not committed
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
