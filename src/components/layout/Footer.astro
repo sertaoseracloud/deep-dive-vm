@@ -1,0 +1,143 @@
+---
+/* Componente Footer - Identidade Visual e Avisos Legais */
+---
+
+<footer class="footer">
+    <div class="container">
+        <div class="footer-row">
+            <div class="brand">
+                <svg class="star-mark" viewBox="0 0 24 24" fill="url(#bgs2)">
+                    <defs>
+                        <radialGradient id="bgs2" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stop-color="#FFFFFF"></stop>
+                            <stop offset="40%" stop-color="#00FFFF"></stop>
+                            <stop offset="100%" stop-color="#1A3AC8"></stop>
+                        </radialGradient>
+                    </defs>
+                    <path
+                        d="M12 2l2.09 6.26H20l-4.95 3.64L16.9 18 12 14.27 7.1 18l1.85-6.1L4 8.26h5.91z"
+                    ></path>
+                </svg>
+                <span class="name"
+                    >O Sertao será Cloud<small
+                        >FORGED IN ELECTRIC BLUE FIRE</small
+                    ></span
+                >
+            </div>
+            <div class="footer-meta">
+                <a href="javascript:openLegalModal('modal-terms')">Termos</a>
+                <a href="javascript:openLegalModal('modal-privacy')"
+                    >Privacidade</a
+                >
+                <a href="mailto:contato@architecturethink.com">Suporte</a>
+            </div>
+        </div>
+        <div class="footer-disclaimer">
+            © 2026 O Sertao será Cloud · Professor: Cláudio Filipe Lima Raposo ·
+            CNPJ 64.578.486/0001-22. Conteúdo protegido · uso individual e
+            intransferível. Plataforma de pagamento: Hotmart. Resultados
+            dependem do esforço individual de cada aluno; depoimentos refletem
+            experiências reais e não representam garantia.
+        </div>
+    </div>
+</footer>
+
+<style>
+    footer.footer {
+        border-top: 1px solid var(--hairline);
+        padding: 40px 0 32px;
+        background: rgba(0, 0, 0, 0.4);
+        position: relative;
+        z-index: 1;
+    }
+
+    .footer-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 24px;
+        align-items: center;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--texto-secundario);
+    }
+
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-family: "Chakra Petch", sans-serif;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+    }
+
+    .brand .star-mark {
+        width: 28px;
+        height: 28px;
+        filter: drop-shadow(0 0 10px rgba(0, 255, 255, 0.7));
+    }
+
+    .brand .name {
+        font-size: 15px;
+    }
+
+    .brand .name small {
+        display: block;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 9px;
+        letter-spacing: 0.22em;
+        color: var(--texto-secundario);
+        font-weight: 400;
+        margin-top: 1px;
+        text-transform: uppercase;
+    }
+
+    .footer-meta {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+    }
+
+    .footer-meta a {
+        color: var(--texto-secundario);
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+
+    .footer-meta a:hover {
+        color: var(--nucleo-eletrico);
+    }
+
+    .footer-disclaimer {
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px dashed var(--hairline);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        color: var(--texto-terciario);
+        line-height: 1.6;
+        text-transform: none;
+    }
+
+    @media (max-width: 720px) {
+        .footer-row {
+            grid-template-columns: 1fr;
+            text-align: center;
+            gap: 32px;
+        }
+
+        .brand {
+            justify-content: center;
+        }
+
+        .footer-meta {
+            justify-content: center;
+        }
+
+        .footer-disclaimer {
+            text-align: center;
+        }
+    }
+</style>

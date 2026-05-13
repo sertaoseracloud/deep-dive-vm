@@ -1,0 +1,105 @@
+---
+interface Props {
+    eyebrow: string;
+    idx?: string; // Opcional, usado no Hero e ementa
+    titleHtml: string;
+    lede?: string;
+    center?: boolean;
+}
+
+const { eyebrow, idx, titleHtml, lede, center = false } = Astro.props;
+---
+
+<div class={`section-head ${center ? "center" : ""}`}>
+    <div class="eyebrow">
+        <span class="bar"></span>
+        {idx && <span class="idx">{idx}</span>}
+        <span class="eyebrow-text" set:html={eyebrow} />
+    </div>
+
+    <h2 class="section-title" set:html={titleHtml} />
+
+    {lede && <p class="section-lede" set:html={lede} />}
+</div>
+
+<style>
+    .section-head {
+        margin-bottom: 56px;
+        max-width: 820px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .section-head.center {
+        margin: 0 auto 56px;
+        text-align: center;
+    }
+
+    .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: var(--nucleo-eletrico);
+        margin-bottom: 16px;
+    }
+
+    .section-head.center .eyebrow {
+        justify-content: center;
+    }
+
+    .eyebrow .bar {
+        width: 28px;
+        height: 1px;
+        background: currentColor;
+        opacity: 0.5;
+    }
+
+    .eyebrow .idx {
+        border: 1px solid var(--hairline-strong);
+        padding: 3px 8px;
+        background: rgba(0, 255, 255, 0.06);
+        font-size: 10px;
+    }
+
+    h2.section-title {
+        font-family: "Chakra Petch", sans-serif;
+        font-weight: 600;
+        font-size: clamp(30px, 3.6vw, 48px);
+        line-height: 1.05;
+        letter-spacing: -0.005em;
+        margin: 0 0 16px;
+        text-wrap: balance;
+        color: var(--texto-principal);
+    }
+
+    /* Seletor global para suportar a classe .flame passada via titleHtml */
+    h2.section-title :global(.flame) {
+        color: var(--nucleo-eletrico);
+        font-style: italic;
+        text-shadow: 0 0 24px rgba(0, 255, 255, 0.45);
+    }
+
+    .section-lede {
+        font-size: 18px;
+        line-height: 1.6;
+        color: var(--texto-secundario);
+        max-width: 64ch;
+        font-weight: 300;
+        margin: 0;
+    }
+
+    .section-head.center .section-lede {
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    @media (max-width: 720px) {
+        .section-head {
+            margin-bottom: 40px;
+        }
+    }
+</style>

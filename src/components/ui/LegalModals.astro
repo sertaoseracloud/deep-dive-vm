@@ -1,0 +1,224 @@
+---
+/* Componente de Modais Legais - O Sertão será Cloud */
+---
+
+<div id="modal-overlay" class="modal-overlay">
+    <div id="modal-terms" class="modal-content">
+        <div class="modal-header">
+            <div class="header-info">
+                <span class="eyebrow">DOC_ID: TERMS_OF_SERVICE</span>
+                <h3>Termos de Uso</h3>
+            </div>
+            <button class="close-modal" data-close>&times;</button>
+        </div>
+        <div class="modal-body">
+            <h4>1. Objeto da Mentoria</h4>
+            <p>
+                A mentoria <b>O Sertão será Cloud</b> é um programa de formação técnica
+                focado em Azure Virtual Machines. O acesso é individual, intransferível
+                e válido por 12 meses a partir da data de confirmação do pagamento.
+            </p>
+
+            <h4>2. Propriedade Intelectual</h4>
+            <p>
+                Todo o conteúdo, incluindo vídeos, códigos Terraform, templates
+                de Spec-Driven Dev e materiais de apoio, é de propriedade
+                exclusiva de Cláudio Filipe Lima Raposo. A reprodução, partilha
+                de login ou revenda do material resultará em bloqueio imediato
+                sem direito a reembolso e medidas legais cabíveis.
+            </p>
+
+            <h4>3. Garantia e Cancelamento</h4>
+            <p>
+                Conforme o Artigo 49 do CDC, o aluno possui 7 dias de garantia
+                incondicional. O reembolso deve ser solicitado diretamente via
+                plataforma Hotmart dentro deste prazo.
+            </p>
+
+            <h4>4. Responsabilidade Técnica</h4>
+            <p>
+                As arquiteturas ensinadas visam boas práticas de mercado. O
+                aluno é o único responsável por custos gerados em suas próprias
+                subscrições Azure durante a execução de laboratórios práticos.
+            </p>
+        </div>
+    </div>
+
+    <div id="modal-privacy" class="modal-content">
+        <div class="modal-header">
+            <div class="header-info">
+                <span class="eyebrow">DOC_ID: PRIVACY_POLICY</span>
+                <h3>Política de Privacidade</h3>
+            </div>
+            <button class="close-modal" data-close>&times;</button>
+        </div>
+        <div class="modal-body">
+            <h4>1. Recolha de Dados</h4>
+            <p>
+                Recolhemos dados básicos (nome, e-mail e CPF) via Hotmart para
+                processamento de matrícula e emissão do certificado de conclusão
+                assinado pelo Microsoft MVP Cláudio Raposo.
+            </p>
+
+            <h4>2. Finalidade</h4>
+            <p>
+                Os seus dados são utilizados para: acesso à plataforma de aulas,
+                comunicações sobre sessões de mentoria 1:1 e suporte técnico via
+                comunidade.
+            </p>
+
+            <h4>3. Segurança</h4>
+            <p>
+                Utilizamos protocolos de segurança da Hotmart para garantir que
+                os seus dados financeiros nunca sejam armazenados nos nossos
+                servidores locais.
+            </p>
+
+            <h4>4. Direitos do Titular</h4>
+            <p>
+                Em conformidade com a LGPD, o utilizador pode solicitar a
+                retificação ou exclusão dos seus dados de contacto das nossas
+                listas de marketing a qualquer momento através do e-mail de
+                suporte.
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 15, 30, 0.9);
+        backdrop-filter: blur(8px);
+        z-index: 1000;
+        display: none; /* Controlado via JS */
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .modal-overlay.active {
+        display: flex;
+    }
+
+    .modal-content {
+        background: rgba(10, 15, 30, 0.95);
+        border: 1px solid var(--hairline-strong);
+        width: 100%;
+        max-width: 600px;
+        max-height: 80vh;
+        display: none;
+        flex-direction: column;
+        border-radius: 2px;
+        box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+    }
+
+    .modal-content.active {
+        display: flex;
+    }
+
+    .modal-header {
+        padding: 24px 32px;
+        border-bottom: 1px solid var(--hairline);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .header-info .eyebrow {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        letter-spacing: 0.15em;
+        color: var(--nucleo-eletrico);
+        display: block;
+        margin-bottom: 4px;
+    }
+
+    .header-info h3 {
+        font-family: "Chakra Petch", sans-serif;
+        font-size: 20px;
+        margin: 0;
+        color: var(--texto-principal);
+    }
+
+    .close-modal {
+        background: transparent;
+        border: 1px solid var(--hairline);
+        color: var(--texto-terciario);
+        font-size: 24px;
+        width: 40px;
+        height: 40px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .close-modal:hover {
+        border-color: var(--nucleo-eletrico);
+        color: var(--nucleo-eletrico);
+    }
+
+    .modal-body {
+        padding: 32px;
+        overflow-y: auto;
+        color: var(--texto-secundario);
+        line-height: 1.6;
+        font-size: 14.5px;
+    }
+
+    .modal-body h4 {
+        font-family: "Chakra Petch", sans-serif;
+        color: var(--texto-principal);
+        margin: 24px 0 8px;
+        font-size: 16px;
+    }
+
+    .modal-body h4:first-child {
+        margin-top: 0;
+    }
+
+    .modal-body b {
+        color: var(--nucleo-eletrico);
+    }
+
+    /* Custom Scrollbar para manter o tema */
+    .modal-body::-webkit-scrollbar {
+        width: 6px;
+    }
+    .modal-body::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .modal-body::-webkit-scrollbar-thumb {
+        background: var(--hairline-strong);
+        border-radius: 10px;
+    }
+</style>
+
+<script>
+    // Script simples para gerir os modais
+    const overlay = document.getElementById("modal-overlay");
+    const closeBtns = document.querySelectorAll("[data-close]");
+
+    function openModal(id) {
+        overlay.classList.add("active");
+        document.getElementById(id).classList.add("active");
+        document.body.style.overflow = "hidden";
+    }
+
+    function closeModal() {
+        overlay.classList.remove("active");
+        document
+            .querySelectorAll(".modal-content")
+            .forEach((m) => m.classList.remove("active"));
+        document.body.style.overflow = "auto";
+    }
+
+    closeBtns.forEach((btn) => btn.addEventListener("click", closeModal));
+
+    overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) closeModal();
+    });
+
+    // Expor para o footer ou outros componentes chamarem
+    window.openLegalModal = openModal;
+</script>

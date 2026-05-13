@@ -1,0 +1,38 @@
+[
+  {
+    "url": "http://localhost:38003/index.html",
+    "isRepresentativeRun": false,
+    "htmlPath": "/home/runner/work/deep-dive-vm/deep-dive-vm/.lighthouseci/localhost-_index_html-2026_05_13_15_02_54.report.html",
+    "jsonPath": "/home/runner/work/deep-dive-vm/deep-dive-vm/.lighthouseci/localhost-_index_html-2026_05_13_15_02_54.report.json",
+    "summary": {
+      "performance": 0.99,
+      "accessibility": 0.96,
+      "best-practices": 0.96,
+      "seo": 1
+    }
+  },
+  {
+    "url": "http://localhost:38003/index.html",
+    "isRepresentativeRun": false,
+    "htmlPath": "/home/runner/work/deep-dive-vm/deep-dive-vm/.lighthouseci/localhost-_index_html-2026_05_13_15_03_05.report.html",
+    "jsonPath": "/home/runner/work/deep-dive-vm/deep-dive-vm/.lighthouseci/localhost-_index_html-2026_05_13_15_03_05.report.json",
+    "summary": {
+      "performance": 1,
+      "accessibility": 0.96,
+      "best-practices": 0.96,
+      "seo": 1
+    }
+  },
+  {
+    "url": "http://localhost:38003/index.html",
+    "isRepresentativeRun": true,
+    "htmlPath": "/home/runner/work/deep-dive-vm/deep-dive-vm/.lighthouseci/localhost-_index_html-2026_05_13_15_02_42.report.html",
+    "jsonPath": "/home/runner/work/deep-dive-vm/deep-dive-vm/.lighthouseci/localhost-_index_html-2026_05_13_15_02_42.report.json",
+    "summary": {
+      "performance": 0.99,
+      "accessibility": 0.96,
+      "best-practices": 0.96,
+      "seo": 1
+    }
+  }
+]

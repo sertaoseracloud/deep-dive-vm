@@ -1,0 +1,242 @@
+---
+import SectionHead from "../ui/SectionHead.astro";
+---
+
+<section id="faq">
+    <div class="container">
+        <SectionHead
+            center={true}
+            eyebrow="PERGUNTAS FREQUENTES"
+            titleHtml="Antes de você se inscrever."
+        />
+
+        <div class="faq">
+            <details>
+                <summary
+                    >Como funciona o acesso? É ao vivo ou gravado?<span
+                        class="plus">+</span
+                    ></summary
+                >
+                <div class="ans">
+                    <p>
+                        O conteúdo principal das 54h é <b
+                            >gravado em alta densidade</b
+                        >, liberado em sequência por módulo. Você assiste no seu
+                        ritmo, com legendas e velocidade ajustável.
+                    </p>
+                    <p>
+                        Adicionalmente, a comunidade tem <b
+                            >encontros mensais ao vivo</b
+                        > com Cláudio para revisão de arquiteturas reais e tira-dúvidas
+                        sincronizado.
+                    </p>
+                </div>
+            </details>
+
+            <details>
+                <summary
+                    >Preciso ter experiência prévia com Azure?<span class="plus"
+                        >+</span
+                    ></summary
+                >
+                <div class="ans">
+                    <p>
+                        Não é obrigatório, mas <b>recomendado</b>. A mentoria
+                        parte de fundamentos rapidamente e acelera para tópicos
+                        de arquiteto (Confidential VMs, Encryption at Host,
+                        Spot, Scale Sets).
+                    </p>
+                    <p>
+                        Se você já é Engenheiro Pleno/Sênior em qualquer cloud
+                        (AWS, GCP) e nunca tocou Azure · vai conseguir
+                        acompanhar tranquilamente.
+                    </p>
+                </div>
+            </details>
+
+            <details>
+                <summary
+                    >Em quanto tempo eu termino as 54 horas?<span class="plus"
+                        >+</span
+                    ></summary
+                >
+                <div class="ans">
+                    <p>
+                        Alunos que dedicam <b>6h por semana</b> concluem em ~9 semanas.
+                        Quem dedica 10h+/semana, em 5–6 semanas. O acesso é de 12
+                        meses, então não há pressa · mas a turma da comunidade ativa
+                        é a que está cursando agora.
+                    </p>
+                </div>
+            </details>
+
+            <details>
+                <summary
+                    >Recebo certificado? Vale para certificações Microsoft?<span
+                        class="plus">+</span
+                    ></summary
+                >
+                <div class="ans">
+                    <p>
+                        Sim · <b>certificado de conclusão O Sertao será Cloud</b
+                        > emitido por Cláudio Filipe Lima Raposo (Microsoft MVP).
+                    </p>
+                    <p>
+                        O certificado <b>não substitui</b> certificações oficiais
+                        Microsoft, mas o conteúdo prático te dá base sólida para encará-las
+                        depois · o foco aqui é domínio da <b>ferramenta</b>, não
+                        preparação de prova.
+                    </p>
+                </div>
+            </details>
+
+            <details>
+                <summary
+                    >Posso parcelar? Quais formas de pagamento?<span
+                        class="plus">+</span
+                    ></summary
+                >
+                <div class="ans">
+                    <p>
+                        Pagamento processado pela <b>Hotmart</b>: cartão de
+                        crédito em <b>até 12×</b>, PIX (com desconto à vista) e
+                        boleto bancário. Cartões internacionais aceitos.
+                    </p>
+                </div>
+            </details>
+
+            <details>
+                <summary
+                    >E se eu comprar e não gostar?<span class="plus">+</span
+                    ></summary
+                >
+                <div class="ans">
+                    <p>
+                        Garantia de <b>7 dias incondicional</b>. Você pede
+                        reembolso direto pela Hotmart, sem precisar justificar,
+                        e recebe 100% do valor de volta. O risco é nosso.
+                    </p>
+                </div>
+            </details>
+
+            <details>
+                <summary
+                    >Vou ter contato direto com o Cláudio?<span class="plus"
+                        >+</span
+                    ></summary
+                >
+                <div class="ans">
+                    <p>
+                        Sim. O Bônus 02 inclui <b
+                            >6 sessões individuais de 60 minutos</b
+                        > com o Cláudio · você agenda direto na agenda dele para revisar
+                        arquiteturas reais, destravar bloqueios e validar decisões.
+                    </p>
+                    <p>
+                        Sessões adicionais 1:1 podem ser contratadas após a
+                        matrícula via WhatsApp do suporte.
+                    </p>
+                </div>
+            </details>
+
+            <details>
+                <summary
+                    >O conteúdo é apenas Azure ou cobre AWS/GCP?<span
+                        class="plus">+</span
+                    ></summary
+                >
+                <div class="ans">
+                    <p>
+                        Este curso é <b
+                            >100% Deep Dive em Azure Virtual Machines</b
+                        >. Os princípios de arquitetura (Zero Trust, alta
+                        disponibilidade, criptografia, IaC, Spec-Driven Dev,
+                        Well-Architected) são <b>universais</b> e você os aplica em
+                        qualquer nuvem · mas a prática é sempre na stack Microsoft
+                        Azure.
+                    </p>
+                </div>
+            </details>
+        </div>
+    </div>
+</section>
+
+<style>
+    .faq {
+        max-width: 880px;
+        margin: 0 auto;
+    }
+
+    .faq details {
+        border: 1px solid var(--hairline);
+        background: rgba(10, 15, 30, 0.4);
+        border-radius: 2px;
+        transition:
+            border-color 0.2s,
+            background 0.2s;
+    }
+
+    .faq details + details {
+        margin-top: 8px;
+    }
+
+    .faq details[open] {
+        border-color: var(--hairline-strong);
+        background: rgba(27, 41, 60, 0.55);
+    }
+
+    .faq summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 20px 24px;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 16px;
+        align-items: center;
+        font-family: "Chakra Petch", sans-serif;
+        font-weight: 600;
+        font-size: 16px;
+        color: var(--texto-principal);
+        letter-spacing: 0.005em;
+    }
+
+    .faq summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .faq summary:hover {
+        color: var(--nucleo-eletrico);
+    }
+
+    .faq summary .plus {
+        width: 24px;
+        height: 24px;
+        border: 1px solid var(--hairline);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--nucleo-eletrico);
+        transition: transform 0.25s;
+        flex-shrink: 0;
+    }
+
+    .faq details[open] summary .plus {
+        transform: rotate(45deg);
+        background: rgba(0, 255, 255, 0.08);
+    }
+
+    .faq .ans {
+        padding: 0 24px 22px;
+        color: var(--texto-secundario);
+        font-size: 14.5px;
+        line-height: 1.65;
+    }
+
+    .faq .ans p {
+        margin: 0 0 10px;
+    }
+
+    .faq .ans p:last-child {
+        margin-bottom: 0;
+    }
+</style>
