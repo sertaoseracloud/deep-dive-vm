@@ -50,6 +50,9 @@ const testimonials: TestimonialData[] = [
   },
 ];
 
+// React.createElement é usado diretamente porque o transform JSX não é aplicado
+// dentro do bloco frontmatter do Astro (contexto Node/servidor). JSX (<TestimonialCard />)
+// não é transpilado aqui — por isso o import React from "react" acima é necessário.
 const carouselItems = testimonials.map(t => ({
   id: t.id,
   content: React.createElement(TestimonialCard, { data: t }),
