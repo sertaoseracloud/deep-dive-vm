@@ -14,17 +14,45 @@ import Curriculum from "../components/sections/Curriculum.astro";
 import Mentor from "../components/sections/Mentor.astro";
 import ForWho from "../components/sections/ForWho.astro";
 import Bonuses from "../components/sections/Bonuses.astro";
-import Testimonials from "../components/sections/Testimonials.astro";
 import Pricing from "../components/sections/Pricing.astro";
 import Faq from "../components/sections/Faq.astro";
 import LegalModals from "../components/ui/LegalModals.astro";
 
+import React from "react";
 import { CarouselMotion } from "../components/CarouselMotion";
 import { MobileMenuMotion } from "../components/MobileMenuMotion";
 import { SettingsToggle } from "../components/SettingsToggle";
+import { TestimonialCard } from "../components/TestimonialCard";
+import type { TestimonialData } from "../components/TestimonialCard";
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+const testimonials: TestimonialData[] = [
+  {
+    id: "rafael-m",
+    initials: "RM",
+    quote: "O módulo de Zero Trust e Bastion sozinho já pagou a mentoria. Em 3 semanas reescrevi a topologia de rede do meu cliente em Terraform · e fechei um aumento de R$ 4k no contrato.",
+    name: "Rafael M.",
+    role: "SR. CLOUD ENGINEER · FINTECH",
+  },
+  {
+    id: "juliana-s",
+    initials: "JS",
+    quote: "Eu já era Senior, mas não conseguia explicar arquitetura para diretoria. O método de '4 frentes' me deu vocabulário e visão sistêmica. Saí pronto para o cargo de Arquiteto.",
+    name: "Juliana S.",
+    role: "CLOUD ARCHITECT · SAAS B2B",
+  },
+  {
+    id: "diego-a",
+    initials: "DA",
+    quote: "Spot VMs + Reserved + auto-shutdown via CLI cortou 38% do meu billing mensal no primeiro mês. Cláudio mostra o 'por quê' antes do 'como' · isso muda o jogo.",
+    name: "Diego A.",
+    role: "DEVOPS LEAD · CONSULTORIA",
+  },
+];
+
+const carouselItems = testimonials.map(t => ({
+  id: t.id,
+  content: React.createElement(TestimonialCard, { data: t }),
+}));
 ---
 
 <Layout
@@ -45,8 +73,7 @@ import { SettingsToggle } from "../components/SettingsToggle";
 		<Mentor />
 		<ForWho />
 		<Bonuses />
-		<Testimonials />
-		<CarouselMotion client:load items={[{ id: "1", content: "Great product!" }, { id: "2", content: "Highly recommended." }]} />
+		<CarouselMotion client:load items={carouselItems} />
 		<Pricing />
 		<Faq />
 		<Footer />
