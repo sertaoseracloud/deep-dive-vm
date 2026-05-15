@@ -103,8 +103,9 @@ export function applyFallback(
   element: HTMLElement,
   properties: Partial<CSSStyleDeclaration>
 ): void {
+  const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   Object.assign(element.style, {
-    transition: "all 150ms ease-out",
+    ...(prefersReduced ? {} : { transition: "all 150ms ease-out" }),
     ...properties,
   });
 }
