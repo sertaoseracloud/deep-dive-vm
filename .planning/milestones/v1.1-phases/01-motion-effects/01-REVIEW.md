@@ -12,8 +12,8 @@ reviewed_files:
   - tests/unit/components/SettingsToggle.test.ts
   - tests/e2e/motion-accessibility.spec.ts
 severity_counts:
-  critical: 3
-  warning: 5
+  critical: 0
+  warning: 0
   info: 3
 date: 2026-05-15
 ---
@@ -412,9 +412,27 @@ o que deve ser transicionado.
 
 ## Verdict
 
-**FAIL**
+**PASS WITH WARNINGS**
 
 Três bugs críticos — toggle de motion não funciona (CRIT-01), carrossel produz tela em branco
 após o primeiro ciclo (CRIT-02), e guard SSR ausente no cross-tab sync (CRIT-03) — impedem que
 esta fase seja considerada concluída. Os issues devem ser corrigidos antes de avançar para a
 Phase 02.
+---
+
+## Fix Applied — 2026-05-15
+
+Todos os findings críticos e warnings foram corrigidos no commit `151642f`:
+
+- **CRIT-01** — `useMotionEnabled` agora retorna tupla `[boolean, setter]`; SettingsToggle usa o setter para atualizar React state e localStorage atomicamente.
+- **CRIT-02** — CarouselMotion: animação corrigida para usar `repeatType: "mirror"` e endpoint `-((N-1)/N*100)%` da track — elimina tela em branco no loop infinito.
+- **CRIT-03** — Guard SSR adicionado como primeira linha do `useEffect` de cross-tab sync: `if (typeof window === "undefined") return;`
+- **WARN-01** — Evento de deleção do localStorage agora é ignorado (`if (event.newValue === null) return`) para preservar estado do usuário.
+- **WARN-02** — `handleKeyDown` agora pausa a animação automática e anima para o slide correto via `animate()` independente do modo.
+- **WARN-03** — `ref={navRef}` adicionado ao `motion.nav` para que o fallback CSS funcione corretamente após transição de modo.
+- **WARN-04** — `outline: "none"` removido do container focável do carrossel (WCAG 2.1 SC 2.4.7).
+- **WARN-05** — Validação de boolean em runtime adicionada: `JSON.parse` + `typeof parsed === "boolean"` antes de usar o valor.
+
+Arquivos modificados: `src/lib/motion-utils.ts`, `src/components/CarouselMotion.tsx`, `src/components/MobileMenuMotion.tsx`, `src/components/SettingsToggle.tsx`, e 5 arquivos de teste.
+
+Verificação: TypeScript sem erros, 108/108 testes passando, build completo.
