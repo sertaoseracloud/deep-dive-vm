@@ -281,6 +281,28 @@ import SectionHead from "../ui/SectionHead.astro";
         box-shadow:
             var(--shadow-card),
             0 0 60px rgba(0, 255, 255, 0.15);
+        transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+        will-change: transform;
+    }
+
+    .price-card:hover {
+        transform: translateY(-6px) scale(1.01);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--nucleo-eletrico);
+    }
+
+    .price-card:focus-within {
+        outline: 2px solid var(--nucleo-eletrico);
+        outline-offset: 4px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .price-card {
+            transition: box-shadow 0.15s ease-out;
+        }
+        .price-card:hover {
+            transform: none;
+            box-shadow: 0 0 0 2px var(--nucleo-eletrico);
+        }
     }
 
     .price-ribbon {
