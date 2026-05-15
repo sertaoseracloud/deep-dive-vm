@@ -1,4 +1,4 @@
-# Phase 3: Motion Critique — Research
+﻿# Phase 3: Motion Critique — Research
 
 **Pesquisado:** 2026-05-15
 **Domínio:** Critique de animação com impeccable + migração de contexto via git worktree
@@ -381,7 +381,7 @@ grep -r "ease:" src/components --include="*.astro"
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Discrepância de easing entre design.json e REQUIREMENTS.md**
    - O que sabemos: design.json tem `ease-out-standard: cubic-bezier(0.0, 0.0, 0.2, 1)` (Material Design ease-out). REQUIREMENTS.md ANIM-03 especifica `ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1)`.
