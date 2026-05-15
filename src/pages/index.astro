@@ -20,6 +20,7 @@ import LegalModals from "../components/ui/LegalModals.astro";
 
 import React from "react";
 import { CarouselMotion } from "../components/CarouselMotion";
+import { HeroMotion } from "../components/HeroMotion";
 import { MobileMenuMotion } from "../components/MobileMenuMotion";
 import { SettingsToggle } from "../components/SettingsToggle";
 import { TestimonialCard } from "../components/TestimonialCard";
@@ -65,7 +66,7 @@ const carouselItems = testimonials.map(t => ({
 	<NavBar />
 	<MobileMenuMotion client:load />
 	<main id="main" tabindex="-1">
-		<Hero />
+		<HeroMotion client:visible><Hero /></HeroMotion>
 		<TrustBand />
 		<PainPoints />
 		<Method />
