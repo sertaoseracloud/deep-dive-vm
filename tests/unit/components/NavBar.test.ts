@@ -8,6 +8,12 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 
+// NOTE: Este callback é uma cópia manual da lógica do IntersectionObserver em NavBar.astro
+// (bloco scrollObserver, linhas ~175-182). Como arquivos Astro não podem ser importados
+// no Vitest, a lógica é re-implementada aqui. Se o script do NavBar.astro mudar,
+// este helper de teste deve ser atualizado manualmente.
+// Cobertura em nível de browser é fornecida por tests/e2e/homepage.spec.ts.
+//
 // Simular o callback exato do NavBar.astro:
 //   nav.dataset.scrolled = String(!entries[0].isIntersecting);
 function createNavScrollCallback(nav: HTMLElement) {
