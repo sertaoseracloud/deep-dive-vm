@@ -15,3 +15,16 @@
 - [x] Plan 01-03: Full test suite — Vitest unit tests (renderHook hook coverage), Playwright E2E axe-core spec, Lighthouse CI CLS/TBT budget
 
 </details>
+
+<details>
+<summary>🔲 v1.1 Motion Effects Implementation (Phase 2) — Page Integration & Remaining Animations</summary>
+
+**Goal:** Complete the remaining v1.1 motion scope deferred by D-SCOPE-01: wire the MobileMenuMotion trigger, connect real testimonials to CarouselMotion, style SettingsToggle visibly, and implement Hero Section, Pricing Cards, and NavBar motion effects.
+
+**Depends on:** Phase 1
+
+- [ ] Plan 02-01: Integration loose ends — MobileMenuMotion trigger button, real testimonials in CarouselMotion, SettingsToggle styling
+- [ ] Plan 02-02: Hero Section animations — parallax scroll, fade-in on scroll, CTA hover states
+- [ ] Plan 02-03: Pricing Cards hover effects and NavBar sticky/active state animations
+
+</details>
