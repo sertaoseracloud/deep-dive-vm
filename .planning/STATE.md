@@ -1,46 +1,35 @@
----
+﻿---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Motion Effects Implementation
-status: milestone_complete
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-05-15T15:55:58.680Z"
+milestone: v1.2
+milestone_name: Animation Polish
+status: planning
+stopped_at: ""
+last_updated: "2026-05-15T17:00:00.000Z"
 progress:
-  total_phases: 1
+  total_phases: 3
   completed_phases: 0
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
-- Config: auto mode, focus on testing, SEO, and motion effects, TDD enabled.
-- Research: completed for motion package selection (motion@12.38.0).
+- Config: auto mode, focus on animation quality, impeccable framework, TDD enabled.
+- Research: not needed — stack (motion@12.38.0) e design context (DESIGN.md) já estabelecidos.
 - Requirements: defined in `.planning/REQUIREMENTS.md`.
 - Roadmap: defined in `.planning/ROADMAP.md`.
 
 ## Current Position
 
-Phase: 01-motion-effects
-Plan: ALL COMPLETE (3/3)
-
-## Completed Plans
-
-- 01-01: Install motion package and create motion-utils.ts — DONE (2026-05-15)
-- 01-02: Rewrite CarouselMotion, MobileMenuMotion, SettingsToggle with motion/react — DONE (2026-05-15)
-- 01-03: Full test suite (Vitest unit, Playwright E2E axe-core, Lighthouse CI) — DONE (2026-05-15)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-15 — Milestone v1.2 started
 
 ## Decisions
 
-- Use motion@12.38.0 (not framer-motion, not @motionone/dom) per research recommendation
-- prefers-reduced-motion system setting overrides localStorage value unconditionally
-- applyFallback transition fixed at 150ms ease-out to satisfy D-01 performance constraint
-- Wave 2 to update component imports from ../lib/motion to ../lib/motion-utils
-- E2E groups 2-4 use test.skip with TODO comments; page integration deferred to Phase 02
-- @lhci/cli chosen for Lighthouse CI (already installed v0.14.0); unlighthouse not needed
-
-## Last Session
-
-Timestamp: 2026-05-15T10:09:17Z
-Stopped at: Completed 01-03-PLAN.md
-Resume file: None
+- Escopo restrito a animação — sem alterações no design visual (cores, tipografia, layout)
+- Contexto impeccable (PRODUCT.md, DESIGN.md, .impeccable/design.json) em worktree impeccable-teach — merge para main na Phase 3
+- Fases continuam numeração de v1.1 (última foi Phase 2) → v1.2 começa na Phase 3
+- impeccable critique usada como input para o plano de animação (não como redesign)
+- impeccable audit como gate de qualidade final (60fps, reduced-motion, CLS)
