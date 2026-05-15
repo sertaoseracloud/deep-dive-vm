@@ -67,6 +67,7 @@ describe("applyFallback()", () => {
 
 // ---------------------------------------------------------------------------
 // useMotionEnabled hook (via renderHook from @testing-library/react)
+// useMotionEnabled now returns a tuple: [boolean, (value: boolean) => void]
 // ---------------------------------------------------------------------------
 describe("useMotionEnabled()", () => {
   beforeEach(() => {
@@ -81,19 +82,30 @@ describe("useMotionEnabled()", () => {
 
   it("returns true by default (no localStorage entry, no prefers-reduced-motion)", () => {
     const { result } = renderHook(() => useMotionEnabled());
-    expect(result.current).toBe(true);
+    expect(result.current[0]).toBe(true);
   });
 
   it("returns false when localStorage has motionEnabled='false'", () => {
     localStorage.setItem(MOTION_STORAGE_KEY, "false");
     const { result } = renderHook(() => useMotionEnabled());
-    expect(result.current).toBe(false);
+    expect(result.current[0]).toBe(false);
   });
 
   it("returns false when prefers-reduced-motion is active (overrides localStorage 'true')", () => {
     localStorage.setItem(MOTION_STORAGE_KEY, "true");
     vi.mocked(useReducedMotion).mockReturnValue(true);
     const { result } = renderHook(() => useMotionEnabled());
-    expect(result.current).toBe(false);
+    expect(result.current[0]).toBe(false);
+  });
+
+  it("returns a setter function as the second element of the tuple", () => {
+    const { result } = renderHook(() => useMotionEnabled());
+    expect(typeof result.current[1]).toBe("function");
+  });
+
+  it("ignores non-boolean localStorage values and uses default true", () => {
+    localStorage.setItem(MOTION_STORAGE_KEY, "123");
+    const { result } = renderHook(() => useMotionEnabled());
+    expect(result.current[0]).toBe(true);
   });
 });

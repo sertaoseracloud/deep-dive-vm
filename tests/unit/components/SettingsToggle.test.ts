@@ -5,7 +5,7 @@
 import { describe, it, expect, vi } from "vitest";
 
 vi.mock("../../../src/lib/motion-utils", () => ({
-  useMotionEnabled: () => true,
+  useMotionEnabled: () => [true, vi.fn()],
   setMotionEnabled: vi.fn(),
   MOTION_STORAGE_KEY: "motionEnabled",
 }));

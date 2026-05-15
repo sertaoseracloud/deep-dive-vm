@@ -10,7 +10,7 @@ vi.mock("motion/react", () => ({
 }));
 
 vi.mock("../../../src/lib/motion-utils", () => ({
-  useMotionEnabled: () => true,
+  useMotionEnabled: () => [true, vi.fn()],
   applyFallback: vi.fn(),
   MOTION_STORAGE_KEY: "motionEnabled",
 }));

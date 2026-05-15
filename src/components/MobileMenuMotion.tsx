@@ -9,7 +9,7 @@ interface MobileMenuMotionProps {
 }
 
 export const MobileMenuMotion: React.FC<MobileMenuMotionProps> = ({ isOpen, children }) => {
-  const motionEnabled = useMotionEnabled();
+  const [motionEnabled] = useMotionEnabled();
   const navRef = useRef<HTMLElement>(null);
 
   // Fallback: apply CSS transform synchronously when motion is disabled
@@ -24,6 +24,7 @@ export const MobileMenuMotion: React.FC<MobileMenuMotionProps> = ({ isOpen, chil
   if (motionEnabled) {
     return (
       <motion.nav
+        ref={navRef}
         initial={{ x: "-100%" }}
         animate={{ x: isOpen ? "0%" : "-100%" }}
         transition={{ duration: 0.15, ease: "easeOut" }}

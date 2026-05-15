@@ -112,7 +112,7 @@ describe("useMotionEnabled()", () => {
     mockUseReducedMotion.mockReturnValue(false);
 
     const { result } = renderHook(() => useMotionEnabled());
-    expect(result.current).toBe(true);
+    expect(result.current[0]).toBe(true);
   });
 
   it("returns true when localStorage has 'true' and media query does not reduce", () => {
@@ -120,7 +120,7 @@ describe("useMotionEnabled()", () => {
     mockUseReducedMotion.mockReturnValue(false);
 
     const { result } = renderHook(() => useMotionEnabled());
-    expect(result.current).toBe(true);
+    expect(result.current[0]).toBe(true);
   });
 
   it("returns false when localStorage has 'false' regardless of media query", () => {
@@ -128,7 +128,7 @@ describe("useMotionEnabled()", () => {
     mockUseReducedMotion.mockReturnValue(false);
 
     const { result } = renderHook(() => useMotionEnabled());
-    expect(result.current).toBe(false);
+    expect(result.current[0]).toBe(false);
   });
 
   it("returns false when prefers-reduced-motion is reduce, regardless of localStorage 'true'", () => {
@@ -136,7 +136,7 @@ describe("useMotionEnabled()", () => {
     mockUseReducedMotion.mockReturnValue(true);
 
     const { result } = renderHook(() => useMotionEnabled());
-    expect(result.current).toBe(false);
+    expect(result.current[0]).toBe(false);
   });
 
   it("returns false when prefers-reduced-motion is reduce and localStorage is null", () => {
@@ -144,7 +144,7 @@ describe("useMotionEnabled()", () => {
     mockUseReducedMotion.mockReturnValue(true);
 
     const { result } = renderHook(() => useMotionEnabled());
-    expect(result.current).toBe(false);
+    expect(result.current[0]).toBe(false);
   });
 
   it("updates state when a storage event fires with new value", () => {
@@ -152,7 +152,7 @@ describe("useMotionEnabled()", () => {
     mockUseReducedMotion.mockReturnValue(false);
 
     const { result } = renderHook(() => useMotionEnabled());
-    expect(result.current).toBe(true);
+    expect(result.current[0]).toBe(true);
 
     act(() => {
       // Simulate cross-tab storage event changing the value to false
@@ -166,6 +166,6 @@ describe("useMotionEnabled()", () => {
       );
     });
 
-    expect(result.current).toBe(false);
+    expect(result.current[0]).toBe(false);
   });
 });
