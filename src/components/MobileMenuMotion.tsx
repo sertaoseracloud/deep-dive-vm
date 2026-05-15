@@ -30,7 +30,7 @@ export const MobileMenuMotion: React.FC<{ children?: React.ReactNode }> = ({ chi
         initial={{ x: "-100%" }}
         animate={{ x: isOpen ? "0%" : "-100%" }}
         transition={{ duration: 0.15, ease: "easeOut" }}
-        aria-hidden={!isOpen}
+        aria-hidden={!isOpen ? "true" : undefined}
         aria-label="Mobile navigation menu"
         style={{
           position: "fixed",
@@ -50,7 +50,7 @@ export const MobileMenuMotion: React.FC<{ children?: React.ReactNode }> = ({ chi
   return (
     <nav
       ref={navRef}
-      aria-hidden={!isOpen}
+      aria-hidden={!isOpen ? "true" : undefined}
       aria-label="Mobile navigation menu"
       style={{
         position: "fixed",

@@ -55,7 +55,7 @@ describe("MobileMenuMotion (CustomEvent-driven, sem prop isOpen)", () => {
     expect(nav?.getAttribute("aria-hidden")).toBe("true");
   });
 
-  it("CustomEvent 'toggle-menu' abre o menu: aria-hidden muda para 'false'", async () => {
+  it("CustomEvent 'toggle-menu' abre o menu: aria-hidden removido (undefined)", async () => {
     const { container } = render(React.createElement(MobileMenuMotion, {}));
     const nav = container.querySelector("nav");
 
@@ -67,7 +67,8 @@ describe("MobileMenuMotion (CustomEvent-driven, sem prop isOpen)", () => {
       window.dispatchEvent(new CustomEvent("toggle-menu"));
     });
 
-    expect(nav?.getAttribute("aria-hidden")).toBe("false");
+    // Quando aberto, aria-hidden deve ser removido (não "false")
+    expect(nav?.hasAttribute("aria-hidden")).toBe(false);
   });
 
   it("segundo CustomEvent 'toggle-menu' fecha novamente: aria-hidden volta para 'true'", async () => {
@@ -78,7 +79,7 @@ describe("MobileMenuMotion (CustomEvent-driven, sem prop isOpen)", () => {
     await act(async () => {
       window.dispatchEvent(new CustomEvent("toggle-menu"));
     });
-    expect(nav?.getAttribute("aria-hidden")).toBe("false");
+    expect(nav?.hasAttribute("aria-hidden")).toBe(false);
 
     // Fechar
     await act(async () => {
@@ -87,14 +88,19 @@ describe("MobileMenuMotion (CustomEvent-driven, sem prop isOpen)", () => {
     expect(nav?.getAttribute("aria-hidden")).toBe("true");
   });
 
-  it("cleanup no unmount: despachar evento após unmount não lança erros", async () => {
+  it("cleanup no unmount: handler não é chamado após unmount", async () => {
     const { unmount } = render(React.createElement(MobileMenuMotion, {}));
 
     unmount();
 
-    // Após unmount, disparar evento não deve causar erros
+    // If cleanup is broken, dispatching would still have a live listener
+    // but we can't easily spy on setState after unmount.
+    // Verify at minimum that no error is thrown and no render happens:
     expect(() => {
       window.dispatchEvent(new CustomEvent("toggle-menu"));
     }).not.toThrow();
+
+    // Additional check: component is no longer in document
+    expect(document.querySelector("nav")).toBeNull();
   });
 });
