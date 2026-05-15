@@ -27,6 +27,20 @@ import Button from "../ui/Button.astro";
       <a href="#faq">FAQ</a>
     </div>
 
+    <button
+      id="hamburger-btn"
+      class="hamburger"
+      aria-label="Abrir menu de navegação"
+      aria-expanded="false"
+      type="button"
+    >
+      <svg width="22" height="16" viewBox="0 0 22 16" fill="none" aria-hidden="true">
+        <rect y="0" width="22" height="2" rx="1" fill="currentColor"/>
+        <rect y="7" width="22" height="2" rx="1" fill="currentColor"/>
+        <rect y="14" width="22" height="2" rx="1" fill="currentColor"/>
+      </svg>
+    </button>
+
     <Button href="#investimento" variant="primary" customClass="nav-cta" testid="nav-cta">
       Garantir Vaga
     </Button>
@@ -115,4 +129,30 @@ import Button from "../ui/Button.astro";
       display: none;
     }
   }
+
+  .hamburger {
+    display: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    color: var(--texto-principal, #fff);
+    border-radius: 4px;
+  }
+  @media (max-width: 980px) {
+    .hamburger { display: flex; align-items: center; }
+  }
 </style>
+
+<script>
+  const btn = document.getElementById("hamburger-btn");
+  if (btn) {
+    let menuOpen = false;
+    btn.addEventListener("click", () => {
+      menuOpen = !menuOpen;
+      btn.setAttribute("aria-expanded", String(menuOpen));
+      btn.setAttribute("aria-label", menuOpen ? "Fechar menu de navegação" : "Abrir menu de navegação");
+      window.dispatchEvent(new CustomEvent("toggle-menu"));
+    });
+  }
+</script>

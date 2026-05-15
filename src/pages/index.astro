@@ -35,8 +35,7 @@ import { SettingsToggle } from "../components/SettingsToggle";
 	<a href="#main" class="skip-link">Pular para o conteúdo</a>
 	<UrgencyBar />
 	<NavBar />
-	{/* TODO: wire open/close trigger in Phase 02 */}
-	<MobileMenuMotion client:load isOpen={false} />
+	<MobileMenuMotion client:load />
 	<main id="main" tabindex="-1">
 		<Hero />
 		<TrustBand />

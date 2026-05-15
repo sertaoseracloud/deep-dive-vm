@@ -1,18 +1,20 @@
 // src/components/MobileMenuMotion.tsx
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { useMotionEnabled, applyFallback } from "../lib/motion-utils";
 
-interface MobileMenuMotionProps {
-  isOpen: boolean;
-  children?: React.ReactNode;
-}
-
-export const MobileMenuMotion: React.FC<MobileMenuMotionProps> = ({ isOpen, children }) => {
+export const MobileMenuMotion: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const [motionEnabled] = useMotionEnabled();
+  const [isOpen, setIsOpen] = useState(false);
   const navRef = useRef<HTMLElement>(null);
 
-  // Fallback: apply CSS transform synchronously when motion is disabled
+  // Listen for toggle-menu CustomEvent dispatched by NavBar hamburger button
+  useEffect(() => {
+    const handler = () => setIsOpen(prev => !prev);
+    window.addEventListener("toggle-menu", handler);
+    return () => window.removeEventListener("toggle-menu", handler);
+  }, []);
+
   useEffect(() => {
     if (!motionEnabled && navRef.current) {
       applyFallback(navRef.current, {

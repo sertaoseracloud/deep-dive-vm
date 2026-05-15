@@ -1,11 +1,20 @@
 // tests/unit/components/MobileMenuMotion.test.tsx
-// RED phase — tests written before the MobileMenuMotion refactor.
-// Verifies the component manages its own open/close state (no isOpen prop).
+// Tests written in RED phase to drive the MobileMenuMotion refactor:
+// - Component manages open/close state internally (no isOpen prop).
+// - Component renders a nav element.
 
 import { describe, it, expect, vi } from "vitest";
+import React from "react";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("motion/react", () => ({
-  motion: { nav: "nav", div: "div" },
+  motion: {
+    nav: React.forwardRef((props: React.HTMLAttributes<HTMLElement> & { initial?: unknown; animate?: unknown; transition?: unknown }, ref) =>
+      createElement("nav", { ...props, ref })
+    ),
+    div: "div",
+  },
   useReducedMotion: () => false,
 }));
 
@@ -22,21 +31,23 @@ describe("MobileMenuMotion (refactored — no isOpen prop)", () => {
     expect(typeof MobileMenuMotion).toBe("function");
   });
 
-  it("does NOT require isOpen as a prop (accepts only children or nothing)", () => {
-    // The component must not have `isOpen` in its props signature.
-    // We inspect the function length: a component with (children?) has no required args.
-    // If isOpen were required, length would be > 0 with a prop object.
-    // We verify by checking the component is callable with an empty props object.
-    const renderWithNoIsOpen = () => MobileMenuMotion({});
-    // If the type system (at runtime) still uses isOpen, this call may produce unexpected output,
-    // but calling it should not throw a type error that crashes.
-    expect(renderWithNoIsOpen).not.toThrow();
+  it("does NOT have isOpen in its prop type (only children allowed)", () => {
+    // Verify that the component accepts an empty props object without TypeScript errors.
+    // If the component still required isOpen, passing {} would be a type violation.
+    // At runtime we check via the component's displayName or by inspecting length.
+    // The component should have exactly 0-1 required args (props object).
+    // We check: calling with {} (no isOpen) should not result in isOpen being destructured.
+    const props = {};
+    // The component type must be callable with props that has no isOpen key.
+    // TypeScript enforces this at compile time; at runtime we verify it doesn't crash
+    // due to missing isOpen by using renderToStaticMarkup (React SSR, no hooks issues).
+    // Note: useEffect won't run in SSR, useState IS supported.
+    const html = renderToStaticMarkup(createElement(MobileMenuMotion, props));
+    expect(html).toContain("<nav");
   });
 
-  it("component signature does not include isOpen (prop not in prop keys of default call)", () => {
-    // The component must accept { children? } only. We verify by calling with undefined children.
-    const result = MobileMenuMotion({ children: undefined });
-    // Should return a React element (object with $$typeof or null/string in mocked env)
-    expect(result).toBeDefined();
+  it("renders a nav element", () => {
+    const html = renderToStaticMarkup(createElement(MobileMenuMotion, {}));
+    expect(html).toContain("<nav");
   });
 });
