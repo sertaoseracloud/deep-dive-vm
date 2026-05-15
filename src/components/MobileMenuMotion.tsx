@@ -23,6 +23,18 @@ export const MobileMenuMotion: React.FC<{ children?: React.ReactNode }> = ({ chi
     }
   }, [isOpen, motionEnabled]);
 
+  // Escape key handler: fecha o menu quando o usuário pressiona Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        window.dispatchEvent(new CustomEvent("toggle-menu"));
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
   if (motionEnabled) {
     return (
       <motion.nav
