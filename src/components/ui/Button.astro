@@ -120,6 +120,7 @@ const classList = [
   @media (prefers-reduced-motion: reduce) {
     .btn {
       will-change: auto;
+      transition: none;
     }
     .btn:hover {
       transform: none;
@@ -129,7 +130,8 @@ const classList = [
   /* Touch target para mobile */
   @media (max-width: 720px) {
     .btn {
-      min-height: 44px;
+      will-change: auto;
+      transition: none;
     }
   }
 </style>
