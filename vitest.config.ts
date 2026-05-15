@@ -18,7 +18,9 @@ export default getViteConfig({
           name: "unit-integration",
           include: [
             "tests/unit/**/*.test.ts",
+            "tests/unit/**/*.test.tsx",
             "tests/integration/**/*.test.ts",
+            "tests/integration/**/*.test.tsx",
           ],
           environment: "happy-dom",
           globalSetup: ["./tests/unit/setup.ts"],
