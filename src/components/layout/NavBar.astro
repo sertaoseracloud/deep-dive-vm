@@ -127,7 +127,7 @@ import Button from "../ui/Button.astro";
     color: var(--nucleo-eletrico, #00FFFF);
   }
 
-  .nav-links a[aria-current="true"] {
+  .nav-links a[aria-current="page"] {
     color: var(--nucleo-eletrico, #00FFFF);
     border-bottom: 2px solid currentColor;
   }
@@ -225,7 +225,7 @@ import Button from "../ui/Button.astro";
             // Adiciona aria-current ao link da seção visível
             const activeLink = linkMap.get(sectionId);
             if (activeLink) {
-              activeLink.setAttribute("aria-current", "true");
+              activeLink.setAttribute("aria-current", "page");
             }
           }
         });
