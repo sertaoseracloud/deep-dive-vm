@@ -19,6 +19,10 @@ import Pricing from "../components/sections/Pricing.astro";
 import Faq from "../components/sections/Faq.astro";
 import LegalModals from "../components/ui/LegalModals.astro";
 
+import { CarouselMotion } from "../components/CarouselMotion";
+import { MobileMenuMotion } from "../components/MobileMenuMotion";
+import { SettingsToggle } from "../components/SettingsToggle";
+
 // Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
 // Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
 ---
@@ -31,6 +35,8 @@ import LegalModals from "../components/ui/LegalModals.astro";
 	<a href="#main" class="skip-link">Pular para o conteúdo</a>
 	<UrgencyBar />
 	<NavBar />
+	{/* TODO: wire open/close trigger in Phase 02 */}
+	<MobileMenuMotion client:load isOpen={false} />
 	<main id="main" tabindex="-1">
 		<Hero />
 		<TrustBand />
@@ -41,10 +47,14 @@ import LegalModals from "../components/ui/LegalModals.astro";
 		<ForWho />
 		<Bonuses />
 		<Testimonials />
+		<CarouselMotion client:load items={[{ id: "1", content: "Great product!" }, { id: "2", content: "Highly recommended." }]} />
 		<Pricing />
 		<Faq />
 		<Footer />
 		<StickyCta />
 		<LegalModals />
+		<div class="motion-settings">
+			<SettingsToggle client:load />
+		</div>
 	</main>
 </Layout>
