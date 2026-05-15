@@ -106,6 +106,40 @@ test.describe("Responsive viewports", () => {
   });
 });
 
+test.describe("Hamburger menu interactions", () => {
+  test("hamburger toggle: aria-expanded muda de 'false' para 'true' e volta para 'false'", async ({ page }) => {
+    await page.goto("./");
+
+    const hamburger = page.locator("#hamburger-btn");
+
+    // Estado inicial: fechado
+    await expect(hamburger).toHaveAttribute("aria-expanded", "false");
+
+    // Clicar: abrir
+    await hamburger.click();
+    await expect(hamburger).toHaveAttribute("aria-expanded", "true");
+
+    // Clicar novamente: fechar
+    await hamburger.click();
+    await expect(hamburger).toHaveAttribute("aria-expanded", "false");
+  });
+});
+
+test.describe("Price card CSS hover properties", () => {
+  test("price-card existe e tem will-change='transform' no CSS", async ({ page }) => {
+    await page.goto("./#investimento");
+
+    const priceCard = page.locator(".price-card").first();
+    await expect(priceCard).toBeVisible();
+
+    // Verificar computed style will-change (confirma que CSS foi aplicado)
+    const willChange = await priceCard.evaluate(
+      (el) => window.getComputedStyle(el).willChange
+    );
+    expect(willChange).toBe("transform");
+  });
+});
+
 test.describe("Accessibility smoke check", () => {
   // NOTE: This is the least stable test â€” depends on font loading and CSS var resolution
   // in headless Chromium. retries: 2 in playwright.config.ts provides flake recovery.

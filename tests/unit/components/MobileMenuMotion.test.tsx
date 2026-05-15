@@ -1,17 +1,29 @@
 // tests/unit/components/MobileMenuMotion.test.tsx
-// Tests written in RED phase to drive the MobileMenuMotion refactor:
-// - Component manages open/close state internally (no isOpen prop).
-// - Component renders a nav element.
+// Suite completa cobrindo o contrato pós-02-01:
+// - Sem prop isOpen (estado interno)
+// - CustomEvent "toggle-menu" controla abertura/fechamento
+// - Listener é limpo no unmount
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import React from "react";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { render, act, cleanup } from "@testing-library/react";
 
 vi.mock("motion/react", () => ({
   motion: {
-    nav: React.forwardRef((props: React.HTMLAttributes<HTMLElement> & { initial?: unknown; animate?: unknown; transition?: unknown }, ref) =>
-      createElement("nav", { ...props, ref })
+    nav: React.forwardRef(
+      (
+        props: React.HTMLAttributes<HTMLElement> & {
+          initial?: unknown;
+          animate?: unknown;
+          transition?: unknown;
+          "aria-hidden"?: boolean | string;
+          "aria-label"?: string;
+        },
+        ref: React.Ref<HTMLElement>
+      ) => {
+        const { initial: _i, animate: _a, transition: _t, ...rest } = props;
+        return React.createElement("nav", { ...rest, ref });
+      }
     ),
     div: "div",
   },
@@ -26,28 +38,63 @@ vi.mock("../../../src/lib/motion-utils", () => ({
 
 import { MobileMenuMotion } from "../../../src/components/MobileMenuMotion";
 
-describe("MobileMenuMotion (refactored — no isOpen prop)", () => {
-  it("is a function (React component)", () => {
-    expect(typeof MobileMenuMotion).toBe("function");
+afterEach(() => {
+  cleanup();
+});
+
+describe("MobileMenuMotion (CustomEvent-driven, sem prop isOpen)", () => {
+  it("renderiza sem prop isOpen (nova API)", () => {
+    const { container } = render(React.createElement(MobileMenuMotion, {}));
+    expect(container.querySelector("nav")).toBeTruthy();
   });
 
-  it("does NOT have isOpen in its prop type (only children allowed)", () => {
-    // Verify that the component accepts an empty props object without TypeScript errors.
-    // If the component still required isOpen, passing {} would be a type violation.
-    // At runtime we check via the component's displayName or by inspecting length.
-    // The component should have exactly 0-1 required args (props object).
-    // We check: calling with {} (no isOpen) should not result in isOpen being destructured.
-    const props = {};
-    // The component type must be callable with props that has no isOpen key.
-    // TypeScript enforces this at compile time; at runtime we verify it doesn't crash
-    // due to missing isOpen by using renderToStaticMarkup (React SSR, no hooks issues).
-    // Note: useEffect won't run in SSR, useState IS supported.
-    const html = renderToStaticMarkup(createElement(MobileMenuMotion, props));
-    expect(html).toContain("<nav");
+  it("menu inicia fechado: aria-hidden='true'", () => {
+    const { container } = render(React.createElement(MobileMenuMotion, {}));
+    const nav = container.querySelector("nav");
+    // Menu fechado: aria-hidden deve ser "true"
+    expect(nav?.getAttribute("aria-hidden")).toBe("true");
   });
 
-  it("renders a nav element", () => {
-    const html = renderToStaticMarkup(createElement(MobileMenuMotion, {}));
-    expect(html).toContain("<nav");
+  it("CustomEvent 'toggle-menu' abre o menu: aria-hidden muda para 'false'", async () => {
+    const { container } = render(React.createElement(MobileMenuMotion, {}));
+    const nav = container.querySelector("nav");
+
+    // Estado inicial: fechado
+    expect(nav?.getAttribute("aria-hidden")).toBe("true");
+
+    // Disparar evento de abertura
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("toggle-menu"));
+    });
+
+    expect(nav?.getAttribute("aria-hidden")).toBe("false");
+  });
+
+  it("segundo CustomEvent 'toggle-menu' fecha novamente: aria-hidden volta para 'true'", async () => {
+    const { container } = render(React.createElement(MobileMenuMotion, {}));
+    const nav = container.querySelector("nav");
+
+    // Abrir
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("toggle-menu"));
+    });
+    expect(nav?.getAttribute("aria-hidden")).toBe("false");
+
+    // Fechar
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("toggle-menu"));
+    });
+    expect(nav?.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("cleanup no unmount: despachar evento após unmount não lança erros", async () => {
+    const { unmount } = render(React.createElement(MobileMenuMotion, {}));
+
+    unmount();
+
+    // Após unmount, disparar evento não deve causar erros
+    expect(() => {
+      window.dispatchEvent(new CustomEvent("toggle-menu"));
+    }).not.toThrow();
   });
 });
