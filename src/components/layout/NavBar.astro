@@ -120,11 +120,22 @@ import Button from "../ui/Button.astro";
     text-decoration: none;
     font-size: 13px;
     color: var(--texto-secundario);
-    transition: color 0.2s;
+    transition: color 0.15s ease-out, border-color 0.15s ease-out;
   }
 
   .nav-links a:hover {
-    color: var(--nucleo-eletrico);
+    color: var(--nucleo-eletrico, #00FFFF);
+  }
+
+  .nav-links a[aria-current="true"] {
+    color: var(--nucleo-eletrico, #00FFFF);
+    border-bottom: 2px solid currentColor;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nav-links a {
+      transition: none;
+    }
   }
 
   /* O modificador :global() garante que o Astro aplique estas regras de redução 
@@ -181,5 +192,47 @@ import Button from "../ui/Button.astro";
       btn.setAttribute("aria-label", menuOpen ? "Fechar menu de navegação" : "Abrir menu de navegação");
       window.dispatchEvent(new CustomEvent("toggle-menu"));
     });
+  }
+</script>
+
+<script>
+  // IntersectionObserver: active section detection para single-page landing page
+  // aria-current baseado em pathname não se aplica — todos os links são anchor links
+  const navLinks = document.querySelectorAll<HTMLAnchorElement>(".nav-links a[href^='#']");
+
+  const sectionElements: HTMLElement[] = [];
+  const linkMap = new Map<string, HTMLAnchorElement>();
+
+  navLinks.forEach((link) => {
+    const sectionId = link.getAttribute("href")?.slice(1);
+    if (sectionId) {
+      const section = document.getElementById(sectionId);
+      if (section) {
+        sectionElements.push(section);
+        linkMap.set(sectionId, link);
+      }
+    }
+  });
+
+  if (sectionElements.length > 0) {
+    const sectionObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const sectionId = entry.target.id;
+            // Remove aria-current de todos os links
+            navLinks.forEach((link) => link.removeAttribute("aria-current"));
+            // Adiciona aria-current ao link da seção visível
+            const activeLink = linkMap.get(sectionId);
+            if (activeLink) {
+              activeLink.setAttribute("aria-current", "true");
+            }
+          }
+        });
+      },
+      { threshold: 0.3 }
+    );
+
+    sectionElements.forEach((section) => sectionObserver.observe(section));
   }
 </script>
