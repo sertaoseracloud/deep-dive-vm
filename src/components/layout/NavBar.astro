@@ -174,11 +174,16 @@ import Button from "../ui/Button.astro";
   if (nav && sentinel) {
     const scrollObserver = new IntersectionObserver(
       (entries) => {
+        if (entries.length === 0) return;
         nav.dataset.scrolled = String(!entries[0].isIntersecting);
       },
       { threshold: 0 }
     );
     scrollObserver.observe(sentinel);
+    // Cleanup: desconectar observer em navegação SPA (Astro View Transitions)
+    document.addEventListener("astro:before-swap", () => {
+      scrollObserver.disconnect();
+    }, { once: true });
   }
 </script>
 
@@ -234,5 +239,9 @@ import Button from "../ui/Button.astro";
     );
 
     sectionElements.forEach((section) => sectionObserver.observe(section));
+    // Cleanup: desconectar observer em navegação SPA (Astro View Transitions)
+    document.addEventListener("astro:before-swap", () => {
+      sectionObserver.disconnect();
+    }, { once: true });
   }
 </script>
