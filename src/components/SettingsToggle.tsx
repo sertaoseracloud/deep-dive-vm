@@ -11,6 +11,7 @@ export const SettingsToggle: React.FC = () => {
 
   return (
     <div
+      role="group"
       aria-label="Controle de animações"
       style={{
         position: "fixed",
