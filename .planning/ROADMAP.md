@@ -48,7 +48,10 @@
   1. `impeccable critique` has been run against the homepage with motion scope and produced output
   2. A gap list with P0/P1/P2 priority labels exists and covers all visible animated regions of the page
   3. Phase 4 implementation targets are determined by the critique output — no animation work proceeds before this list exists
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 03-01-PLAN.md — Migrar contexto impeccable (PRODUCT.md, DESIGN.md, .impeccable/design.json) do worktree para main e commitar
+- [ ] 03-02-PLAN.md — Executar critique de motion (Assessment A + B), filtrar por motion-only, gerar 03-CRITIQUE.md com tabela P0/P1/P2
 **UI hint**: yes
 
 ### Phase 4: Animation Implementation
@@ -80,6 +83,6 @@
 |-------|----------------|--------|-----------|
 | 1. Motion Effects (v1.1) | 3/3 | Complete | 2026-05-15 |
 | 2. Page Integration (v1.1) | 3/3 | Complete | 2026-05-15 |
-| 3. Motion Critique (v1.2) | 0/? | Not started | - |
+| 3. Motion Critique (v1.2) | 0/2 | Not started | - |
 | 4. Animation Implementation (v1.2) | 0/? | Not started | - |
 | 5. Quality Audit (v1.2) | 0/? | Not started | - |
