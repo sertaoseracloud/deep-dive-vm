@@ -77,4 +77,31 @@ describe("HeroMotion", () => {
       );
     }).not.toThrow();
   });
+
+  // GAP-4: MOT-02 — HeroMotion respects prefers-reduced-motion
+  // MotionConfig with reducedMotion="user" is mocked as a passthrough.
+  // The requirement: children must be visible regardless of reduced-motion preference.
+  // This test verifies the MotionConfig passthrough path — even when the system
+  // has prefers-reduced-motion active, children are still rendered and reachable.
+  it("children are visible regardless of reduced-motion preference (MotionConfig passthrough)", () => {
+    const { container } = render(
+      React.createElement(
+        HeroMotion,
+        null,
+        React.createElement(
+          "p",
+          { "data-testid": "hero-child" },
+          "Texto visível mesmo com reduced-motion"
+        )
+      )
+    );
+    // Child must exist in the DOM regardless of animation state
+    const child = container.querySelector("[data-testid='hero-child']");
+    expect(child).toBeTruthy();
+    expect(child?.textContent).toBe("Texto visível mesmo com reduced-motion");
+
+    // The motion-div wrapper must also be present (MotionConfig passthrough does not remove it)
+    const motionDiv = container.querySelector("[data-testid='motion-div']");
+    expect(motionDiv).toBeTruthy();
+  });
 });

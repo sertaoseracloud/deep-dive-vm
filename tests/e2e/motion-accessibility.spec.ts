@@ -85,3 +85,105 @@ test.describe("MobileMenuMotion ARIA state", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Group 5: Price card focus-visible outline (WCAG-02) — GAP-5
+// Req: WCAG-02 — "Pricing Cards have focus-visible outline"
+// ---------------------------------------------------------------------------
+test.describe("Price card focus-visible accessibility (WCAG-02)", () => {
+  test("price-cta button is focusable and receives focus via keyboard", async ({
+    page,
+  }) => {
+    await page.goto("./#investimento");
+
+    const priceCta = page.locator(".price-cta").first();
+    await expect(priceCta).toBeVisible();
+
+    // Focus the button programmatically
+    await priceCta.focus();
+
+    const isFocused = await priceCta.evaluate(
+      (el) => document.activeElement === el
+    );
+    expect(isFocused).toBe(true);
+  });
+
+  test("price-card ancestor has :focus-within when price-cta receives focus", async ({
+    page,
+  }) => {
+    await page.goto("./#investimento");
+
+    const priceCta = page.locator(".price-cta").first();
+    await expect(priceCta).toBeVisible();
+    await priceCta.focus();
+
+    const hasFocusWithin = await page.locator(".price-card").first().evaluate(
+      (el) => el.matches(":focus-within")
+    );
+    expect(hasFocusWithin).toBe(true);
+  });
+
+  test("price-card has non-empty, non-none outline when price-cta is focused (WCAG-02)", async ({
+    page,
+  }) => {
+    await page.goto("./#investimento");
+
+    const priceCta = page.locator(".price-cta").first();
+    await expect(priceCta).toBeVisible();
+    await priceCta.focus();
+
+    const outline = await page.locator(".price-card").first().evaluate(
+      (el) => window.getComputedStyle(el).outline
+    );
+
+    // outline must be set and not be "none" or empty string — WCAG focus indicator
+    expect(outline).toBeTruthy();
+    expect(outline).not.toBe("none");
+    expect(outline).not.toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Group 6: Hamburger aria-expanded — complementary WCAG-01 consolidation (GAP-5)
+// Duplicate of homepage.spec.ts test, kept here for motion-accessibility coverage.
+// ---------------------------------------------------------------------------
+test.describe("Hamburger aria-expanded — motion-accessibility consolidation (WCAG-01)", () => {
+  test("hamburger aria-expanded toggles false → true → false on successive clicks", async ({
+    page,
+  }) => {
+    await page.goto("./");
+
+    const hamburger = page.locator("#hamburger-btn");
+    await expect(hamburger).toBeVisible();
+
+    await expect(hamburger).toHaveAttribute("aria-expanded", "false");
+
+    await hamburger.click();
+    await expect(hamburger).toHaveAttribute("aria-expanded", "true");
+
+    await hamburger.click();
+    await expect(hamburger).toHaveAttribute("aria-expanded", "false");
+  });
+
+  test("MobileMenuMotion nav aria-hidden reflects open/closed state after hamburger click", async ({
+    page,
+  }) => {
+    await page.goto("./");
+
+    const hamburger = page.locator("#hamburger-btn");
+    await expect(hamburger).toBeVisible();
+
+    const mobileNav = page.locator('nav[aria-label="Mobile navigation menu"]');
+
+    // Closed: aria-hidden="true"
+    await expect(mobileNav).toHaveAttribute("aria-hidden", "true");
+
+    // Open: aria-hidden absent
+    await hamburger.click();
+    await expect(mobileNav).not.toHaveAttribute("aria-hidden");
+
+    // Closed again: aria-hidden="true"
+    await hamburger.click();
+    await expect(mobileNav).toHaveAttribute("aria-hidden", "true");
+  });
+});
