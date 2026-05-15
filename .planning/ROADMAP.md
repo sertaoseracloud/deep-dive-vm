@@ -1,26 +1,19 @@
-# Roadmap: Testing & SEO Optimization
+# Roadmap: Motion Effects Implementation (v1.1)
 
 ## Milestones
 
-- ✅ **v1.0 Testing & SEO Optimization** — Phases 1-4 (shipped 2026-05-12)
+- ✅ **v1.0 Testing & SEO Optimization** — Shipped 2026-05-12
+- 🚧 **v1.1 Motion Effects Implementation** — In Progress
 
 ## Phases
 
 <details>
-<summary>✅ v1.0 Testing & SEO Optimization (Phases 1-4) — SHIPPED 2026-05-12</summary>
+<summary>🚧 v1.1 Motion Effects Implementation (Phase 1) — Planned</summary>
 
-- [x] Phase 1: Testing Foundation (1/1 plans) — completed 2026-05-11
-- [x] Phase 2: E2E Testing (1/1 plans) — completed 2026-05-11
-- [x] Phase 3: SEO Optimization (4/4 plans) — completed 2026-05-11
-- [x] Phase 4: Continuous Validation (4/4 plans) — completed 2026-05-12
+- [ ] Phase 1: Research accessible motion patterns
+- [ ] Phase 2: Implement motion effects in Hero, Testimonials, Pricing, NavBar
+- [ ] Phase 3: Add accessibility controls (prefers-reduced-motion, keyboard support)
+- [ ] Phase 4: Write tests (unit, integration, E2E) and run Lighthouse audits
+- [ ] Phase 5: Review and merge
 
 </details>
-
-## Progress
-
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|---------------|--------|-----------|
-| 1. Testing Foundation | v1.0 | 1/1 | Complete | 2026-05-11 |
-| 2. E2E Testing | v1.0 | 1/1 | Complete | 2026-05-11 |
-| 3. SEO Optimization | v1.0 | 4/4 | Complete | 2026-05-11 |
-| 4. Continuous Validation | v1.0 | 4/4 | Complete | 2026-05-12 |
