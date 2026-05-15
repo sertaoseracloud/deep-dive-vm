@@ -56,6 +56,18 @@ import Button from "../ui/Button.astro";
     background: rgba(10, 15, 30, 0.85);
     backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--hairline);
+    transition: background 0.2s ease-out, box-shadow 0.2s ease-out;
+  }
+
+  .nav[data-scrolled="true"] {
+    background: rgba(10, 15, 30, 0.97);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nav {
+      transition: none;
+    }
   }
 
   /* O container interno gerencia o alinhamento e o espaçamento vertical (padding) */
@@ -143,6 +155,21 @@ import Button from "../ui/Button.astro";
     .hamburger { display: flex; align-items: center; }
   }
 </style>
+
+<script>
+  // IntersectionObserver: sticky scrolled state na NavBar
+  const nav = document.querySelector(".nav") as HTMLElement | null;
+  const sentinel = document.getElementById("top");
+  if (nav && sentinel) {
+    const scrollObserver = new IntersectionObserver(
+      (entries) => {
+        nav.dataset.scrolled = String(!entries[0].isIntersecting);
+      },
+      { threshold: 0 }
+    );
+    scrollObserver.observe(sentinel);
+  }
+</script>
 
 <script>
   const btn = document.getElementById("hamburger-btn");
