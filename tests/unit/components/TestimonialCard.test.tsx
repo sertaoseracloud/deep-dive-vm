@@ -5,10 +5,6 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import React from "react";
 import { render, screen, cleanup } from "@testing-library/react";
 
-vi.mock("../../../src/lib/motion-utils", () => ({
-  useMotionEnabled: () => [true, vi.fn()],
-}));
-
 import { TestimonialCard } from "../../../src/components/TestimonialCard";
 import type { TestimonialData } from "../../../src/components/TestimonialCard";
 
