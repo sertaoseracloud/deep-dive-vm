@@ -1,59 +1,52 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: milestone_complete
-last_updated: "2026-05-12T12:19:52.375Z"
+milestone: v1.2
+milestone_name: Animation Polish
+status: ready_to_execute
+last_updated: "2026-05-16T00:00:00.000Z"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
-  percent: 100
+  total_phases: 3
+  completed_phases: 2
+  total_plans: 3
+  completed_plans: 0
 ---
 
 # Project State
 
-- Config: auto mode, focus on testing and SEO, TDD enabled.
-- Research completed (testing & SEO best practices).
-- Requirements defined for unit, integration, e2e testing and SEO metrics.
-- Roadmap outlines four phases: testing foundation, e2e testing, SEO optimization, continuous validation.
+- Config: auto mode, focus on animation quality, impeccable framework, TDD enabled.
+- Research: não necessário — stack (motion@12.38.0) e design context (DESIGN.md) já estabelecidos.
+- Requirements: defined in `.planning/REQUIREMENTS.md`.
+- Roadmap: defined in `.planning/ROADMAP.md`.
 
 ## Current Position
 
-Phase: 04
+Phase: 05-quality-audit
 Plan: Not started
+Status: Ready to execute — 3 planos criados para os gates QUAL-01, QUAL-02, QUAL-03
 
-- Phase: 03-seo-optimization-week-4-5
-- Plan: 04 (complete)
-- Status: Phase 3 fully complete — all 5 SEO requirement IDs satisfied, human visual sign-off received (2026-05-11)
+## Decisions
 
-## Completed Plans
+- Escopo restrito a animação — sem alterações no design visual (cores, tipografia, layout)
+- Contexto impeccable (PRODUCT.md, DESIGN.md, .impeccable/design.json) em worktree impeccable-teach — merge para main na Phase 3
+- Fases continuam numeração de v1.1 (última foi Phase 2) → v1.2 começa na Phase 3
+- impeccable critique usada como input para o plano de animação (não como redesign)
+- impeccable audit como gate de qualidade final (60fps, reduced-motion, CLS)
+- HeroMotion (04-03): estratégia dual adotada — React.Children.map (childCount > 1) + useRef+querySelectorAll (childCount === 1, produção com Hero.astro). staggerChildren: 0.12, ease array [0.25,1,0.5,1], animate='visible' trigger
+- ease 'easeOut' string removida de HeroMotion.tsx (ANIM-03)
+- Phase 5: D-AUDIT-01 — impeccable detect v2.1.9 detecta apenas antipatterns tipográficos (NÃO will-change/layout thrashing) → gate QUAL-01 é inspeção manual dos 5 arquivos CSS de animação
+- Phase 5: D-AUDIT-02 — Playwright emulateMedia({ reducedMotion: 'reduce' }) em motion-accessibility.spec.ts existente (não criar novo arquivo)
+- Phase 5: D-AUDIT-03 — Lighthouse diretamente contra localhost:4321 (não produção, não npm run lighthouse:ci)
+- Phase 5: 3 planos sequenciais (05-01 → 05-02 → 05-03), cada gate deve passar antes de avançar
 
-| Phase | Plan | Summary | Date |
-|-------|------|---------|------|
-| 01-testing-foundation | 01 | Vitest + Playwright + LHCI infra installed; 10 component unit tests, 2 integration tests, 1 E2E spec, 1 SEO static test created with TDD | 2026-05-11 |
-| 02-e2e-testing | 01-04 | E2E cross-browser suite, a11y, responsive, SEO e2e tests all passing | 2026-05-11 |
-| 03-seo-optimization | 01 | LHCI config: 4 gates (SEO >= 90, A11y >= 90, Perf >= 80, BP >= 80), sitemap integration | 2026-05-11 |
-| 03-seo-optimization | 02 | 13-assertion SEO test suite in tests/seo/seo-meta.test.ts, all passing | 2026-05-11 |
-| 03-seo-optimization | 03 | Hero+Mentor WebP migration, non-blocking font preload (FOUT), og:description fix | 2026-05-11 |
-| 03-seo-optimization | 04 | Phase gate verified: Perf 91, SEO 100, A11y 96; human visual sign-off approved | 2026-05-11 |
+## Completed Phases
 
-## Decisions Made
-
-- D-01: Use `experimental_AstroContainer` from `astro/container` for component unit rendering (no separate jsdom DOM parser needed)
-- D-02: SEO test uses regex helpers instead of rehype-parse to avoid ESM transform complexity in Vitest
-- D-03: Title shortened to 42 chars and description to 116 chars (SEO standard compliance — auto-fixed Rule 1)
-- D-04: `canonical href="#"` deferred to future plan (non-breaking for test suite, documented as known stub)
-
-## Deferred Items
-
-- Fix `Layout.astro` canonical link: currently `href="#"`, should be wired to the `url` prop
-- Run `npm install` to install the newly added devDependencies before running tests
-- Run `npm run build` before running `npm run test:all` (SEO tests require dist/index.html)
+| Phase | Plans | Status | Completed |
+|-------|-------|--------|-----------|
+| Phase 3: Motion Critique | 2/2 | Complete | 2026-05-15 |
+| Phase 4: Animation Implementation | 6/6 | Complete | 2026-05-16 |
 
 ## Last Session
 
-- Stopped at: Phase 3 Plan 04 — all tasks complete, human sign-off received
-- Timestamp: 2026-05-11
-- Resume file: .planning/phases/03-seo-optimization-week-4-5/03-04-SUMMARY.md
+- Stopped at: Phase 5 planning complete — 3 plans created (05-01, 05-02, 05-03)
+- Timestamp: 2026-05-16
+- Next: /gsd:execute-phase 5
