@@ -1,5 +1,5 @@
-// tests/unit/components/HeroMotion.test.tsx
-// Cobre: renderização de children, variants API (stagger), animate trigger, sem easeOut string
+﻿// tests/unit/components/HeroMotion.test.tsx
+// Cobre: renderizacao de children, variants API (stagger), animate trigger, sem easeOut string
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 import React from "react";
@@ -7,7 +7,7 @@ import { render, screen, cleanup } from "@testing-library/react";
 import * as fs from "fs";
 import * as path from "path";
 
-// Mock expandido: captura variants, initial, animate além das props anteriores
+// Mock expandido: captura variants, initial, animate alem das props anteriores
 const capturedProps: Array<Record<string, unknown>> = [];
 
 vi.mock("motion/react", () => ({
@@ -24,7 +24,7 @@ vi.mock("motion/react", () => ({
         },
         ref: React.Ref<HTMLDivElement>
       ) => {
-        // Capturar TODAS as props para inspeção nos testes
+        // Capturar TODAS as props para inspecao nos testes
         capturedProps.push({
           initial: props.initial,
           animate: props.animate,
@@ -62,25 +62,26 @@ afterEach(() => {
 });
 
 describe("HeroMotion", () => {
-  // --- Testes existentes preservados ---
+  // --- Testes base ---
 
   it("renderiza children passados como prop", () => {
     render(
       React.createElement(
         HeroMotion,
         null,
-        React.createElement("h1", null, "Conteúdo do Hero")
+        React.createElement("h1", null, "Conteudo do Hero")
       )
     );
-    expect(screen.getByText("Conteúdo do Hero")).toBeTruthy();
+    expect(screen.getByText("Conteudo do Hero")).toBeTruthy();
   });
 
-  it("existe elemento com data-testid='motion-div' (via mock motion.div)", () => {
+  it("existe elemento com data-testid='motion-div' quando ha multiplos children (Path A)", () => {
     const { container } = render(
       React.createElement(
         HeroMotion,
         null,
-        React.createElement("span", null, "Filho")
+        React.createElement("span", null, "Filho 1"),
+        React.createElement("span", null, "Filho 2")
       )
     );
     expect(container.querySelector("[data-testid='motion-div']")).toBeTruthy();
@@ -98,7 +99,7 @@ describe("HeroMotion", () => {
     }).not.toThrow();
   });
 
-  it("children are visible regardless of reduced-motion preference (MotionConfig passthrough)", () => {
+  it("children are visible regardless of reduced-motion preference", () => {
     const { container } = render(
       React.createElement(
         HeroMotion,
@@ -106,30 +107,29 @@ describe("HeroMotion", () => {
         React.createElement(
           "p",
           { "data-testid": "hero-child" },
-          "Texto visível mesmo com reduced-motion"
+          "Texto visivel mesmo com reduced-motion"
         )
       )
     );
     const child = container.querySelector("[data-testid='hero-child']");
     expect(child).toBeTruthy();
-    expect(child?.textContent).toBe("Texto visível mesmo com reduced-motion");
-
-    const motionDiv = container.querySelector("[data-testid='motion-div']");
-    expect(motionDiv).toBeTruthy();
+    expect(child?.textContent).toBe("Texto visivel mesmo com reduced-motion");
+    // Path B (single child) usa <div> simples — motion.div ausente e esperado
   });
 
-  // --- Novos testes RED (ANIM-01 / ANIM-03) ---
+  // --- Testes ANIM-01 / ANIM-03 (Path A — multiplos children) ---
 
-  it("container motion.div tem variants.visible.transition.staggerChildren === 0.12", () => {
+  it("container motion.div tem variants.visible.transition.staggerChildren === 0.12 (Path A)", () => {
     render(
       React.createElement(
         HeroMotion,
         null,
-        React.createElement("h1", null, "Filho 1")
+        React.createElement("h1", null, "Filho 1"),
+        React.createElement("p", null, "Filho 2")
       )
     );
 
-    // O container é o primeiro motion.div capturado
+    // O container e o primeiro motion.div capturado
     const containerProps = capturedProps[0];
     expect(containerProps).toBeTruthy();
 
@@ -144,13 +144,13 @@ describe("HeroMotion", () => {
     expect(transition.staggerChildren).toBe(0.12);
   });
 
-  it("renderiza um motion.div filho por child recebido (3 children → 3 motion.div filhos além do container)", () => {
+  it("renderiza um motion.div filho por child recebido (3 children -> 3 motion.div filhos alem do container)", () => {
     const { container } = render(
       React.createElement(
         HeroMotion,
         null,
-        React.createElement("h1", null, "Título"),
-        React.createElement("p", null, "Subtítulo"),
+        React.createElement("h1", null, "Titulo"),
+        React.createElement("p", null, "Subtitulo"),
         React.createElement("div", null, "CTA")
       )
     );
@@ -184,12 +184,13 @@ describe("HeroMotion", () => {
     expect(hidden.y).toBe(20);
   });
 
-  it("container tem animate='visible' e NÃO tem prop whileInView", () => {
+  it("container tem animate='visible' e NAO tem prop whileInView (Path A)", () => {
     render(
       React.createElement(
         HeroMotion,
         null,
-        React.createElement("h1", null, "Hero content")
+        React.createElement("h1", null, "Hero content"),
+        React.createElement("p", null, "Segundo filho")
       )
     );
 
@@ -199,11 +200,11 @@ describe("HeroMotion", () => {
     // animate deve ser 'visible'
     expect(containerProps.animate).toBe("visible");
 
-    // whileInView NÃO deve estar definido
+    // whileInView NAO deve estar definido
     expect(containerProps.whileInView).toBeUndefined();
   });
 
-  it("HeroMotion.tsx não contém a string 'easeOut' (verificação estática)", () => {
+  it("HeroMotion.tsx nao contem a string 'easeOut' (verificacao estatica)", () => {
     const heroMotionPath = path.resolve(
       __dirname,
       "../../../src/components/HeroMotion.tsx"

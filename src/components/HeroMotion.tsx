@@ -1,11 +1,11 @@
-import React, { useRef, useEffect } from "react";
+﻿import React, { useRef, useEffect } from "react";
 import { motion, MotionConfig } from "motion/react";
 
 interface HeroMotionProps {
   children: React.ReactNode;
 }
 
-// Container variant: propaga staggerChildren para os filhos
+// Container variant: propaga staggerChildren para os filhos (caminho A — multi-child)
 const container = {
   hidden: {},
   visible: {
@@ -15,7 +15,7 @@ const container = {
   },
 };
 
-// Item variant: cada filho anima de opacity:0/y:20 para opacity:1/y:0
+// Item variant: cada filho anima de opacity:0/y:20 para opacity:1/y:0 (caminho A)
 const item = {
   hidden: { opacity: 0, y: 20 },
   visible: {
@@ -31,7 +31,7 @@ const item = {
 export function HeroMotion({ children }: HeroMotionProps) {
   const childCount = React.Children.count(children);
 
-  // Caminho A: múltiplos children → React.Children.map com motion.div por filho
+  // Caminho A: multiplos children -> React.Children.map com motion.div por filho
   if (childCount > 1) {
     return (
       <MotionConfig reducedMotion="user">
@@ -50,24 +50,25 @@ export function HeroMotion({ children }: HeroMotionProps) {
     );
   }
 
-  // Caminho B: child único (Hero.astro passa um único <header>) →
+  // Caminho B: child unico (Hero.astro passa um unico <header>) ->
   // useRef + querySelectorAll para animar elementos internos com animationDelay CSS
-  // Estratégia adotada porque React.Children.count(children) === 1 em produção
   return <HeroMotionSingle>{children}</HeroMotionSingle>;
 }
 
-// Componente separado para usar hooks corretamente no caminho de child único
+// Componente separado para usar hooks corretamente no caminho de child unico.
+// Usa <div> simples como wrapper para nao interferir no layout — sem motion.div
+// (animacoes CSS via hero-stagger-item + animationDelay ja tratam o stagger).
 function HeroMotionSingle({ children }: HeroMotionProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Respeitar preferência do sistema — não aplicar animações CSS se reduced-motion ativo
+    // Respeitar preferencia do sistema — nao aplicar animacoes CSS se reduced-motion ativo
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
 
-    // Seleciona os elementos animáveis dentro do header do Hero
+    // Seleciona os elementos animaveis dentro do header do Hero
     const targets = containerRef.current.querySelectorAll<HTMLElement>(
       "h1, p.hero-sub, .hero-cta-row, .hero-points, .hero-meta, .eyebrow"
     );
@@ -78,16 +79,5 @@ function HeroMotionSingle({ children }: HeroMotionProps) {
     });
   }, []);
 
-  return (
-    <MotionConfig reducedMotion="user">
-      <motion.div
-        ref={containerRef}
-        initial="hidden"
-        animate="visible"
-        variants={container}
-      >
-        {children}
-      </motion.div>
-    </MotionConfig>
-  );
+  return <div ref={containerRef}>{children}</div>;
 }
