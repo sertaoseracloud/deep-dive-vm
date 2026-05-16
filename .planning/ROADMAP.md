@@ -36,7 +36,7 @@
 
 - [ ] **Phase 3: Motion Critique** â€” Run impeccable critique for motion gap inventory
 - [x] **Phase 4: Animation Implementation** â€” Orchestrated entrances, scroll reveals, easing tokens, and list stagger
-- [ ] **Phase 5: Quality Audit** â€” Technical animation audit (60fps, reduced-motion, CLS)
+- [x] **Phase 5: Quality Audit** â€” Technical animation audit (60fps, reduced-motion, CLS)
 
 ## Phase Details
 
@@ -82,7 +82,11 @@ Plans:
   1. `impeccable audit` reports no layout thrashing and confirms `will-change` usage is scoped to animated elements only
   2. With `prefers-reduced-motion: reduce` set in the browser, every animation added in v1.2 either stops or is replaced by an instant state change
   3. Lighthouse CI reports CLS â‰¤ 0.1 after all Phase 4 animations are present in the built output
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [x] 05-01-PLAN.md â€" QUAL-01: impeccable detect + inspeÃ§Ã£o manual CSS performance (will-change, layout thrashing, compositor-friendly) â€" 5/5 arquivos PASS
+- [x] 05-02-PLAN.md â€" QUAL-02: Playwright emulateMedia reduced-motion â€" 4/4 testes PASS ([data-reveal], [data-stagger], .hero-stagger-item, motion.span)
+- [x] 05-03-PLAN.md â€" QUAL-03: Lighthouse CLS gate â€" CLS = 0 (threshold 0.1) contra localhost build local â€" PASS
 
 ## Progress Table
 
@@ -92,4 +96,4 @@ Plans:
 | 2. Page Integration (v1.1) | 3/3 | Complete | 2026-05-15 |
 | 3. Motion Critique (v1.2) | 2/2 | Complete | 2026-05-15 |
 | 4. Animation Implementation (v1.2) | 6/6 | Complete | 2026-05-16 |
-| 5. Quality Audit (v1.2) | 2/3 | In progress — QUAL-01 PASS, QUAL-02 PASS | 2026-05-16 (05-02) |
+| 5. Quality Audit (v1.2) | 3/3 | Complete — QUAL-01 PASS, QUAL-02 PASS, QUAL-03 PASS | 2026-05-16 |

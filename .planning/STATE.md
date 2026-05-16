@@ -22,9 +22,9 @@ progress:
 ## Current Position
 
 Phase: 05-quality-audit
-Plan: 05-03 (next)
-Status: 05-02 complete — QUAL-02 PASS (4/4 Playwright reduced-motion tests passing). Avançar para QUAL-03 (Lighthouse CLS)
-Last activity: 2026-05-16 — 05-02 QUAL-02 Playwright reduced-motion compliance gate PASS
+Plan: 05-03 (complete)
+Status: Fase 05 COMPLETA — QUAL-01 PASS + QUAL-02 PASS + QUAL-03 PASS. Todos os 3 gates técnicos da fase v1.2 verificados. Milestone v1.2 Animation Polish encerrado.
+Last activity: 2026-05-16 — 05-03 QUAL-03 Lighthouse CLS gate PASS (CLS = 0, threshold <= 0.1)
 
 ## Decisions
 
@@ -37,3 +37,4 @@ Last activity: 2026-05-16 — 05-02 QUAL-02 Playwright reduced-motion compliance
 - ease 'easeOut' string removida de HeroMotion.tsx (ANIM-03)
 - Phase 5: QUAL-02 — 4 testes Playwright de reduced-motion adicionados a motion-accessibility.spec.ts (emulateMedia antes de goto, animationName verificado, hero-stagger-item ausência confirmada)
 - Phase 5: QUAL-02 PASS — [data-reveal] opacity:1 + transition:none, [data-stagger] animationName:none, .hero-stagger-item count:0, motion.span sem animação CSS
+- Phase 5: QUAL-03 PASS — Lighthouse CLS = 0 contra http://localhost:4321/deep-dive-vm/ (D-AUDIT-03). Animações opacity+transform são compositor-friendly: zero layout shift.
