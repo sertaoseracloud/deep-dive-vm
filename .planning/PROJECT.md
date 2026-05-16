@@ -19,9 +19,12 @@ Provably high-quality static pages — every push is validated by 106 tests, a 9
 - ✓ All new features developed with TDD (tests written first) — v1.0
 - ✓ Accessibility audit passes — v1.0 (Lighthouse accessibility 96)
 
-### Active (next milestone)
+### Active (v1.3)
 
-- [ ] (add requirements for next milestone here)
+- [ ] Reestruturação de rota Astro (base → /, landing → /deep-dive-vm/)
+- [ ] Hub Linktree em / com foto, bio, redes e cards de cursos
+- [ ] Open Graph para preview social (WhatsApp/Instagram)
+- [ ] Scaffold documentado para novas landing pages
 
 ### Out of Scope
 
@@ -37,9 +40,19 @@ Provably high-quality static pages — every push is validated by 106 tests, a 9
 - @lhci/cli (Lighthouse CI, filesystem target)
 - GitHub Actions (CI: push + PR + weekly cron)
 
+## Current Milestone: v1.3 Multi-LP Platform
+
+**Goal:** Transformar o site em uma plataforma multi-landing-page com hub Linktree na raiz e cada curso em sua própria rota.
+
+**Target features:**
+- Reestruturação de rota: remover `base: '/deep-dive-vm/'`, landing atual migra para `/deep-dive-vm/` (URL preservada)
+- Hub Linktree em `/` com foto + bio + redes sociais + cards de cursos
+- Open Graph otimizado para preview no WhatsApp/Instagram (social-first)
+- Scaffold documentado para adicionar novas landing pages
+
 ## Current State
 
-v1.0 shipped (2026-05-12) — 4 phases, 10 plans complete. Live coverage badge from `badges` branch. Weekly Lighthouse cron active. LHCI JSON persisted to `lhci-results` orphan branch. All 6 acceptance criteria satisfied.
+v1.2 shipped (2026-05-16) — Fases 3-5 completas (Animation Polish: motion critique → animation implementation → quality audit). v1.0 enviado (2026-05-12) com pipeline completo de testes e SEO.
 
 ## Key Decisions
 
@@ -51,5 +64,22 @@ v1.0 shipped (2026-05-12) — 4 phases, 10 plans complete. Live coverage badge f
 | `[skip ci]` in all machine commits | No CI loops from badge/LHCI pushes | v1.0 ✓ Good |
 | 95% coverage on empty .astro surface | Gate passes 0/0 trivially; surface grows over time | v1.0 — Pending |
 
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
+
 ---
-*Last updated: 2026-05-12 after v1.0 milestone*
+*Last updated: 2026-05-16 — v1.3 milestone started*
