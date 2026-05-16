@@ -1,4 +1,4 @@
-// tests/unit/motion-utils.test.ts
+﻿// tests/unit/motion-utils.test.ts
 // RED: Tests written BEFORE src/lib/motion-utils.ts is created.
 // Covers the behavioral contract from PLAN.md Task 2.
 
@@ -80,17 +80,17 @@ describe("setMotionEnabled()", () => {
 // applyFallback
 // ------------------------------------------------------------------
 describe("applyFallback()", () => {
-  it("sets transition to 'all 150ms ease-out' on the element", () => {
+  it("sets transition to cubic-bezier on the element", () => {
     const el = document.createElement("div");
     applyFallback(el, {});
-    expect(el.style.transition).toBe("all 150ms ease-out");
+    expect(el.style.transition).toBe("all 150ms cubic-bezier(0.0, 0.0, 0.2, 1)");
   });
 
   it("merges additional properties onto element.style", () => {
     const el = document.createElement("div");
     applyFallback(el, { transform: "translateX(0)" });
     expect(el.style.transform).toBe("translateX(0)");
-    expect(el.style.transition).toBe("all 150ms ease-out");
+    expect(el.style.transition).toBe("all 150ms cubic-bezier(0.0, 0.0, 0.2, 1)");
   });
 });
 
