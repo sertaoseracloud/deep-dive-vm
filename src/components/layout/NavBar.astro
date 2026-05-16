@@ -171,7 +171,18 @@ import Button from "../ui/Button.astro";
   // IntersectionObserver: sticky scrolled state na NavBar
   const nav = document.querySelector(".nav") as HTMLElement | null;
   const sentinel = document.getElementById("top");
-  if (nav && sentinel) {
+  if (!nav) {
+    // sem nav, nada a fazer
+  } else if (!sentinel) {
+    // Fallback: sentinel #top ausente — verificar posição de scroll diretamente
+    const onScroll = () => {
+      nav.dataset.scrolled = String(window.scrollY > 10);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    document.addEventListener("astro:before-swap", () => {
+      window.removeEventListener("scroll", onScroll);
+    }, { once: true });
+  } else {
     const scrollObserver = new IntersectionObserver(
       (entries) => {
         if (entries.length === 0) return;
