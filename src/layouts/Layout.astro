@@ -120,6 +120,28 @@ const offersUrl = `${siteOrigin}/deep-dive-vm#investimento`;
 	<body>
 		<div class="ambient" aria-hidden="true"></div>
 		<slot />
+		<script>
+			const revealEls = document.querySelectorAll("[data-reveal]");
+			if (revealEls.length > 0) {
+				const observer = new IntersectionObserver(
+					(entries) => {
+						entries.forEach((entry) => {
+							if (entry.isIntersecting) {
+								entry.target.setAttribute("data-revealed", "");
+								observer.unobserve(entry.target);
+							}
+						});
+					},
+					{ threshold: 0.15 }
+				);
+				revealEls.forEach((el) => observer.observe(el));
+				document.addEventListener(
+					"astro:before-swap",
+					() => observer.disconnect(),
+					{ once: true }
+				);
+			}
+		</script>
 	</body>
 </html>
 
@@ -159,6 +181,65 @@ const offersUrl = `${siteOrigin}/deep-dive-vm#investimento`;
 		--grid-line: rgba(0, 255, 255, 0.05);
 		--hairline: rgba(209, 217, 230, 0.12);
 		--hairline-strong: rgba(0, 255, 255, 0.32);
+
+		/* Easing tokens — ANIM-03 */
+		--ease-entrance: cubic-bezier(0.25, 1, 0.5, 1);
+		--ease-micro: cubic-bezier(0.0, 0.0, 0.2, 1);
+	}
+
+	/* ————————————————————————————————
+     Scroll reveal — ANIM-02
+  ———————————————————————————————— */
+	[data-reveal] {
+		opacity: 0;
+		transform: translateY(20px);
+		transition:
+			opacity 400ms var(--ease-entrance),
+			transform 400ms var(--ease-entrance);
+	}
+
+	[data-reveal][data-revealed] {
+		opacity: 1;
+		transform: none;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		[data-reveal] {
+			opacity: 1;
+			transform: none;
+			transition: none;
+		}
+	}
+
+	/* ————————————————————————————————
+     Stagger keyframes e orchestração — ANIM-05
+  ———————————————————————————————— */
+	@keyframes fade-up {
+		from {
+			opacity: 0;
+			transform: translateY(16px);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+
+	[data-stagger] {
+		animation: fade-up 400ms var(--ease-entrance) forwards;
+		animation-play-state: paused;
+	}
+
+	[data-revealed] [data-stagger] {
+		animation-play-state: running;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		[data-stagger] {
+			animation: none;
+			opacity: 1;
+			transform: none;
+		}
 	}
 
 	body {
