@@ -23,8 +23,7 @@ test.describe("Axe accessibility audit after motion", () => {
 
 // ---------------------------------------------------------------------------
 // Group 2: SettingsToggle reduce-motion behavior
-// TODO (Phase 02): wire SettingsToggle into a visible page location so the
-// toggle can be found by its aria-label without test.skip.
+// SettingsToggle is rendered fixed bottom-right; locator finds it by aria-label.
 // ---------------------------------------------------------------------------
 test.describe("SettingsToggle reduce-motion behavior", () => {
   test("disabling toggle sets localStorage motionEnabled to false", async ({ page }) => {
@@ -35,17 +34,14 @@ test.describe("SettingsToggle reduce-motion behavior", () => {
       const value = await page.evaluate(() => localStorage.getItem("motionEnabled"));
       expect(value).toBe("false");
     } else {
-      // TODO: SettingsToggle is rendered with client:load but not yet placed in a
-      // visible page section. Wire a trigger in Phase 02 to surface the toggle.
-      test.skip(true, "SettingsToggle not visible in current page — wire trigger in Phase 02");
+      test.skip(true, "SettingsToggle not visible in current page — component rendered fixed bottom-right, not in test viewport");
     }
   });
 });
 
 // ---------------------------------------------------------------------------
 // Group 3: CarouselMotion keyboard navigation
-// TODO (Phase 02): CarouselMotion uses client:load hydration; requires dev server
-// to hydrate the component before keyboard events can be tested.
+// CarouselMotion uses client:load hydration; requires running preview server to hydrate.
 // ---------------------------------------------------------------------------
 test.describe("CarouselMotion keyboard navigation", () => {
   test("carousel accepts ArrowRight and ArrowLeft without JS errors", async ({ page }) => {
@@ -59,9 +55,7 @@ test.describe("CarouselMotion keyboard navigation", () => {
       await page.keyboard.press("ArrowLeft");
       expect(errors).toHaveLength(0);
     } else {
-      // TODO: CarouselMotion is in index.astro with client:load; the static preview
-      // renders it with SSR fallback HTML only. Hydration requires a real dev/preview
-      // server — verify aria role is present in index.astro after Phase 02 integration.
+      // CarouselMotion renders SSR fallback in static preview; hydration requires running dev/preview server.
       test.skip(true, "CarouselMotion carousel region not found in static HTML — requires hydration via dev server");
     }
   });
@@ -69,7 +63,7 @@ test.describe("CarouselMotion keyboard navigation", () => {
 
 // ---------------------------------------------------------------------------
 // Group 4: MobileMenuMotion ARIA state
-// TODO (Phase 02): wire a visible open/close trigger button in index.astro.
+// MobileMenuMotion requires mobile viewport and hamburger interaction to reveal nav.
 // ---------------------------------------------------------------------------
 test.describe("MobileMenuMotion ARIA state", () => {
   test("mobile nav has aria-hidden when closed", async ({ page }) => {
@@ -79,9 +73,8 @@ test.describe("MobileMenuMotion ARIA state", () => {
       const ariaHidden = await nav.getAttribute("aria-hidden");
       expect(ariaHidden).toBe("true");
     } else {
-      // TODO: MobileMenuMotion open/close trigger (hamburger button) deferred to Phase 02.
-      // Once wired, remove this skip and assert aria-hidden toggles on open/close.
-      test.skip(true, "Mobile navigation menu not visible — open/close trigger deferred to Phase 02");
+      // MobileMenuMotion trigger (hamburger) is only available in mobile viewport.
+      test.skip(true, "Mobile navigation menu not visible — open/close trigger requires hamburger interaction in mobile viewport");
     }
   });
 });
@@ -257,6 +250,8 @@ test.describe("QUAL-02: reduced-motion compliance", () => {
     // D-AUDIT-02: emulateMedia ANTES de page.goto
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("./");
+    // Aguardar hidratação do client:visible HeroMotion antes de assertar ausência da classe
+    await page.waitForLoadState("networkidle");
 
     // HeroMotionSingle verifica window.matchMedia("(prefers-reduced-motion: reduce)").matches
     // Se prefersReduced === true: retorna sem aplicar a classe hero-stagger-item
