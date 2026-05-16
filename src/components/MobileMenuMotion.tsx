@@ -50,7 +50,7 @@ export const MobileMenuMotion: React.FC<{ children?: React.ReactNode }> = ({ chi
           left: 0,
           width: "280px",
           height: "100vh",
-          background: "#fff",
+          background: "var(--sub-nivel, #1b293c)",
           zIndex: 100,
         }}
       >
