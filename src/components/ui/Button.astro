@@ -47,7 +47,6 @@ const classList = [
     border: 1px solid transparent;
     border-radius: 2px;
     transition: transform 0.15s var(--ease-micro), filter 0.15s var(--ease-micro), background 0.15s var(--ease-micro), box-shadow 0.15s var(--ease-micro);
-    will-change: transform;
     cursor: pointer;
     box-shadow:
       var(--glow-cobalt),
@@ -58,6 +57,7 @@ const classList = [
   }
 
   .btn:hover {
+    will-change: transform;
     transform: translateY(-2px);
   }
 
