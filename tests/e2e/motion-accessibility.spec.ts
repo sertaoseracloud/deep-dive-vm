@@ -187,3 +187,110 @@ test.describe("Hamburger aria-expanded — motion-accessibility consolidation (W
     await expect(mobileNav).toHaveAttribute("aria-hidden", "true");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Group 7: QUAL-02: reduced-motion compliance
+// Gate: verifica que todas as animações v1.2 são desativadas com prefers-reduced-motion
+// D-AUDIT-02: page.emulateMedia({ reducedMotion: 'reduce' }) ANTES de page.goto
+// ---------------------------------------------------------------------------
+test.describe("QUAL-02: reduced-motion compliance", () => {
+  test("[data-reveal] com reduced-motion tem opacity:1 imediata (sem atraso de transição)", async ({
+    page,
+  }) => {
+    // D-AUDIT-02: emulateMedia ANTES de page.goto — a ordem importa
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("./");
+
+    // Verificar via getComputedStyle o primeiro [data-reveal] encontrado no DOM
+    const result = await page.evaluate(() => {
+      const el = document.querySelector("[data-reveal]");
+      if (!el) return null;
+      const style = window.getComputedStyle(el);
+      return {
+        opacity: style.opacity,
+        transitionDuration: style.transitionDuration,
+        transitionProperty: style.transitionProperty,
+      };
+    });
+
+    // O elemento [data-reveal] deve existir na página
+    expect(result).not.toBeNull();
+
+    // Com reduced-motion: opacity deve ser "1" (não "0" — estado inicial sem animação)
+    expect(result!.opacity).toBe("1");
+
+    // Com reduced-motion: transition deve ser suprimida (duration 0s ou property none)
+    // CSS: @media (prefers-reduced-motion: reduce) { [data-reveal] { transition: none } }
+    const hasNoTransition =
+      result!.transitionDuration === "0s" ||
+      result!.transitionProperty === "none" ||
+      result!.transitionProperty === "";
+    expect(hasNoTransition).toBe(true);
+  });
+
+  test("[data-stagger] com reduced-motion tem animationName igual a 'none'", async ({
+    page,
+  }) => {
+    // D-AUDIT-02: emulateMedia ANTES de page.goto
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("./");
+
+    // Verificar animationName via getComputedStyle — NÃO usar .animation (inclui timing)
+    const animationName = await page.evaluate(() => {
+      const el = document.querySelector("[data-stagger]");
+      if (!el) return null;
+      // Pitfall documentado: verificar animationName, não animation shorthand
+      return window.getComputedStyle(el).animationName;
+    });
+
+    // O elemento [data-stagger] deve existir na página
+    expect(animationName).not.toBeNull();
+
+    // Com reduced-motion: animation:none → animationName === "none"
+    // CSS: @media (prefers-reduced-motion: reduce) { [data-stagger] { animation: none } }
+    expect(animationName).toBe("none");
+  });
+
+  test(".hero-stagger-item está ausente no DOM com reduced-motion ativo", async ({
+    page,
+  }) => {
+    // D-AUDIT-02: emulateMedia ANTES de page.goto
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("./");
+
+    // HeroMotionSingle verifica window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    // Se prefersReduced === true: retorna sem aplicar a classe hero-stagger-item
+    // Logo: com reduced-motion, .hero-stagger-item NÃO deve existir no DOM
+    const count = await page.locator(".hero-stagger-item").count();
+    expect(count).toBe(0);
+  });
+
+  test("motion.span[data-testid='motion-label'] com reduced-motion não tem animação CSS ativa", async ({
+    page,
+  }) => {
+    // D-AUDIT-02: emulateMedia ANTES de page.goto
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("./");
+
+    // SettingsToggle usa MotionConfig reducedMotion="user"
+    // Com prefers-reduced-motion ativo, o Motion suprime automaticamente via matchMedia
+    const motionLabel = page.locator('span[data-testid="motion-label"]');
+
+    if (await motionLabel.count() === 0) {
+      // SettingsToggle requer client:load hydration — pode não estar disponível no preview estático
+      test.skip(true, "SettingsToggle requires client:load hydration — span[data-testid='motion-label'] not found in static preview");
+      return;
+    }
+
+    // Verificar animationName via getComputedStyle — MotionConfig reducedMotion="user"
+    // suprime animações CSS geradas pelo Motion quando prefers-reduced-motion está ativo
+    const animationName = await page.evaluate(() => {
+      const el = document.querySelector('span[data-testid="motion-label"]');
+      if (!el) return null;
+      return window.getComputedStyle(el).animationName;
+    });
+
+    // Com MotionConfig reducedMotion="user": animações suprimidas → animationName === "none"
+    expect(animationName).toBe("none");
+  });
+});
