@@ -21,10 +21,10 @@ progress:
 
 ## Current Position
 
-Phase: 04-animation-implementation
-Plan: 04-03 (completed)
-Status: In progress — plan 04-03 complete, next: 04-04
-Last activity: 2026-05-16 — 04-03 HeroMotion stagger variants TDD complete
+Phase: 05-quality-audit
+Plan: 05-02 (next)
+Status: 05-01 complete — QUAL-01 PASS. Avançar para QUAL-02 (Playwright reduced-motion)
+Last activity: 2026-05-16 — 05-01 QUAL-01 audit complete, all 5 animation files PASS
 
 ## Decisions
 
