@@ -22,9 +22,9 @@ progress:
 ## Current Position
 
 Phase: 05-quality-audit
-Plan: 05-02 (next)
-Status: 05-01 complete — QUAL-01 PASS. Avançar para QUAL-02 (Playwright reduced-motion)
-Last activity: 2026-05-16 — 05-01 QUAL-01 audit complete, all 5 animation files PASS
+Plan: 05-03 (next)
+Status: 05-02 complete — QUAL-02 PASS (4/4 Playwright reduced-motion tests passing). Avançar para QUAL-03 (Lighthouse CLS)
+Last activity: 2026-05-16 — 05-02 QUAL-02 Playwright reduced-motion compliance gate PASS
 
 ## Decisions
 
@@ -35,3 +35,5 @@ Last activity: 2026-05-16 — 05-01 QUAL-01 audit complete, all 5 animation file
 - impeccable audit como gate de qualidade final (60fps, reduced-motion, CLS)
 - HeroMotion (04-03): estratégia dual adotada — React.Children.map (childCount > 1) + useRef+querySelectorAll (childCount === 1, produção com Hero.astro). staggerChildren: 0.12, ease array [0.25,1,0.5,1], animate='visible' trigger
 - ease 'easeOut' string removida de HeroMotion.tsx (ANIM-03)
+- Phase 5: QUAL-02 — 4 testes Playwright de reduced-motion adicionados a motion-accessibility.spec.ts (emulateMedia antes de goto, animationName verificado, hero-stagger-item ausência confirmada)
+- Phase 5: QUAL-02 PASS — [data-reveal] opacity:1 + transition:none, [data-stagger] animationName:none, .hero-stagger-item count:0, motion.span sem animação CSS
