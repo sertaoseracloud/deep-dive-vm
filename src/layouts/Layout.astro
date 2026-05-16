@@ -242,6 +242,11 @@ const offersUrl = `${siteOrigin}/deep-dive-vm#investimento`;
 		}
 	}
 
+	/* Hero stagger — HeroMotionSingle adiciona esta classe + animationDelay inline — ANIM-01 */
+	.hero-stagger-item {
+		animation: fade-up 400ms var(--ease-entrance) forwards;
+	}
+
 	/* Suprimir stagger CSS do HeroMotion quando reduced-motion está ativo — ANIM-04 */
 	@media (prefers-reduced-motion: reduce) {
 		.hero-stagger-item {
