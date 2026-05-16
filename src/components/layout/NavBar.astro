@@ -208,6 +208,17 @@ import Button from "../ui/Button.astro";
       btn.setAttribute("aria-label", menuOpen ? "Fechar menu de navegação" : "Abrir menu de navegação");
       window.dispatchEvent(new CustomEvent("toggle-menu"));
     });
+    // Ouvir estado explícito enviado pelo MobileMenuMotion (ex.: fechar via Escape)
+    const onSetMenu = (e: Event) => {
+      const { open } = (e as CustomEvent<{ open: boolean }>).detail;
+      menuOpen = open;
+      btn.setAttribute("aria-expanded", String(open));
+      btn.setAttribute("aria-label", open ? "Fechar menu de navegação" : "Abrir menu de navegação");
+    };
+    window.addEventListener("set-menu", onSetMenu);
+    document.addEventListener("astro:before-swap", () => {
+      window.removeEventListener("set-menu", onSetMenu);
+    }, { once: true });
   }
 </script>
 

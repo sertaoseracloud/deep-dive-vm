@@ -28,7 +28,7 @@ export const MobileMenuMotion: React.FC<{ children?: React.ReactNode }> = ({ chi
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        window.dispatchEvent(new CustomEvent("toggle-menu"));
+        window.dispatchEvent(new CustomEvent("set-menu", { detail: { open: false } }));
       }
     };
     document.addEventListener("keydown", handleKeyDown);
