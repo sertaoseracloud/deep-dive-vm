@@ -81,13 +81,13 @@ vive na sua própria rota (`/deep-dive-vm/`, `/deep-dive-ec2/`, etc.).
 
 | REQ-ID   | Phase | Plan | Status  |
 |----------|-------|------|---------|
-| MIGR-01  | —     | —    | pending |
-| MIGR-02  | —     | —    | pending |
-| MIGR-03  | —     | —    | pending |
-| MIGR-04  | —     | —    | pending |
-| HUB-01   | —     | —    | pending |
-| HUB-02   | —     | —    | pending |
-| HUB-03   | —     | —    | pending |
-| HUB-04   | —     | —    | pending |
-| SCAFF-01 | —     | —    | pending |
-| SCAFF-02 | —     | —    | pending |
+| MIGR-01  | 6     | —    | pending |
+| MIGR-02  | 6     | —    | pending |
+| MIGR-03  | 6     | —    | pending |
+| MIGR-04  | 6     | —    | pending |
+| HUB-01   | 7     | —    | pending |
+| HUB-02   | 7     | —    | pending |
+| HUB-03   | 7     | —    | pending |
+| HUB-04   | 7     | —    | pending |
+| SCAFF-01 | 8     | —    | pending |
+| SCAFF-02 | 8     | —    | pending |

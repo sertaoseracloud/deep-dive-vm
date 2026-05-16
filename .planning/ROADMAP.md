@@ -1,51 +1,81 @@
-# Roadmap: Testing & SEO Optimization
+# Roadmap: Landing Page Deep Dive
 
 ## Milestones
 
 - ✅ **v1.0 Testing & SEO Optimization** — Phases 1-4 (shipped 2026-05-12)
-- 🔄 **v1.2 Quality Audit** — Phase 5 (in progress)
+- ✅ **v1.2 Quality Audit** — Phase 5 (shipped 2026-05-16)
+- 🚧 **v1.3 Multi-LP Platform** — Phases 6-8 (in progress)
 
 ## Phases
 
 <details>
 <summary>✅ v1.0 Testing & SEO Optimization (Phases 1-4) — SHIPPED 2026-05-12</summary>
 
-- [x] Phase 1: Testing Foundation (1/1 plans) — completed 2026-05-11
-- [x] Phase 2: E2E Testing (1/1 plans) — completed 2026-05-11
-- [x] Phase 3: SEO Optimization (4/4 plans) — completed 2026-05-11
-- [x] Phase 4: Continuous Validation (4/4 plans) — completed 2026-05-12
+- [x] **Phase 1: Testing Foundation** — Unit test suite + 95% coverage gate (completed 2026-05-11)
+- [x] **Phase 2: E2E Testing** — Playwright cross-browser coverage (completed 2026-05-11)
+- [x] **Phase 3: SEO Optimization** — Lighthouse SEO 100, schema, sitemap (completed 2026-05-11)
+- [x] **Phase 4: Continuous Validation** — GitHub Actions CI + weekly LHCI cron (completed 2026-05-12)
 
 </details>
 
-### Phase 5: Quality Audit
+<details>
+<summary>✅ v1.2 Quality Audit (Phase 5) — SHIPPED 2026-05-16</summary>
 
-**Goal:** All v1.2 animations pass technical quality gates — 60fps performance, full reduced-motion compliance, and CLS within budget — verified by impeccable audit
+- [x] **Phase 5: Quality Audit** — 60fps gate, reduced-motion compliance, CLS audit (completed 2026-05-16)
 
-**Requirements:** QUAL-01, QUAL-02, QUAL-03
+</details>
 
-**Plans:** 3 plans (sequential — each gate must pass before advancing)
+### 🚧 v1.3 Multi-LP Platform (In Progress)
 
-Plans:
+**Milestone Goal:** Transform the site into a multi-landing-page platform — the domain root becomes a Linktree-style hub, and each course lives at its own route. The existing Deep Dive VM URL is preserved throughout.
 
-**Wave 1**
-- [ ] 05-01-PLAN.md — QUAL-01: will-change audit + impeccable detect (manual inspection of 5 animation files)
+- [ ] **Phase 6: Route Migration** — Remove Astro base config, move LP to file-based route, CNAME preserved, CI green
+- [ ] **Phase 7: Hub Page** — Linktree-style root hub with mentor identity, course cards, social links, and Open Graph
+- [ ] **Phase 8: Multi-LP Scaffold** — Documented, repeatable pattern for adding new landing pages
 
-**Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 05-02-PLAN.md — QUAL-02: Playwright reduced-motion compliance tests for [data-reveal], [data-stagger], .hero-stagger-item, motion.span
+## Phase Details
 
-**Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 05-03-PLAN.md — QUAL-03: Lighthouse CLS gate against local build (numericValue <= 0.1)
+### Phase 6: Route Migration
+**Goal**: The existing Deep Dive VM landing page is reachable at `/deep-dive-vm/` via native Astro file-based routing, with no `base` property in the config, the custom domain surviving every deploy, and CI remaining green throughout.
+**Depends on**: Phase 5
+**Requirements**: MIGR-01, MIGR-02, MIGR-03, MIGR-04
+**Success Criteria** (what must be TRUE):
+  1. Visiting `mentoria.sertaoseracloud.com/deep-dive-vm/` in a browser loads the existing landing page with all assets intact — no 404, no broken images or fonts
+  2. The custom domain `mentoria.sertaoseracloud.com` survives a GitHub Pages deploy (CNAME file present in built output)
+  3. All CI checks pass green after the migration: Vitest unit tests, Playwright E2E suite, and LHCI audit
+  4. No hardcoded `/deep-dive-vm/` path remains broken — favicon, JSON-LD offersUrl, and test configs all resolve correctly
+**Plans**: TBD
 
-Cross-cutting constraints:
-- Each gate must pass before the next begins (D-PLAN-02)
-- Gate decisions are pass/fail — no partial credit
+### Phase 7: Hub Page
+**Goal**: The root URL `mentoria.sertaoseracloud.com/` serves a complete Linktree-style hub that a visitor can share on WhatsApp or Instagram and receive a rich preview card.
+**Depends on**: Phase 6
+**Requirements**: HUB-01, HUB-02, HUB-03, HUB-04
+**Success Criteria** (what must be TRUE):
+  1. Visiting `mentoria.sertaoseracloud.com/` displays the mentor's photo, name, and bio tagline in a mobile-first layout
+  2. The hub shows a course card for Deep Dive VM (with link to `/deep-dive-vm/`) and a "coming soon" card for Deep Dive EC2
+  3. Social link icons for Instagram, YouTube, WhatsApp, and LinkedIn are visible and clickable, and they can be updated without changing component code
+  4. Sharing the root URL on WhatsApp or LinkedIn generates a rich preview card with image, title, and description (Open Graph meta tags verified in built HTML)
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 8: Multi-LP Scaffold
+**Goal**: A documented, working pattern exists so that adding a new landing page to the platform requires only following a checklist — demonstrated by a live `/deep-dive-ec2/` route.
+**Depends on**: Phase 7
+**Requirements**: SCAFF-01, SCAFF-02
+**Success Criteria** (what must be TRUE):
+  1. Visiting `mentoria.sertaoseracloud.com/deep-dive-ec2/` renders a "coming soon" page (no 404)
+  2. `HOWTO-new-landing-page.md` at the repository root describes the complete steps to add a new LP — create the page file, add hub card, create og:image, update tests — verified by reading the file and following it to add a hypothetical new route
+**Plans**: TBD
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|---------------|--------|-----------|
+|-------|-----------|----------------|--------|-----------|
 | 1. Testing Foundation | v1.0 | 1/1 | Complete | 2026-05-11 |
 | 2. E2E Testing | v1.0 | 1/1 | Complete | 2026-05-11 |
 | 3. SEO Optimization | v1.0 | 4/4 | Complete | 2026-05-11 |
 | 4. Continuous Validation | v1.0 | 4/4 | Complete | 2026-05-12 |
-| 5. Quality Audit | v1.2 | 0/3 | In Progress | — |
+| 5. Quality Audit | v1.2 | 3/3 | Complete | 2026-05-16 |
+| 6. Route Migration | v1.3 | 0/? | Not started | - |
+| 7. Hub Page | v1.3 | 0/? | Not started | - |
+| 8. Multi-LP Scaffold | v1.3 | 0/? | Not started | - |

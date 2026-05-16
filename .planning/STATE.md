@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Multi-LP Platform
 status: planning
-last_updated: "2026-05-16T22:31:38.952Z"
+last_updated: "2026-05-16"
 last_activity: 2026-05-16
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -15,41 +15,58 @@ progress:
 
 # Project State
 
-- Config: auto mode, focus on animation quality, impeccable framework, TDD enabled.
-- Research: não necessário — stack (motion@12.38.0) e design context (DESIGN.md) já estabelecidos.
-- Requirements: defined in `.planning/REQUIREMENTS.md`.
-- Roadmap: defined in `.planning/ROADMAP.md`.
+## Project Reference
+
+See: .planning/PROJECT.md (updated 2026-05-16)
+
+**Core value:** Provably high-quality static pages — every push validated by 106 tests, 95% coverage gate, and Lighthouse scores (SEO 100, Performance 91, Accessibility 96).
+**Current focus:** Phase 6 — Route Migration
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-05-16 — Milestone v1.3 started
+Phase: 6 of 8 (Route Migration)
+Plan: — (not yet planned)
+Status: Ready to plan
+Last activity: 2026-05-16 — v1.3 roadmap created, Phases 6-8 defined
 
-## Decisions
+Progress: [░░░░░░░░░░] 0%
 
-- Escopo restrito a animação — sem alterações no design visual (cores, tipografia, layout)
-- Contexto impeccable (PRODUCT.md, DESIGN.md, .impeccable/design.json) em worktree impeccable-teach — merge para main na Phase 3
-- Fases continuam numeração de v1.1 (última foi Phase 2) → v1.2 começa na Phase 3
-- impeccable critique usada como input para o plano de animação (não como redesign)
-- impeccable audit como gate de qualidade final (60fps, reduced-motion, CLS)
-- HeroMotion (04-03): estratégia dual adotada — React.Children.map (childCount > 1) + useRef+querySelectorAll (childCount === 1, produção com Hero.astro). staggerChildren: 0.12, ease array [0.25,1,0.5,1], animate='visible' trigger
-- ease 'easeOut' string removida de HeroMotion.tsx (ANIM-03)
-- Phase 5: D-AUDIT-01 — impeccable detect v2.1.9 detecta apenas antipatterns tipográficos (NÃO will-change/layout thrashing) → gate QUAL-01 é inspeção manual dos 5 arquivos CSS de animação
-- Phase 5: D-AUDIT-02 — Playwright emulateMedia({ reducedMotion: 'reduce' }) em motion-accessibility.spec.ts existente (não criar novo arquivo)
-- Phase 5: D-AUDIT-03 — Lighthouse diretamente contra localhost:4321 (não produção, não npm run lighthouse:ci)
-- Phase 5: 3 planos sequenciais (05-01 → 05-02 → 05-03), cada gate deve passar antes de avançar
+## Performance Metrics
 
-## Completed Phases
+**Velocity:**
+- Total plans completed: 14 (v1.0 + v1.2)
+- Average duration: —
+- Total execution time: —
 
-| Phase | Plans | Status | Completed |
-|-------|-------|--------|-----------|
-| Phase 3: Motion Critique | 2/2 | Complete | 2026-05-15 |
-| Phase 4: Animation Implementation | 6/6 | Complete | 2026-05-16 |
+**By Phase:**
 
-## Last Session
+| Phase | Plans | Status |
+|-------|-------|--------|
+| 6. Route Migration | TBD | Not started |
+| 7. Hub Page | TBD | Not started |
+| 8. Multi-LP Scaffold | TBD | Not started |
 
-- Stopped at: Phase 5 planning complete — 3 plans created (05-01, 05-02, 05-03)
-- Timestamp: 2026-05-16
-- Next: /gsd:execute-phase 5
+## Accumulated Context
+
+### Decisions
+
+- v1.3: Phase numbering continues from v1.2 — v1.3 starts at Phase 6
+- v1.3: MIGR order is fixed — CNAME (MIGR-03) first, hardcoded paths (MIGR-04) second, then atomic base removal + LP move (MIGR-01 + MIGR-02)
+- v1.3: Hub (Phase 7) blocked on validated migration (Phase 6) — clean separation required
+- v1.3: Scaffold (Phase 8) is last — scaffolding only after hub exists and pattern is proven
+- Constraint: URL `/deep-dive-vm/` must be preserved at all times — no external link breakage
+- Constraint: No new runtime dependencies — existing stack only
+
+### Pending Todos
+
+None.
+
+### Blockers/Concerns
+
+None at roadmap time.
+
+## Session Continuity
+
+Last session: 2026-05-16
+Stopped at: Roadmap created — ready to plan Phase 6
+Resume file: None
