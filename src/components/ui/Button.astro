@@ -46,7 +46,7 @@ const classList = [
     text-transform: uppercase;
     border: 1px solid transparent;
     border-radius: 2px;
-    transition: transform 0.15s ease-out, filter 0.15s ease-out, background 0.15s ease-out, box-shadow 0.15s ease-out;
+    transition: transform 0.15s var(--ease-micro), filter 0.15s var(--ease-micro), background 0.15s var(--ease-micro), box-shadow 0.15s var(--ease-micro);
     will-change: transform;
     cursor: pointer;
     box-shadow:
@@ -63,7 +63,7 @@ const classList = [
 
   /* Transição da seta (exato do index.html) */
   .btn :global(.arrow svg) {
-    transition: transform 0.25s;
+    transition: transform 0.25s var(--ease-micro);
     flex-shrink: 0;
   }
 

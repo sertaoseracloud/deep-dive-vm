@@ -57,10 +57,10 @@ describe("setMotionEnabled()", () => {
 // applyFallback
 // ---------------------------------------------------------------------------
 describe("applyFallback()", () => {
-  it("sets transition to 'all 150ms ease-out' on the target element", () => {
+  it("sets transition to 'all 150ms cubic-bezier(0.0, 0.0, 0.2, 1)' on the target element", () => {
     const el = document.createElement("div");
     applyFallback(el, { color: "red" });
-    expect(el.style.transition).toBe("all 150ms ease-out");
+    expect(el.style.transition).toBe("all 150ms cubic-bezier(0.0, 0.0, 0.2, 1)");
     expect(el.style.color).toBe("red");
   });
 });

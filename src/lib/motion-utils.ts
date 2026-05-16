@@ -94,7 +94,7 @@ export function isMotionSupported(): boolean {
 
 /**
  * Applies a CSS fallback transition to an element.
- * Duration 150 ms satisfies the D-01 performance constraint (150 ms, ease-out).
+ * Duration 150 ms satisfies the D-01 performance constraint (150 ms, cubic-bezier(0.0, 0.0, 0.2, 1)).
  *
  * @param element    - Target DOM element.
  * @param properties - Additional CSSStyleDeclaration properties to merge.
@@ -105,7 +105,7 @@ export function applyFallback(
 ): void {
   const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   Object.assign(element.style, {
-    ...(prefersReduced ? {} : { transition: "all 150ms ease-out" }),
+    ...(prefersReduced ? {} : { transition: "all 150ms cubic-bezier(0.0, 0.0, 0.2, 1)" }),
     ...properties,
   });
 }

@@ -89,7 +89,7 @@ export const CarouselMotion: React.FC<{ items: Item[] }> = ({ items }) => {
       // Animate to the correct slide regardless of motion mode.
       // Position = -(nextIndex / items.length * 100)% of track width.
       const targetX = `-${(nextIndex / items.length) * 100}%`;
-      animate(el, { x: targetX }, { duration: 0.15, ease: "easeOut" });
+      animate(el, { x: targetX }, { duration: 0.15, ease: [0.0, 0.0, 0.2, 1] });
     },
     [currentIndex, items.length, motionEnabled]
   );
