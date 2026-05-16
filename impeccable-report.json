@@ -1,0 +1,74 @@
+[
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "file": "C:\\Repo\\landing-page\\deep-dive-vm\\src\\components\\sections\\Bonuses.astro",
+    "line": 132,
+    "snippet": "font-family: \"Space Grotesk",
+    "importedBy": [
+      "index.astro"
+    ]
+  },
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "file": "C:\\Repo\\landing-page\\deep-dive-vm\\src\\components\\ui\\ModuleDetails.astro",
+    "line": 83,
+    "snippet": "font-family: \"Space Grotesk",
+    "importedBy": [
+      "Curriculum.astro"
+    ]
+  },
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "file": "C:\\Repo\\landing-page\\deep-dive-vm\\src\\layouts\\Layout.astro",
+    "line": 259,
+    "snippet": "font-family: \"Space Grotesk",
+    "importedBy": [
+      "index.astro"
+    ]
+  },
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "file": "C:\\Repo\\landing-page\\deep-dive-vm\\src\\layouts\\Layout.astro",
+    "line": 77,
+    "snippet": "Google Fonts: Space Grotesk",
+    "importedBy": [
+      "index.astro"
+    ]
+  },
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "file": "C:\\Repo\\landing-page\\deep-dive-vm\\src\\layouts\\Layout.astro",
+    "line": 83,
+    "snippet": "Google Fonts: Space Grotesk",
+    "importedBy": [
+      "index.astro"
+    ]
+  },
+  {
+    "antipattern": "single-font",
+    "name": "Single font for everything",
+    "description": "Only one font family is used for the entire page. Pair a distinctive display font with a refined body font to create typographic hierarchy.",
+    "severity": "warning",
+    "file": "C:\\Repo\\landing-page\\deep-dive-vm\\src\\layouts\\Layout.astro",
+    "line": 259,
+    "snippet": "only font used is space grotesk",
+    "importedBy": [
+      "index.astro"
+    ]
+  }
+]
