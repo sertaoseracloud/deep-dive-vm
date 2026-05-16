@@ -63,6 +63,10 @@ function HeroMotionSingle({ children }: HeroMotionProps) {
   useEffect(() => {
     if (!containerRef.current) return;
 
+    // Respeitar preferência do sistema — não aplicar animações CSS se reduced-motion ativo
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+
     // Seleciona os elementos animáveis dentro do header do Hero
     const targets = containerRef.current.querySelectorAll<HTMLElement>(
       "h1, p.hero-sub, .hero-cta-row, .hero-points, .hero-meta, .eyebrow"

@@ -242,6 +242,15 @@ const offersUrl = `${siteOrigin}/deep-dive-vm#investimento`;
 		}
 	}
 
+	/* Suprimir stagger CSS do HeroMotion quando reduced-motion está ativo — ANIM-04 */
+	@media (prefers-reduced-motion: reduce) {
+		.hero-stagger-item {
+			animation: none;
+			opacity: 1;
+			transform: none;
+		}
+	}
+
 	body {
 		margin: 0;
 		padding: 0;
