@@ -257,7 +257,7 @@ import Button from "../ui/Button.astro";
           }
         });
       },
-      { threshold: 0.3 }
+      { threshold: 0, rootMargin: "-20% 0px -70% 0px" }
     );
 
     sectionElements.forEach((section) => sectionObserver.observe(section));
