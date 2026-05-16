@@ -250,8 +250,11 @@ test.describe("QUAL-02: reduced-motion compliance", () => {
     // D-AUDIT-02: emulateMedia ANTES de page.goto
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("./");
-    // Aguardar hidratação do client:visible HeroMotion antes de assertar ausência da classe
-    await page.waitForLoadState("networkidle");
+    // Aguardar que o useEffect do HeroMotionSingle tenha rodado:
+    // se não reduzir motion, a classe seria adicionada — com reduced, nada muda mas
+    // o timeout confirma que o JS teve tempo de executar antes de assertar ausência
+    await page.waitForFunction(() => document.readyState === "complete");
+    await page.waitForTimeout(200);
 
     // HeroMotionSingle verifica window.matchMedia("(prefers-reduced-motion: reduce)").matches
     // Se prefersReduced === true: retorna sem aplicar a classe hero-stagger-item

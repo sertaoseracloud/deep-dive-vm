@@ -1,6 +1,6 @@
 // src/components/SettingsToggle.tsx
 import React, { useState } from "react";
-import { motion, MotionConfig, useReducedMotion } from "motion/react";
+import { motion, MotionConfig, AnimatePresence, useReducedMotion } from "motion/react";
 import { useMotionEnabled } from "../lib/motion-utils";
 
 export const SettingsToggle: React.FC = () => {
@@ -36,49 +36,55 @@ export const SettingsToggle: React.FC = () => {
         onFocus={() => prefersReduced && setShowHint(true)}
         onBlur={() => setShowHint(false)}
       >
-        {/* Popover: só exibido quando prefers-reduced-motion está ativo no sistema */}
-        {prefersReduced && (
-          <motion.div
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: showHint ? 1 : 0, y: showHint ? 0 : 4 }}
-            transition={{ duration: 0.15 }}
-            aria-live="polite"
-            style={{
-              position: "absolute",
-              bottom: "calc(100% + 10px)",
-              right: 0,
-              width: "220px",
-              padding: "10px 12px",
-              background: "rgba(10, 15, 30, 0.97)",
-              border: "1px solid var(--hairline-strong, rgba(0,255,255,0.32))",
-              borderRadius: "4px",
-              fontSize: "11px",
-              lineHeight: "1.5",
-              color: "var(--texto-secundario, rgba(255,255,255,0.6))",
-              fontFamily: "'JetBrains Mono', monospace",
-              pointerEvents: "none",
-            }}
-          >
-            Animações desativadas pela preferência do sistema.
-            <br />
-            <span style={{ color: "var(--nucleo-eletrico, #00FFFF)" }}>
-              Ative em: Sistema → Acessibilidade → Efeitos visuais
-            </span>
-            {/* caret apontando para baixo */}
-            <span
+        {/* CR-01 fix: renderização condicional com AnimatePresence evita
+            aria-live no DOM quando invisível — leitores de tela não anunciam
+            conteúdo oculto por opacity:0 */}
+        <AnimatePresence>
+          {prefersReduced && showHint && (
+            <motion.div
+              key="hint"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              transition={{ duration: 0.15 }}
+              role="tooltip"
               style={{
                 position: "absolute",
-                bottom: "-6px",
-                right: "28px",
-                width: 0,
-                height: 0,
-                borderLeft: "6px solid transparent",
-                borderRight: "6px solid transparent",
-                borderTop: "6px solid var(--hairline-strong, rgba(0,255,255,0.32))",
+                bottom: "calc(100% + 10px)",
+                right: 0,
+                width: "220px",
+                padding: "10px 12px",
+                background: "rgba(10, 15, 30, 0.97)",
+                border: "1px solid var(--hairline-strong, rgba(0,255,255,0.32))",
+                borderRadius: "4px",
+                fontSize: "11px",
+                lineHeight: "1.5",
+                color: "var(--texto-secundario, rgba(255,255,255,0.6))",
+                fontFamily: "'JetBrains Mono', monospace",
+                pointerEvents: "none",
               }}
-            />
-          </motion.div>
-        )}
+            >
+              Animações desativadas pela preferência do sistema.
+              <br />
+              <span style={{ color: "var(--nucleo-eletrico, #00FFFF)" }}>
+                Ative em: Sistema → Acessibilidade → Efeitos visuais
+              </span>
+              {/* caret apontando para baixo */}
+              <span
+                style={{
+                  position: "absolute",
+                  bottom: "-6px",
+                  right: "28px",
+                  width: 0,
+                  height: 0,
+                  borderLeft: "6px solid transparent",
+                  borderRight: "6px solid transparent",
+                  borderTop: "6px solid var(--hairline-strong, rgba(0,255,255,0.32))",
+                }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <motion.span
           data-testid="motion-label"
@@ -96,7 +102,13 @@ export const SettingsToggle: React.FC = () => {
         </motion.span>
         <label
           htmlFor="motion-toggle"
-          style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+          style={{
+            cursor: prefersReduced ? "not-allowed" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            opacity: prefersReduced ? 0.5 : 1,
+          }}
+          title={prefersReduced ? "Desativado pela preferência do sistema" : undefined}
         >
           <span
             style={{
@@ -130,12 +142,16 @@ export const SettingsToggle: React.FC = () => {
               }}
             />
           </span>
+          {/* WR-01 fix: disabled quando sistema bloqueia → impede ilusão de controle
+              WR-02 fix: aria-label em português */}
           <input
             id="motion-toggle"
             type="checkbox"
             checked={motionEnabled}
             onChange={onChange}
-            aria-label="Enable animations"
+            disabled={!!prefersReduced}
+            aria-label="Ativar animações"
+            aria-describedby={prefersReduced ? "motion-system-hint" : undefined}
             style={{
               position: "absolute",
               opacity: 0,
@@ -144,6 +160,15 @@ export const SettingsToggle: React.FC = () => {
             }}
           />
         </label>
+        {/* Texto oculto para leitores de tela quando bloqueado pelo sistema */}
+        {prefersReduced && (
+          <span
+            id="motion-system-hint"
+            style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0,0,0,0)" }}
+          >
+            Animações desativadas pela configuração do sistema operacional.
+          </span>
+        )}
       </div>
     </MotionConfig>
   );
