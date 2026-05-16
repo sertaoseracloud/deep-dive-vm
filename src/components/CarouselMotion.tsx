@@ -18,6 +18,7 @@ export const CarouselMotion: React.FC<{ items: Item[] }> = ({ items }) => {
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    if (items.length === 0) return; // evitar divisão por zero com lista vazia
 
     if (motionEnabled && isMotionSupported()) {
       // Stop any existing animation before starting a new one
