@@ -103,6 +103,7 @@ export function applyFallback(
   element: HTMLElement,
   properties: Partial<CSSStyleDeclaration>
 ): void {
+  if (typeof window === "undefined") return; // guarda SSR
   const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   Object.assign(element.style, {
     ...(prefersReduced ? {} : { transition: "all 150ms cubic-bezier(0.0, 0.0, 0.2, 1)" }),
