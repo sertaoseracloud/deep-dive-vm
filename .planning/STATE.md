@@ -21,10 +21,10 @@ progress:
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-05-15 — Milestone v1.2 started
+Phase: 04-animation-implementation
+Plan: 04-03 (completed)
+Status: In progress — plan 04-03 complete, next: 04-04
+Last activity: 2026-05-16 — 04-03 HeroMotion stagger variants TDD complete
 
 ## Decisions
 
@@ -33,3 +33,5 @@ Last activity: 2026-05-15 — Milestone v1.2 started
 - Fases continuam numeração de v1.1 (última foi Phase 2) → v1.2 começa na Phase 3
 - impeccable critique usada como input para o plano de animação (não como redesign)
 - impeccable audit como gate de qualidade final (60fps, reduced-motion, CLS)
+- HeroMotion (04-03): estratégia dual adotada — React.Children.map (childCount > 1) + useRef+querySelectorAll (childCount === 1, produção com Hero.astro). staggerChildren: 0.12, ease array [0.25,1,0.5,1], animate='visible' trigger
+- ease 'easeOut' string removida de HeroMotion.tsx (ANIM-03)
