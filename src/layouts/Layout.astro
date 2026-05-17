@@ -6,14 +6,14 @@ interface Props {
 	title: string;
 	description?: string;
 	url?: string;
+	offersUrl?: string;
 }
 
-const { title, description, url } = Astro.props;
+const { title, description, url, offersUrl } = Astro.props;
 
 const siteOrigin = "https://mentoria.sertaoseracloud.com";
 const ogImageUrl = `${siteOrigin}${claudio1.src}`;
 const resolvedDescription = description ?? "Formação técnica focada em Azure VMs com Microsoft MVP.";
-const offersUrl = `${siteOrigin}/deep-dive-vm#investimento`;
 ---
 
 <!doctype html>
@@ -44,8 +44,8 @@ const offersUrl = `${siteOrigin}/deep-dive-vm#investimento`;
 				link: [
 					{
 						rel: "icon",
-						type: "image/svg+xml",
-						href: "/deep-dive-vm/favicon.svg",
+						type: "image/x-icon",
+						href: "/favicon.ico",
 					},
 					{ rel: "canonical", href: url ?? Astro.url.href },
 				],
@@ -83,6 +83,7 @@ const offersUrl = `${siteOrigin}/deep-dive-vm#investimento`;
 				href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Chakra+Petch:wght@400;500;600;700&display=swap"
 			/>
 		</noscript>
+		{offersUrl && (
 		<script type="application/ld+json" set:html={JSON.stringify({
 			"@context": "https://schema.org",
 			"@type": "Course",
@@ -116,6 +117,7 @@ const offersUrl = `${siteOrigin}/deep-dive-vm#investimento`;
 				}
 			}
 		})} />
+		)}
 	</head>
 	<body>
 		<div class="ambient" aria-hidden="true"></div>
