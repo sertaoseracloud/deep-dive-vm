@@ -30,7 +30,7 @@
 **Milestone Goal:** Transform the site into a multi-landing-page platform — the domain root becomes a Linktree-style hub, and each course lives at its own route. The existing Deep Dive VM URL is preserved throughout.
 
 - [x] **Phase 6: Route Migration** — Remove Astro base config, move LP to file-based route, CNAME preserved, CI green (completed 2026-05-17)
-- [ ] **Phase 7: Hub Page** — Linktree-style root hub with mentor identity, course cards, social links, and Open Graph
+- [x] **Phase 7: Hub Page** — Linktree-style root hub with mentor identity, course cards, social links, and Open Graph (executed 2026-05-17)
 - [ ] **Phase 8: Multi-LP Scaffold** — Documented, repeatable pattern for adding new landing pages
 
 ## Phase Details
@@ -64,13 +64,13 @@ Plans:
 Plans:
 
 **Wave 1** — Foundations (parallel-safe)
-- [ ] 07-01-PLAN.md — Layout props (ogImage/noindex), data files, SocialIcon, hub-og.png placeholder
+- [x] 07-01-PLAN.md — Layout props (ogImage/noindex), data files, SocialIcon, hub-og.png placeholder
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 07-02-PLAN.md — Rewrite src/pages/index.astro as the Linktree hub
+- [x] 07-02-PLAN.md — Rewrite src/pages/index.astro as the Linktree hub
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 07-03-PLAN.md — Add unit/SEO/E2E tests (Layout hub OG, sitemap, hub.spec.ts)
+- [x] 07-03-PLAN.md — Add unit/SEO/E2E tests (Layout hub OG, sitemap, hub.spec.ts)
 
 Cross-cutting constraints:
 - `dist/` must be rebuilt via `npm run build` before test verification (Wave 3 tasks)
@@ -96,5 +96,5 @@ Cross-cutting constraints:
 | 4. Continuous Validation | v1.0 | 4/4 | Complete | 2026-05-12 |
 | 5. Quality Audit | v1.2 | 3/3 | Complete | 2026-05-16 |
 | 6. Route Migration | v1.3 | 3/3 | Complete   | 2026-05-17 |
-| 7. Hub Page | v1.3 | 0/3 | Ready to execute | - |
+| 7. Hub Page | v1.3 | 3/3 | Executed — pending verify | 2026-05-17 |
 | 8. Multi-LP Scaffold | v1.3 | 0/? | Not started | - |
