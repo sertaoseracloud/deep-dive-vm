@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 Testing & SEO Optimization** — Phases 1-4 (shipped 2026-05-12)
 - ✅ **v1.2 Quality Audit** — Phase 5 (shipped 2026-05-16)
-- 🚧 **v1.3 Multi-LP Platform** — Phases 6-8 (in progress)
+- ✅ **v1.3 Multi-LP Platform** — Phases 6-8 (shipped 2026-05-17) · [archive](.planning/milestones/v1.3-ROADMAP.md)
 
 ## Phases
 
@@ -25,15 +25,18 @@
 
 </details>
 
-### 🚧 v1.3 Multi-LP Platform (In Progress)
-
-**Milestone Goal:** Transform the site into a multi-landing-page platform — the domain root becomes a Linktree-style hub, and each course lives at its own route. The existing Deep Dive VM URL is preserved throughout.
+<details>
+<summary>✅ v1.3 Multi-LP Platform (Phases 6-8) — SHIPPED 2026-05-17</summary>
 
 - [x] **Phase 6: Route Migration** — Remove Astro base config, move LP to file-based route, CNAME preserved, CI green (completed 2026-05-17)
-- [x] **Phase 7: Hub Page** — Linktree-style root hub with mentor identity, course cards, social links, and Open Graph (executed 2026-05-17)
-- [ ] **Phase 8: Multi-LP Scaffold** — Documented, repeatable pattern for adding new landing pages
+- [x] **Phase 7: Hub Page** — Linktree-style root hub with mentor identity, course cards, social links, and Open Graph (completed 2026-05-17)
+- [x] **Phase 8: Multi-LP Scaffold** — EC2 coming-soon route + HOWTO 7-step checklist (completed 2026-05-17)
+
+</details>
 
 ## Phase Details
+
+> v1.3 Phase Details archived to [milestones/v1.3-ROADMAP.md](.planning/milestones/v1.3-ROADMAP.md)
 
 ### Phase 6: Route Migration
 **Goal**: The existing Deep Dive VM landing page is reachable at `/deep-dive-vm/` via native Astro file-based routing, with no `base` property in the config, the custom domain surviving every deploy, and CI remaining green throughout.
@@ -99,5 +102,5 @@ Cross-cutting constraints:
 | 4. Continuous Validation | v1.0 | 4/4 | Complete | 2026-05-12 |
 | 5. Quality Audit | v1.2 | 3/3 | Complete | 2026-05-16 |
 | 6. Route Migration | v1.3 | 3/3 | Complete   | 2026-05-17 |
-| 7. Hub Page | v1.3 | 3/3 | Executed — pending verify | 2026-05-17 |
-| 8. Multi-LP Scaffold | v1.3 | 0/3 | Planned     | - |
+| 7. Hub Page | v1.3 | 3/3 | Complete | 2026-05-17 |
+| 8. Multi-LP Scaffold | v1.3 | 3/3 | Complete | 2026-05-17 |
