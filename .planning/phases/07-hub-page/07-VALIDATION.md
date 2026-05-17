@@ -1,10 +1,11 @@
 ---
 phase: 7
 slug: hub-page
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: compliant
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-05-17
+audited: 2026-05-17
 ---
 
 # Phase 7 — Validation Strategy
@@ -38,14 +39,14 @@ created: 2026-05-17
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| T1: Layout.astro ogImage/noindex | 07-01 | 1 | HUB-04 | T-07-02 | ogImage usa assets do servidor, não input do usuário | source + build | `node -e "const s=require('fs').readFileSync('src/layouts/Layout.astro','utf-8'); if(!s.includes('ogImage?:')) throw new Error(); console.log('OK')"` | `src/layouts/Layout.astro` | ○ |
-| T2: data files (social-links, courses) | 07-01 | 1 | HUB-02, HUB-03 | — | URLs de redes sociais são strings hardcoded, não interpoladas de input externo | source | `node -e "const {socialLinks}=require('./src/data/social-links'); const {courses}=require('./src/data/courses'); console.log('OK', socialLinks.length, courses.length)"` | `src/data/social-links.ts`, `src/data/courses.ts` | ○ |
-| T3: SocialIcon.astro | 07-01 | 1 | HUB-03 | — | SVG inline sem script, sem eventos dinamicos | source | `node -e "const s=require('fs').readFileSync('src/components/ui/SocialIcon.astro','utf-8'); if(s.includes('<script')) throw new Error('script encontrado'); console.log('OK')"` | `src/components/ui/SocialIcon.astro` | ○ |
-| T4: hub-og.png placeholder | 07-01 | 1 | HUB-04 | — | Asset estático servido de public/ | source | `node -e "const {statSync}=require('fs'); const s=statSync('public/hub-og.png'); console.log('OK', s.size, 'bytes')"` | `public/hub-og.png` | ○ |
-| T1: Rewrite index.astro hub | 07-02 | 2 | HUB-01, HUB-02, HUB-03, HUB-04 | T-07-01, T-07-03 | Hub não renderiza conteúdo baseado em query params ou cookies | build + source | `npm run build && node -e "const s=require('fs').readFileSync('dist/index.html','utf-8'); if(s.includes('noindex')) throw new Error('noindex presente'); if(!s.includes('hub-og.png')) throw new Error('og:image ausente'); console.log('OK')"` | `src/pages/index.astro` | ○ |
-| T1: Layout.test.ts additions | 07-03 | 3 | HUB-04 | — | Testes unitários verificam og:image no HTML construído | unit test | `npm run test:unit` | `tests/unit/components/Layout.test.ts` | ○ |
-| T2: seo-meta.test.ts additions | 07-03 | 3 | HUB-04 | — | Sitemap inclui URL raiz; hub-og.png no og:image do hub | unit test | `npm run test:unit` | `tests/seo/seo-meta.test.ts` | ○ |
-| T3: hub.spec.ts creation | 07-03 | 3 | HUB-01, HUB-02, HUB-03 | — | E2E verifica photo, h1, course cards, social links no hub | e2e test | `npx playwright test tests/e2e/hub.spec.ts` | `tests/e2e/hub.spec.ts` | ○ |
+| T1: Layout.astro ogImage/noindex | 07-01 | 1 | HUB-04 | T-07-02 | ogImage usa assets do servidor, não input do usuário | source + build | `node -e "const s=require('fs').readFileSync('src/layouts/Layout.astro','utf-8'); if(!s.includes('ogImage?:')) throw new Error(); console.log('OK')"` | `src/layouts/Layout.astro` | ✓ |
+| T2: data files (social-links, courses) | 07-01 | 1 | HUB-02, HUB-03 | — | URLs de redes sociais são strings hardcoded, não interpoladas de input externo | source | `node -e "const {socialLinks}=require('./src/data/social-links'); const {courses}=require('./src/data/courses'); console.log('OK', socialLinks.length, courses.length)"` | `src/data/social-links.ts`, `src/data/courses.ts` | ✓ |
+| T3: SocialIcon.astro | 07-01 | 1 | HUB-03 | — | SVG inline sem script, sem eventos dinamicos | source | `node -e "const s=require('fs').readFileSync('src/components/ui/SocialIcon.astro','utf-8'); if(s.includes('<script')) throw new Error('script encontrado'); console.log('OK')"` | `src/components/ui/SocialIcon.astro` | ✓ |
+| T4: hub-og.png placeholder | 07-01 | 1 | HUB-04 | — | Asset estático servido de public/ | source | `node -e "const {statSync}=require('fs'); const s=statSync('public/hub-og.png'); console.log('OK', s.size, 'bytes')"` | `public/hub-og.png` | ✓ |
+| T1: Rewrite index.astro hub | 07-02 | 2 | HUB-01, HUB-02, HUB-03, HUB-04 | T-07-01, T-07-03 | Hub não renderiza conteúdo baseado em query params ou cookies | build + source | `npm run build && node -e "const s=require('fs').readFileSync('dist/index.html','utf-8'); if(s.includes('noindex')) throw new Error('noindex presente'); if(!s.includes('hub-og.png')) throw new Error('og:image ausente'); console.log('OK')"` | `src/pages/index.astro` | ✓ |
+| T1: Layout.test.ts additions | 07-03 | 3 | HUB-04 | — | Testes unitários verificam og:image no HTML construído | unit test | `npm run test:unit` | `tests/unit/components/Layout.test.ts` | ✓ |
+| T2: seo-meta.test.ts additions | 07-03 | 3 | HUB-04 | — | Sitemap inclui URL raiz; hub-og.png no og:image do hub | unit test | `npm run test:unit` | `tests/seo/seo-meta.test.ts` | ✓ |
+| T3: hub.spec.ts creation | 07-03 | 3 | HUB-01, HUB-02, HUB-03 | — | E2E verifica photo, h1, course cards, social links no hub | e2e test | `npx playwright test tests/e2e/hub.spec.ts` | `tests/e2e/hub.spec.ts` | ✓ |
 
 ---
 
@@ -90,9 +91,21 @@ created: 2026-05-17
 
 | Criterion | Verified By | Status |
 |-----------|-------------|--------|
-| HUB-01: mentor photo + name + bio visible | hub.spec.ts (E2E) | ○ |
-| HUB-02: course cards (VM ativo, EC2 coming soon) | hub.spec.ts (E2E) | ○ |
-| HUB-03: social links com ícones, configuráveis via data file | hub.spec.ts (E2E) + source (data file) | ○ |
-| HUB-04: og:title, og:description, og:image, og:url no built HTML | Layout.test.ts + seo-meta.test.ts | ○ |
-| Noindex removido do hub | build verify (dist/index.html) | ○ |
-| LP /deep-dive-vm/ sem regressão | test:all (todos os testes existentes) | ○ |
+| HUB-01: mentor photo + name + bio visible | hub.spec.ts (E2E) — photo, h1, bio tagline | ✓ |
+| HUB-02: course cards (VM ativo, EC2 coming soon) | hub.spec.ts — 2 cards, active href, coming-soon sem link | ✓ |
+| HUB-03: social links com ícones, configuráveis via data file | hub.spec.ts — 4 links, aria-label, rel=noopener | ✓ |
+| HUB-04: og:title, og:description, og:image, og:url no built HTML | Layout.test.ts (hubHtml) + seo-meta.test.ts test 15 | ✓ |
+| Noindex removido do hub | Layout.test.ts — LP noindex regression guard | ✓ |
+| LP /deep-dive-vm/ sem regressão | Layout.test.ts — LP og:image regression guard | ✓ |
+
+---
+
+## Validation Audit 2026-05-17
+
+| Metric | Count |
+|--------|-------|
+| Gaps found | 5 |
+| Resolved | 5 |
+| Escalated | 0 |
+| Manual-only | 0 |
+| Final test count | 114 unit + 14 E2E hub (was 111 unit + 10 E2E hub) |
