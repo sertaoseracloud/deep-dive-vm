@@ -7,9 +7,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../../..");
 
 let builtHtml = "";
+let hubHtml = "";
 
 beforeAll(() => {
   builtHtml = readFileSync(join(PROJECT_ROOT, "dist/deep-dive-vm/index.html"), "utf-8");
+  hubHtml = readFileSync(join(PROJECT_ROOT, "dist/index.html"), "utf-8");
 });
 
 describe("Layout component", () => {
@@ -59,5 +61,24 @@ describe("Layout component", () => {
   it("twitter:creator meta tag is present", () => {
     expect(builtHtml).toContain("twitter:creator");
     expect(builtHtml).toContain("@sertaoseracloud");
+  });
+
+  it("hub og:image points to hub-og.png (not claudio1)", () => {
+    const ogImageMatch =
+      hubHtml.match(/property="og:image"[^>]+content="([^"]+)"/) ??
+      hubHtml.match(/content="([^"]+)"[^>]*property="og:image"/);
+    const content = ogImageMatch?.[1];
+    expect(content).toBeTruthy();
+    expect(content).toContain("hub-og.png");
+    expect(content).not.toContain("claudio1");
+  });
+
+  it("LP og:image still uses claudio1 (not hub-og.png)", () => {
+    expect(builtHtml).toContain("og:image");
+    expect(builtHtml).not.toContain("hub-og.png");
+  });
+
+  it("LP does not contain noindex meta", () => {
+    expect(builtHtml).not.toMatch(/name=["']robots["'][^>]+noindex/i);
   });
 });
