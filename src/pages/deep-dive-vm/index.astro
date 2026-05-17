@@ -1,0 +1,48 @@
+---
+import Layout from "../../layouts/Layout.astro";
+
+import UrgencyBar from "../../components/layout/UrgencyBar.astro";
+import NavBar from "../../components/layout/NavBar.astro";
+import Footer from "../../components/layout/Footer.astro";
+import StickyCta from "../../components/layout/StickyCta.astro";
+
+import Hero from "../../components/sections/Hero.astro";
+import TrustBand from "../../components/sections/TrustBand.astro";
+import PainPoints from "../../components/sections/PainPoints.astro";
+import Method from "../../components/sections/Method.astro";
+import Curriculum from "../../components/sections/Curriculum.astro";
+import Mentor from "../../components/sections/Mentor.astro";
+import ForWho from "../../components/sections/ForWho.astro";
+import Bonuses from "../../components/sections/Bonuses.astro";
+import Testimonials from "../../components/sections/Testimonials.astro";
+import Pricing from "../../components/sections/Pricing.astro";
+import Faq from "../../components/sections/Faq.astro";
+import LegalModals from "../../components/ui/LegalModals.astro";
+---
+
+<Layout
+	title="Deep Dive Azure VM · O Sertao será Cloud"
+	description="Formação de 54h para Engenheiros dominarem Azure VMs · Portal, CLI e Terraform · com Cláudio Raposo, Microsoft MVP."
+	url={Astro.url.toString()}
+	offersUrl="https://mentoria.sertaoseracloud.com/deep-dive-vm#investimento"
+>
+	<a href="#main" class="skip-link">Pular para o conteúdo</a>
+	<UrgencyBar />
+	<NavBar />
+	<main id="main" tabindex="-1">
+		<Hero />
+		<TrustBand />
+		<PainPoints />
+		<Method />
+		<Curriculum />
+		<Mentor />
+		<ForWho />
+		<Bonuses />
+		<Testimonials />
+		<Pricing />
+		<Faq />
+		<Footer />
+		<StickyCta />
+		<LegalModals />
+	</main>
+</Layout>
