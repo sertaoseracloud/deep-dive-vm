@@ -20,12 +20,16 @@ export const socialLinks: SocialLink[] = [
     icon: 'youtube',
     ariaLabel: 'Assistir no YouTube',
   },
-  {
-    name: 'WhatsApp',
-    url: 'https://wa.me/PLACEHOLDER',
-    icon: 'whatsapp',
-    ariaLabel: 'Contato via WhatsApp',
-  },
+  // NOTE: WhatsApp link disabled until real E.164 number is configured.
+  // To enable: replace WHATSAPP_NUMBER below with the actual number (digits only, no +).
+  // Example: const WHATSAPP_NUMBER = '5511999999999';
+  // Then uncomment the entry below and remove this comment block.
+  // {
+  //   name: 'WhatsApp',
+  //   url: `https://wa.me/${WHATSAPP_NUMBER}`,
+  //   icon: 'whatsapp',
+  //   ariaLabel: 'Contato via WhatsApp',
+  // },
   {
     name: 'LinkedIn',
     url: 'https://linkedin.com/in/cfraposo/',
@@ -33,3 +37,14 @@ export const socialLinks: SocialLink[] = [
     ariaLabel: 'Conectar no LinkedIn',
   },
 ];
+
+// Build-time guard: fail loudly if any social link URL contains a placeholder.
+// This prevents accidental deployment of unresolved template values.
+for (const link of socialLinks) {
+  if (link.url.includes('PLACEHOLDER')) {
+    throw new Error(
+      `[social-links] URL placeholder detected for "${link.name}": ${link.url}\n` +
+      `Replace with a real URL before deploying.`
+    );
+  }
+}
