@@ -3,6 +3,7 @@ phase: 08-multi-lp-scaffold
 plan: "03"
 subsystem: documentation
 tags: [howto, documentation, developer-experience, scaffold, lp-lite]
+requirements-completed: [SCAFF-02]
 dependency_graph:
   requires:
     - src/pages/deep-dive-ec2/index.astro (live example — created in plan 08-01)
