@@ -182,4 +182,16 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
     expect(ogImage).toBeTruthy();
     expect(ogImage).toContain("hub-og.png");
   });
+
+  it("16. dist/deep-dive-ec2/index.html og:image points to ec2-og.png", () => {
+    const ec2IndexPath = join(DIST_DIR, "deep-dive-ec2/index.html");
+    expect(
+      existsSync(ec2IndexPath),
+      `dist/deep-dive-ec2/index.html not found at ${ec2IndexPath}`
+    ).toBe(true);
+    const ec2Html = readFileSync(ec2IndexPath, "utf-8");
+    const ogImage = extractMetaContent(ec2Html, "og:image");
+    expect(ogImage).toBeTruthy();
+    expect(ogImage).toContain("ec2-og.png");
+  });
 });
