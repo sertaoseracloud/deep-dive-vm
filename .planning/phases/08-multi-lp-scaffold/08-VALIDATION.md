@@ -1,9 +1,9 @@
 ---
 phase: 8
 slug: multi-lp-scaffold
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: compliant
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-05-17
 ---
 
@@ -38,11 +38,11 @@ created: 2026-05-17
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| T1: ec2-og.png placeholder | 08-01 | 1 | SCAFF-01 | T-08-01 | Asset estático servido de public/ — script sharp descartado após uso | source | `node -e "const {statSync}=require('fs'); const s=statSync('public/ec2-og.png'); console.log('OK', s.size, 'bytes')"` | ❌ Wave 0 | ⬜ pending |
-| T2: src/pages/deep-dive-ec2/index.astro | 08-01 | 1 | SCAFF-01 | T-08-02 | ogImage é string literal hardcoded — sem interpolação de dados externos | build + E2E | `npm run build && npx playwright test tests/e2e/ec2-coming-soon.spec.ts --project=chromium` | ❌ Wave 0 | ⬜ pending |
-| T3: tests/e2e/ec2-coming-soon.spec.ts | 08-01 | 1 | SCAFF-01 | — | E2E verifica HTTP 200, h1, badge, back-link, a11y, responsivo | e2e | `npx playwright test tests/e2e/ec2-coming-soon.spec.ts` | ❌ Wave 0 | ⬜ pending |
-| T4: Teste 16 em seo-meta.test.ts | 08-01 | 1 | SCAFF-01 | — | og:image do EC2 aponta para ec2-og.png no HTML compilado | unit/SEO | `npm run test:unit` | ❌ Wave 0 (linha extra em arquivo existente) | ⬜ pending |
-| T5: HOWTO-new-landing-page.md | 08-02 | 2 | SCAFF-02 | — | Documento estático verificado por existência e leitura | manual | `test -f HOWTO-new-landing-page.md && echo OK` | ❌ Wave 0 | ⬜ pending |
+| T1: ec2-og.png placeholder | 08-01 | 1 | SCAFF-01 | T-08-01 | Asset estático servido de public/ — script sharp descartado após uso | source | `node -e "const {statSync}=require('fs'); const s=statSync('public/ec2-og.png'); console.log('OK', s.size, 'bytes')"` | ✅ | ✅ green |
+| T2: src/pages/deep-dive-ec2/index.astro | 08-01 | 1 | SCAFF-01 | T-08-02 | ogImage é string literal hardcoded — sem interpolação de dados externos | build + E2E | `npm run build && npx playwright test tests/e2e/ec2-coming-soon.spec.ts --project=chromium` | ✅ | ✅ green |
+| T3: tests/e2e/ec2-coming-soon.spec.ts | 08-02 | 2 | SCAFF-01 | — | E2E verifica HTTP 200, h1, badge, back-link, a11y, responsivo | e2e | `npx playwright test tests/e2e/ec2-coming-soon.spec.ts` | ✅ | ✅ green (7/7) |
+| T4: Teste 16 em seo-meta.test.ts | 08-02 | 2 | SCAFF-01 | — | og:image do EC2 aponta para ec2-og.png no HTML compilado | unit/SEO | `npm run test:unit` | ✅ | ✅ green (115/115) |
+| T5: HOWTO-new-landing-page.md | 08-03 | 2 | SCAFF-02 | — | Documento estático verificado por existência e leitura | manual | `test -f HOWTO-new-landing-page.md && echo OK` | ✅ | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -87,4 +87,4 @@ created: 2026-05-17
 - [ ] Feedback latency < 90s
 - [ ] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** ✅ approved 2026-05-17 — Build: 3 pages OK | Unit: 115/115 | E2E EC2: 7/7 chromium | Zero regressão
