@@ -33,6 +33,7 @@ export default getViteConfig({
       exclude: [
         "src/assets/**",
         "src/pages/**",
+        "src/data/**",
         "src/**/*.astro",
       ],
       reporter: ["text", "json", "html"],
