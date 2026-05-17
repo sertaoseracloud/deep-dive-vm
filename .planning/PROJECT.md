@@ -10,6 +10,8 @@ Provably high-quality multi-LP platform — every push is validated by 115 tests
 
 ## Current State
 
+**v1.4 in progress (2026-05-17)** — Python para Neurodivergentes LP. Adicionando terceiro curso à plataforma com LP completa (Hero, Público-alvo, Módulos, Pricing) em `/deep-dive-python-neurodivergentes/`.
+
 **v1.3 shipped (2026-05-17)** — Multi-LP Platform complete. Hub live at `mentoria.sertaoseracloud.com/`, LP at `/deep-dive-vm/`, EC2 coming-soon at `/deep-dive-ec2/`. 115/115 tests green.
 
 ## Requirements
@@ -29,6 +31,13 @@ Provably high-quality multi-LP platform — every push is validated by 115 tests
 - ✓ Hub Linktree em / com foto, bio, redes e cards de cursos — v1.3 Phase 7
 - ✓ Open Graph para preview social (WhatsApp/Instagram) — v1.3 Phase 7
 - ✓ Scaffold documentado para novas landing pages — v1.3 Phase 8
+
+### Active (v1.4)
+
+- [ ] LP completa Python para Neurodivergentes em /deep-dive-python-neurodivergentes/
+- [ ] Hub card ativo para o curso Python (sem "Em breve")
+- [ ] OG image python-neurodivergentes-og.png + meta tags completas
+- [ ] E2E + SEO tests para a nova LP
 
 ### Out of Scope
 

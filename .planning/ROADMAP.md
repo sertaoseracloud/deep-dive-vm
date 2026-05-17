@@ -5,6 +5,7 @@
 - ✅ **v1.0 Testing & SEO Optimization** — Phases 1-4 (shipped 2026-05-12)
 - ✅ **v1.2 Quality Audit** — Phase 5 (shipped 2026-05-16)
 - ✅ **v1.3 Multi-LP Platform** — Phases 6-8 (shipped 2026-05-17) · [archive](.planning/milestones/v1.3-ROADMAP.md)
+- 🚧 **v1.4 Python para Neurodivergentes LP** — Phase 9 (in progress)
 
 ## Phases
 
@@ -92,6 +93,39 @@ Cross-cutting constraints:
   - [ ] 08-02-PLAN.md — EC2 E2E spec + SEO test 16 (SCAFF-01 verification)
   - [ ] 08-03-PLAN.md — HOWTO-new-landing-page.md (SCAFF-02)
 
+### 🚧 v1.4 Python para Neurodivergentes LP (In Progress)
+
+**Milestone Goal:** Adicionar a landing page completa do curso Python para Neurodivergentes à plataforma, migrando o wireframe Claude Design para Astro com fidelidade ao design system existente, hub card ativo, e suite de testes verde.
+
+- [ ] **Phase 9: Python LP** — Wireframe → Astro LP completa (Hero, Público-alvo, Módulos, Pricing), hub card ativo, OG image, testes E2E e SEO
+
+### Phase 9: Python para Neurodivergentes LP
+**Goal:** A landing page completa do curso Python para Neurodivergentes está disponível em `/deep-dive-python-neurodivergentes/`, fiel ao wireframe Claude Design, com hub card ativo e suite de testes verde.
+**Depends on:** Phase 8
+**Requirements:** PY-01, PY-02, PY-03, PY-04, PY-05
+**Wireframe source:** `Python para Neurodivergentes - Standalone.html` (raiz do repo)
+**Success Criteria** (what must be TRUE):
+  1. Visitando `mentoria.sertaoseracloud.com/deep-dive-python-neurodivergentes/` a LP carrega completa — Hero, Para quem é, Módulos, Pricing visíveis
+  2. O design é fiel ao wireframe (mesmas cores, tipografia, layout) — verificado por inspeção visual e UI-SPEC
+  3. O hub em `mentoria.sertaoseracloud.com/` exibe card ativo (sem badge "Em breve") com link para o curso
+  4. `public/python-neurodivergentes-og.png` existe (1200×630) e `og:image` aponta para ele
+  5. CI verde: E2E spec (HTTP 200, seções, CTA), teste SEO Vitest, zero regressão nas LPs existentes
+**Plans:** 3 plans
+
+**Wave 1** — Assets e infraestrutura (parallel-safe)
+- [ ] 09-01-PLAN.md — OG image (sharp script), courses.ts (hub card ativo), rota base + Layout props
+
+**Wave 2** *(blocked on Wave 1)*
+- [ ] 09-02-PLAN.md — LP sections: Hero, Para quem é, Módulos, Pricing (wireframe → Astro)
+
+**Wave 3** *(blocked on Wave 2)*
+- [ ] 09-03-PLAN.md — E2E spec (python-lp.spec.ts) + SEO Vitest test + validação CI
+
+Cross-cutting constraints:
+- `public/python-neurodivergentes-og.png` deve existir antes de qualquer build
+- Wireframe `Python para Neurodivergentes - Standalone.html` é a fonte de verdade visual — UI-SPEC deve referenciar seções por nome exato
+- Todos os anchors externos com `rel="noopener noreferrer"` e CTA com `aria-label`
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -104,3 +138,4 @@ Cross-cutting constraints:
 | 6. Route Migration | v1.3 | 3/3 | Complete   | 2026-05-17 |
 | 7. Hub Page | v1.3 | 3/3 | Complete | 2026-05-17 |
 | 8. Multi-LP Scaffold | v1.3 | 3/3 | Complete | 2026-05-17 |
+| 9. Python para Neurodivergentes LP | v1.4 | 0/3 | Planned | - |

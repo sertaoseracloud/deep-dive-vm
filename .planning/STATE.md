@@ -1,16 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.3
-milestone_name: Multi-LP Platform
-status: complete
+milestone: v1.4
+milestone_name: Python para Neurodivergentes LP
+status: planning
+stopped_at: Phase 9 — requirements + roadmap defined, ready for discuss-phase
 last_updated: "2026-05-17T00:00:00Z"
-last_activity: 2026-05-17 -- v1.3 complete-milestone archived
+last_activity: 2026-05-17 -- v1.4 new-milestone kickoff
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
-  percent: 100
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -19,48 +20,47 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-05-17)
 
-**Core value:** Multi-LP platform with provably high-quality static pages — 115 tests, 95% coverage gate, rich social OG previews.
-**Current focus:** v1.3 shipped — awaiting next milestone definition.
+**Core value:** Multi-LP platform com LPs de alta qualidade — 115 testes, 95% coverage gate, OG social previews.
+**Current focus:** Phase 09 — Python para Neurodivergentes LP (planejamento)
 
 ## Current Position
 
-Milestone: v1.3 Multi-LP Platform — COMPLETE
-Status: Archived to .planning/milestones/v1.3-ROADMAP.md
-Last activity: 2026-05-17 — complete-milestone executed
+Phase: 09 (Python para Neurodivergentes LP) — PLANNED
+Plan: 0 of 3
+Status: Awaiting /gsd:discuss-phase 9 → /gsd:plan-phase 9
+Last activity: 2026-05-17 — milestone v1.4 definido
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
-**By Phase (v1.3):**
+**By Phase (v1.4):**
 
 | Phase | Plans | Status |
 |-------|-------|--------|
-| 6. Route Migration | 3/3 | Complete |
-| 7. Hub Page | 3/3 | Complete |
-| 8. Multi-LP Scaffold | 3/3 | Complete |
+| 9. Python para Neurodivergentes LP | 3 | Planned |
 
 ## Accumulated Context
 
 ### Decisions
 
-- v1.3: Phase numbering continues from v1.2 — v1.3 starts at Phase 6
-- v1.3: File-based routing replaces `base` config — Astro native pattern
-- v1.3: Hub at `/`, LP at `/deep-dive-vm/`, EC2 at `/deep-dive-ec2/`
-- v1.3: courses.ts is single source of truth for hub card rendering
-- Constraint: URL `/deep-dive-vm/` preserved — no external link breakage
-- Constraint: No new runtime dependencies
+- v1.4: Phase 9 continua numeração de v1.3 (Phases 6-8)
+- v1.4: Rota escolhida: `/deep-dive-python-neurodivergentes/` (slug descritivo)
+- v1.4: Hub card será ativo desde o início (não coming-soon)
+- v1.4: OG image via sharp script inline (mesmo padrão hub-og e ec2-og)
+- Wireframe fonte: `Python para Neurodivergentes - Standalone.html` na raiz do repo
+- Seções do wireframe: Hero, Para quem é / Público-alvo, Módulos/Currículo, Pricing/Oferta
 
 ### Pending Todos
 
-- WhatsApp social link: configure real E.164 number in `src/data/social-links.ts`
+- Ler e analisar wireframe (será feito na fase de discuss/UI-SPEC da Phase 9)
 
 ### Blockers/Concerns
 
-None.
+- Wireframe em formato Claude Design bundled (HTML) — conteúdo legível apenas via browser ou extração programática. Será abordado na fase de UI-SPEC.
 
 ## Session Continuity
 
 Last session: 2026-05-17
-Stopped at: v1.3 complete-milestone
-Resume: Start `/gsd:new-milestone` for next milestone
+Stopped at: REQUIREMENTS.md + ROADMAP.md criados para v1.4
+Resume: /gsd:discuss-phase 9
