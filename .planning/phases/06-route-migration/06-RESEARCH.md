@@ -656,22 +656,25 @@ Esta fase tem superficie de ataque mínima — são mudanças de config e paths,
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **API de noindex no astro-seo**
    - What we know: `astro-seo` é a biblioteca instalada para SEO meta tags. O Layout.astro usa `<SEO>` com props.
    - What's unclear: A versão `^1.1.0` do astro-seo tem uma prop `noindex` direta ou requer injeção via slot/extend?
    - Recommendation: Verificar README do astro-seo ou testar localmente. Se não suportar, usar `<meta name="robots" content="noindex">` diretamente no hub placeholder sem passar pelo componente `<SEO>`.
+   - RESOLVED: Plan 02 Task 3 usa injeção via `<meta slot="head" name="robots" content="noindex" />` — prop `noindex` do astro-seo não é necessária; o slot de head é a abordagem adotada.
 
 2. **Porta LHCI com staticDistDir**
    - What we know: O LHCI com `staticDistDir` sobe um servidor HTTP próprio. A `autodiscoverUrlBlocklist` requer a URL completa incluindo porta.
    - What's unclear: A porta é fixa (ex: 9001) ou aleatória em cada run?
    - Recommendation: Testar localmente com `npx lhci autorun` após fazer o build para descobrir a porta. Ou usar `url` explícita em vez de autodiscovery — mais determinístico.
+   - RESOLVED: Plan 03 Task 3 adota `ci.collect.url: ["http://localhost/deep-dive-vm/"]` com `staticDistDir` mantido — estratégia de url explícita elimina dependência da porta variável.
 
 3. **JSON-LD condicional no Layout.astro**
    - What we know: O bloco JSON-LD atual sempre renderiza com `offersUrl` hardcoded.
    - What's unclear: Renderizar JSON-LD de `Course` no hub placeholder (que não é um curso) é semanticamente errado. Com `offersUrl` undefined, o JSON-LD deve ser suprimido inteiramente, não renderizado sem `offers`.
    - Recommendation: Usar condicional `{offersUrl && <script>...JSON-LD...</script>}` — suprime o JSON-LD inteiramente quando hub passa `undefined`.
+   - RESOLVED: Plan 01 adota condicional `{offersUrl && (...)}` no bloco JSON-LD do Layout.astro; hub placeholder não passa `offersUrl` — JSON-LD de Course suprimido inteiramente.
 
 ---
 
