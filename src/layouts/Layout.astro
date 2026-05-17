@@ -7,12 +7,16 @@ interface Props {
 	description?: string;
 	url?: string;
 	offersUrl?: string;
+	ogImage?: string;
+	noindex?: boolean;
 }
 
-const { title, description, url, offersUrl } = Astro.props;
+const { title, description, url, offersUrl, ogImage, noindex } = Astro.props;
 
 const siteOrigin = "https://mentoria.sertaoseracloud.com";
-const ogImageUrl = `${siteOrigin}${claudio1.src}`;
+const ogImageUrl = ogImage
+	? `${siteOrigin}${ogImage}`
+	: `${siteOrigin}${claudio1.src}`;
 const resolvedDescription = description ?? "Formação técnica focada em Azure VMs com Microsoft MVP.";
 ---
 
@@ -23,6 +27,7 @@ const resolvedDescription = description ?? "Formação técnica focada em Azure 
 		<SEO
 			title={title}
 			description={resolvedDescription}
+			noindex={noindex ?? false}
 			openGraph={{
 				basic: {
 					title: title,
