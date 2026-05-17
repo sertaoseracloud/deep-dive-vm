@@ -168,7 +168,7 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
 
   it("14. sitemap-0.xml contains root / and /deep-dive-vm/", () => {
     const sitemapPath = join(DIST_DIR, "sitemap-0.xml");
-    if (!existsSync(sitemapPath)) return;
+    expect(existsSync(sitemapPath), `sitemap-0.xml not found at ${sitemapPath}`).toBe(true);
     const sitemap = readFileSync(sitemapPath, "utf-8");
     expect(sitemap).toContain("https://mentoria.sertaoseracloud.com/");
     expect(sitemap).toContain("https://mentoria.sertaoseracloud.com/deep-dive-vm/");
@@ -176,7 +176,7 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
 
   it("15. dist/index.html og:image points to hub-og.png", () => {
     const hubIndexPath = join(DIST_DIR, "index.html");
-    if (!existsSync(hubIndexPath)) return;
+    expect(existsSync(hubIndexPath), `dist/index.html not found at ${hubIndexPath}`).toBe(true);
     const hubHtml = readFileSync(hubIndexPath, "utf-8");
     const ogImage = extractMetaContent(hubHtml, "og:image");
     expect(ogImage).toBeTruthy();
