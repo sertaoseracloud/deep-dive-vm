@@ -24,7 +24,39 @@ import LegalModals from "../../components/ui/LegalModals.astro";
 	title="Deep Dive Azure VM · O Sertao será Cloud"
 	description="Formação de 54h para Engenheiros dominarem Azure VMs · Portal, CLI e Terraform · com Cláudio Raposo, Microsoft MVP."
 	url={Astro.url.toString()}
-	offersUrl="https://mentoria.sertaoseracloud.com/deep-dive-vm#investimento"
+	jsonLd={{
+		"@context": "https://schema.org",
+		"@type": "Course",
+		"name": "O Sertão será Cloud: Deep Dive Azure Virtual Machine",
+		"description": "Formação técnica de 54 horas focada em transformar engenheiros em arquitetos de nuvem através do domínio de Azure VMs, Terraform e Well-Architected Framework.",
+		"provider": {
+			"@type": "Person",
+			"name": "Cláudio Filipe Lima Raposo",
+			"sameAs": [
+				"https://www.linkedin.com/in/cfraposo/",
+				"https://github.com/sertaoseracloud"
+			]
+		},
+		"courseCode": "AZ-VM-DEEP-DIVE",
+		"educationalLevel": "Advanced",
+		"offers": {
+			"@type": "Offer",
+			"price": "947.00",
+			"priceCurrency": "BRL",
+			"availability": "https://schema.org/InStock",
+			"url": "https://mentoria.sertaoseracloud.com/deep-dive-vm#investimento"
+		},
+		"hasCourseInstance": {
+			"@type": "CourseInstance",
+			"courseMode": "Online",
+			"duration": "PT54H",
+			"instructor": {
+				"@type": "Person",
+				"name": "Cláudio Filipe Lima Raposo",
+				"jobTitle": "Microsoft MVP & Docker Captain"
+			}
+		}
+	}}
 >
 	<a href="#main" class="skip-link">Pular para o conteúdo</a>
 	<UrgencyBar />

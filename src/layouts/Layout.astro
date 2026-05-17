@@ -9,9 +9,10 @@ interface Props {
 	offersUrl?: string;
 	ogImage?: string;
 	noindex?: boolean;
+	jsonLd?: Record<string, unknown>;
 }
 
-const { title, description, url, offersUrl, ogImage, noindex } = Astro.props;
+const { title, description, url, offersUrl, ogImage, noindex, jsonLd } = Astro.props;
 
 const siteOrigin = "https://mentoria.sertaoseracloud.com";
 const ogImageUrl = ogImage
@@ -88,41 +89,7 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 				href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Chakra+Petch:wght@400;500;600;700&display=swap"
 			/>
 		</noscript>
-		{offersUrl && (
-		<script type="application/ld+json" set:html={JSON.stringify({
-			"@context": "https://schema.org",
-			"@type": "Course",
-			"name": "O Sertão será Cloud: Deep Dive Azure Virtual Machine",
-			"description": "Formação técnica de 54 horas focada em transformar engenheiros em arquitetos de nuvem através do domínio de Azure VMs, Terraform e Well-Architected Framework.",
-			"provider": {
-				"@type": "Person",
-				"name": "Cláudio Filipe Lima Raposo",
-				"sameAs": [
-					"https://www.linkedin.com/in/cfraposo/",
-					"https://github.com/sertaoseracloud"
-				]
-			},
-			"courseCode": "AZ-VM-DEEP-DIVE",
-			"educationalLevel": "Advanced",
-			"offers": {
-				"@type": "Offer",
-				"price": "947.00",
-				"priceCurrency": "BRL",
-				"availability": "https://schema.org/InStock",
-				"url": offersUrl
-			},
-			"hasCourseInstance": {
-				"@type": "CourseInstance",
-				"courseMode": "Online",
-				"duration": "PT54H",
-				"instructor": {
-					"@type": "Person",
-					"name": "Cláudio Filipe Lima Raposo",
-					"jobTitle": "Microsoft MVP & Docker Captain"
-				}
-			}
-		})} />
-		)}
+		{jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
 		<slot name="head" />
 	</head>
 	<body>
