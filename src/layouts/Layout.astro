@@ -6,9 +6,10 @@ interface Props {
 	title: string;
 	description?: string;
 	url?: string;
+	noindex?: boolean;
 }
 
-const { title, description, url } = Astro.props;
+const { title, description, url, noindex = false } = Astro.props;
 
 const siteOrigin = "https://mentoria.sertaoseracloud.com";
 const ogImageUrl = `${siteOrigin}${claudio1.src}`;
@@ -23,6 +24,7 @@ const offersUrl = `${siteOrigin}/deep-dive-vm#investimento`;
 		<SEO
 			title={title}
 			description={resolvedDescription}
+			noindex={noindex}
 			openGraph={{
 				basic: {
 					title: title,
