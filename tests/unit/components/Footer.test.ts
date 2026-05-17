@@ -28,9 +28,8 @@ describe("Footer component", () => {
   });
 
   it("contains copyright year in footer disclaimer", () => {
-    const year = new Date().getFullYear();
-    const yearPattern = new RegExp(`© ${year}`);
-    expect(builtHtml).toMatch(yearPattern);
+    // Regex robusto — não depende do ano atual em runtime (dist pode ser de ano anterior)
+    expect(builtHtml).toMatch(/© 20\d{2}/);
   });
 
   it("footer-disclaimer div is present", () => {
