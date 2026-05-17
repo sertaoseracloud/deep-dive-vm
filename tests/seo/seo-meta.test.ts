@@ -165,4 +165,21 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
   it("13. dist/sitemap-index.xml exists after build", () => {
     expect(existsSync(join(DIST_DIR, "sitemap-index.xml"))).toBe(true);
   });
+
+  it("14. sitemap-0.xml contains root / and /deep-dive-vm/", () => {
+    const sitemapPath = join(DIST_DIR, "sitemap-0.xml");
+    if (!existsSync(sitemapPath)) return;
+    const sitemap = readFileSync(sitemapPath, "utf-8");
+    expect(sitemap).toContain("https://mentoria.sertaoseracloud.com/");
+    expect(sitemap).toContain("https://mentoria.sertaoseracloud.com/deep-dive-vm/");
+  });
+
+  it("15. dist/index.html og:image points to hub-og.png", () => {
+    const hubIndexPath = join(DIST_DIR, "index.html");
+    if (!existsSync(hubIndexPath)) return;
+    const hubHtml = readFileSync(hubIndexPath, "utf-8");
+    const ogImage = extractMetaContent(hubHtml, "og:image");
+    expect(ogImage).toBeTruthy();
+    expect(ogImage).toContain("hub-og.png");
+  });
 });
