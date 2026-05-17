@@ -1,0 +1,94 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout
+  title="Deep Dive EC2 — Em breve · O Sertão será Cloud"
+  description="Formação técnica focada em AWS EC2 — domine instâncias, auto scaling e arquitetura na prática. Em breve na plataforma."
+  url="https://mentoria.sertaoseracloud.com/deep-dive-ec2/"
+  ogImage="/ec2-og.png"
+>
+  <a href="#conteudo-principal" class="skip-link">Pular para o conteúdo</a>
+
+  <main id="conteudo-principal" tabindex="-1" aria-label="Página do curso Deep Dive EC2">
+    <div class="ec2-container">
+      <a href="/" class="back-link">← Ver todos os cursos</a>
+      <h1>Deep Dive EC2</h1>
+      <span class="badge badge-coming-soon">EM BREVE</span>
+      <p>Formação técnica focada em AWS EC2 — domine instâncias, auto scaling e arquitetura na prática. Em breve na plataforma.</p>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  .ec2-container {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 48px 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .back-link {
+    display: inline-flex;
+    gap: 4px;
+    color: var(--texto-terciario);
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    text-decoration: none;
+    padding: 12px 0;
+    margin-bottom: 32px;
+    transition: color 0.2s ease;
+  }
+
+  .back-link:hover {
+    color: var(--nucleo-eletrico);
+  }
+
+  h1 {
+    font-family: "Chakra Petch", sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--texto-principal);
+    margin: 0 0 16px 0;
+  }
+
+  .badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    padding: 2px 8px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .badge-coming-soon {
+    color: var(--alerta);
+    border: 1px solid var(--alerta);
+  }
+
+  p {
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--texto-secundario);
+    margin: 16px 0 0 0;
+  }
+
+  @media (max-width: 480px) {
+    .ec2-container {
+      padding: 48px 16px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .back-link {
+      transition: none;
+    }
+  }
+</style>
