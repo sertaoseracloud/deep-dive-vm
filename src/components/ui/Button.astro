@@ -46,7 +46,7 @@ const classList = [
     text-transform: uppercase;
     border: 1px solid transparent;
     border-radius: 2px;
-    transition: all 0.25s;
+    transition: transform 0.15s var(--ease-micro), filter 0.15s var(--ease-micro), background 0.15s var(--ease-micro), box-shadow 0.15s var(--ease-micro);
     cursor: pointer;
     box-shadow:
       var(--glow-cobalt),
@@ -56,9 +56,14 @@ const classList = [
     width: fit-content;
   }
 
+  .btn:hover {
+    will-change: transform;
+    transform: translateY(-2px);
+  }
+
   /* Transição da seta (exato do index.html) */
   .btn :global(.arrow svg) {
-    transition: transform 0.25s;
+    transition: transform 0.25s var(--ease-micro);
     flex-shrink: 0;
   }
 
@@ -72,6 +77,7 @@ const classList = [
     box-shadow:
       0 0 36px rgba(0, 255, 255, 0.6),
       inset 0 0 0 1px rgba(0, 255, 255, 0.5);
+    filter: brightness(1.1);
   }
 
   /* Variante Massive */
@@ -103,11 +109,24 @@ const classList = [
   .btn.ghost:hover {
     background: rgba(0, 255, 255, 0.06);
     box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    filter: brightness(1.15);
   }
 
   :global(.price-cta) {
+    display: flex !important;
     width: 100% !important;
+    box-sizing: border-box !important;
     justify-content: center !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn {
+      will-change: auto;
+      transition: none;
+    }
+    .btn:hover {
+      transform: none;
+    }
   }
 
   /* Touch target para mobile */

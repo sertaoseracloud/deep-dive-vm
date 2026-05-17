@@ -85,7 +85,7 @@ Cross-cutting constraints:
   1. Visiting `mentoria.sertaoseracloud.com/deep-dive-ec2/` renders a "coming soon" page (no 404)
   2. `HOWTO-new-landing-page.md` at the repository root describes the complete steps to add a new LP — create the page file, add hub card, create og:image, update tests — verified by reading the file and following it to add a hypothetical new route
 **Plans**: 3 plans
-  - [ ] 08-01-PLAN.md — EC2 LP-lite page + og:image placeholder (SCAFF-01 production)
+  - [x] 08-01-PLAN.md — EC2 LP-lite page + og:image placeholder (SCAFF-01 production)
   - [ ] 08-02-PLAN.md — EC2 E2E spec + SEO test 16 (SCAFF-01 verification)
   - [ ] 08-03-PLAN.md — HOWTO-new-landing-page.md (SCAFF-02)
 
