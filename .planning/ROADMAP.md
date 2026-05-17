@@ -44,7 +44,11 @@
   2. The custom domain `mentoria.sertaoseracloud.com` survives a GitHub Pages deploy (CNAME file present in built output)
   3. All CI checks pass green after the migration: Vitest unit tests, Playwright E2E suite, and LHCI audit
   4. No hardcoded `/deep-dive-vm/` path remains broken — favicon, JSON-LD offersUrl, and test configs all resolve correctly
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 06-01-PLAN.md — CNAME + refatorar Layout.astro (favicon, offersUrl prop opcional)
+- [ ] 06-02-PLAN.md — Remover base do config + mover LP + criar hub placeholder + build de validação
+- [ ] 06-03-PLAN.md — Atualizar 11 testes Vitest + playwright.config.ts + 4 E2E specs + LHCI blocklist
 
 ### Phase 7: Hub Page
 **Goal**: The root URL `mentoria.sertaoseracloud.com/` serves a complete Linktree-style hub that a visitor can share on WhatsApp or Instagram and receive a rich preview card.
@@ -76,6 +80,6 @@
 | 3. SEO Optimization | v1.0 | 4/4 | Complete | 2026-05-11 |
 | 4. Continuous Validation | v1.0 | 4/4 | Complete | 2026-05-12 |
 | 5. Quality Audit | v1.2 | 3/3 | Complete | 2026-05-16 |
-| 6. Route Migration | v1.3 | 0/? | Not started | - |
+| 6. Route Migration | v1.3 | 0/3 | Not started | - |
 | 7. Hub Page | v1.3 | 0/? | Not started | - |
 | 8. Multi-LP Scaffold | v1.3 | 0/? | Not started | - |
