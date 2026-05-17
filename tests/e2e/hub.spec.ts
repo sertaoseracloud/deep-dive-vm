@@ -30,11 +30,11 @@ test.describe("Hub load", () => {
     await expect(page.locator("h1")).toBeVisible();
   });
 
-  test("4 social icon links are present and each has a non-empty aria-label", async ({ page }) => {
+  test("3 social icon links are present and each has a non-empty aria-label", async ({ page }) => {
     await page.goto("./");
     const socialLinks = page.locator(".social-icon-link");
-    await expect(socialLinks).toHaveCount(4);
-    for (let i = 0; i < 4; i++) {
+    await expect(socialLinks).toHaveCount(3); // WhatsApp disabled until real number configured
+    for (let i = 0; i < 3; i++) {
       const label = await socialLinks.nth(i).getAttribute("aria-label");
       expect(label).toBeTruthy();
     }
@@ -80,11 +80,11 @@ test.describe("Hub load", () => {
     expect(href).toContain("/deep-dive-vm/");
   });
 
-  test("all 4 social icon links have rel containing noopener", async ({ page }) => {
+  test("all active social icon links have rel containing noopener", async ({ page }) => {
     await page.goto("./");
     const socialLinks = page.locator(".social-icon-link");
-    await expect(socialLinks).toHaveCount(4);
-    for (let i = 0; i < 4; i++) {
+    await expect(socialLinks).toHaveCount(3); // WhatsApp disabled until real number configured
+    for (let i = 0; i < 3; i++) {
       const rel = await socialLinks.nth(i).getAttribute("rel");
       expect(rel).toContain("noopener");
     }
