@@ -59,8 +59,23 @@ Plans:
   2. The hub shows a course card for Deep Dive VM (with link to `/deep-dive-vm/`) and a "coming soon" card for Deep Dive EC2
   3. Social link icons for Instagram, YouTube, WhatsApp, and LinkedIn are visible and clickable, and they can be updated without changing component code
   4. Sharing the root URL on WhatsApp or LinkedIn generates a rich preview card with image, title, and description (Open Graph meta tags verified in built HTML)
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
+Plans:
+
+**Wave 1** — Foundations (parallel-safe)
+- [ ] 07-01-PLAN.md — Layout props (ogImage/noindex), data files, SocialIcon, hub-og.png placeholder
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 07-02-PLAN.md — Rewrite src/pages/index.astro as the Linktree hub
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 07-03-PLAN.md — Add unit/SEO/E2E tests (Layout hub OG, sitemap, hub.spec.ts)
+
+Cross-cutting constraints:
+- `dist/` must be rebuilt via `npm run build` before test verification (Wave 3 tasks)
+- `public/hub-og.png` must exist before any Wave 2+ build
+- All social link anchors require `rel="noopener noreferrer"` and `aria-label`
 
 ### Phase 8: Multi-LP Scaffold
 **Goal**: A documented, working pattern exists so that adding a new landing page to the platform requires only following a checklist — demonstrated by a live `/deep-dive-ec2/` route.
@@ -81,5 +96,5 @@ Plans:
 | 4. Continuous Validation | v1.0 | 4/4 | Complete | 2026-05-12 |
 | 5. Quality Audit | v1.2 | 3/3 | Complete | 2026-05-16 |
 | 6. Route Migration | v1.3 | 3/3 | Complete   | 2026-05-17 |
-| 7. Hub Page | v1.3 | 0/? | Not started | - |
+| 7. Hub Page | v1.3 | 0/3 | Ready to execute | - |
 | 8. Multi-LP Scaffold | v1.3 | 0/? | Not started | - |
