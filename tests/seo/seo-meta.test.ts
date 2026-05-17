@@ -195,3 +195,28 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
     expect(ogImage).toContain("ec2-og.png");
   });
 });
+
+describe("Sitemap content assertions (dist/sitemap-0.xml)", () => {
+  const SITEMAP_PATH = join(DIST_DIR, "sitemap-0.xml");
+
+  it("14. sitemap-0.xml contains the deep-dive-vm URL", () => {
+    if (!existsSync(SITEMAP_PATH)) {
+      throw new Error(
+        `sitemap-0.xml not found. Run 'npm run build' before running SEO tests.\nExpected path: ${SITEMAP_PATH}`
+      );
+    }
+    const sitemap = readFileSync(SITEMAP_PATH, "utf-8");
+    expect(sitemap).toContain("deep-dive-vm");
+  });
+
+  it("15. sitemap-0.xml does NOT contain the hub root URL (mentoria.sertaoseracloud.com/)", () => {
+    if (!existsSync(SITEMAP_PATH)) {
+      throw new Error(
+        `sitemap-0.xml not found. Run 'npm run build' before running SEO tests.\nExpected path: ${SITEMAP_PATH}`
+      );
+    }
+    const sitemap = readFileSync(SITEMAP_PATH, "utf-8");
+    // A rota raiz não deve aparecer no sitemap — apenas /deep-dive-vm/ é indexável
+    expect(sitemap).not.toMatch(/<loc>https:\/\/mentoria\.sertaoseracloud\.com\/<\/loc>/);
+  });
+});

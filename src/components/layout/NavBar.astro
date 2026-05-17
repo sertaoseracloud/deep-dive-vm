@@ -2,7 +2,7 @@
 import Button from "../ui/Button.astro";
 ---
 
-<nav class="nav" aria-label="Navegação principal">
+<nav class="nav" aria-label="Navegação principal" data-scrolled="false">
   <div class="container nav-row">
     <a href="#top" class="brand">
       <svg class="star-mark" viewBox="0 0 24 24" fill="url(#bgs)">
@@ -27,6 +27,20 @@ import Button from "../ui/Button.astro";
       <a href="#faq">FAQ</a>
     </div>
 
+    <button
+      id="hamburger-btn"
+      class="hamburger"
+      aria-label="Abrir menu de navegação"
+      aria-expanded="false"
+      type="button"
+    >
+      <svg width="22" height="16" viewBox="0 0 22 16" fill="none" aria-hidden="true">
+        <rect y="0" width="22" height="2" rx="1" fill="currentColor"/>
+        <rect y="7" width="22" height="2" rx="1" fill="currentColor"/>
+        <rect y="14" width="22" height="2" rx="1" fill="currentColor"/>
+      </svg>
+    </button>
+
     <Button href="#investimento" variant="primary" customClass="nav-cta" testid="nav-cta">
       Garantir Vaga
     </Button>
@@ -42,6 +56,18 @@ import Button from "../ui/Button.astro";
     background: rgba(10, 15, 30, 0.85);
     backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--hairline);
+    transition: background 0.2s var(--ease-micro), box-shadow 0.2s var(--ease-micro);
+  }
+
+  .nav[data-scrolled="true"] {
+    background: rgba(10, 15, 30, 0.97);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nav {
+      transition: none;
+    }
   }
 
   /* O container interno gerencia o alinhamento e o espaçamento vertical (padding) */
@@ -94,11 +120,22 @@ import Button from "../ui/Button.astro";
     text-decoration: none;
     font-size: 13px;
     color: var(--texto-secundario);
-    transition: color 0.2s;
+    transition: color 0.15s var(--ease-micro), border-color 0.15s var(--ease-micro);
   }
 
   .nav-links a:hover {
-    color: var(--nucleo-eletrico);
+    color: var(--nucleo-eletrico, #00FFFF);
+  }
+
+  .nav-links a[aria-current="page"] {
+    color: var(--nucleo-eletrico, #00FFFF);
+    border-bottom: 2px solid currentColor;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nav-links a {
+      transition: none;
+    }
   }
 
   /* O modificador :global() garante que o Astro aplique estas regras de redução 
@@ -115,4 +152,118 @@ import Button from "../ui/Button.astro";
       display: none;
     }
   }
+
+  .hamburger {
+    display: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    color: var(--texto-principal, #fff);
+    border-radius: 4px;
+  }
+  @media (max-width: 980px) {
+    .hamburger { display: flex; align-items: center; }
+  }
 </style>
+
+<script>
+  // IntersectionObserver: sticky scrolled state na NavBar
+  const nav = document.querySelector(".nav") as HTMLElement | null;
+  const sentinel = document.getElementById("top");
+  if (!nav) {
+    // sem nav, nada a fazer
+  } else if (!sentinel) {
+    // Fallback: sentinel #top ausente — verificar posição de scroll diretamente
+    const onScroll = () => {
+      nav.dataset.scrolled = String(window.scrollY > 10);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    document.addEventListener("astro:before-swap", () => {
+      window.removeEventListener("scroll", onScroll);
+    }, { once: true });
+  } else {
+    const scrollObserver = new IntersectionObserver(
+      (entries) => {
+        if (entries.length === 0) return;
+        nav.dataset.scrolled = String(!entries[0].isIntersecting);
+      },
+      { threshold: 0 }
+    );
+    scrollObserver.observe(sentinel);
+    // Cleanup: desconectar observer em navegação SPA (Astro View Transitions)
+    document.addEventListener("astro:before-swap", () => {
+      scrollObserver.disconnect();
+    }, { once: true });
+  }
+</script>
+
+<script>
+  const btn = document.getElementById("hamburger-btn");
+  if (btn) {
+    let menuOpen = false;
+    btn.addEventListener("click", () => {
+      menuOpen = !menuOpen;
+      btn.setAttribute("aria-expanded", String(menuOpen));
+      btn.setAttribute("aria-label", menuOpen ? "Fechar menu de navegação" : "Abrir menu de navegação");
+      window.dispatchEvent(new CustomEvent("toggle-menu"));
+    });
+    // Ouvir estado explícito enviado pelo MobileMenuMotion (ex.: fechar via Escape)
+    const onSetMenu = (e: Event) => {
+      const { open } = (e as CustomEvent<{ open: boolean }>).detail;
+      menuOpen = open;
+      btn.setAttribute("aria-expanded", String(open));
+      btn.setAttribute("aria-label", open ? "Fechar menu de navegação" : "Abrir menu de navegação");
+    };
+    window.addEventListener("set-menu", onSetMenu);
+    document.addEventListener("astro:before-swap", () => {
+      window.removeEventListener("set-menu", onSetMenu);
+    }, { once: true });
+  }
+</script>
+
+<script>
+  // IntersectionObserver: active section detection para single-page landing page
+  // aria-current baseado em pathname não se aplica — todos os links são anchor links
+  const navLinks = document.querySelectorAll<HTMLAnchorElement>(".nav-links a[href^='#']");
+
+  const sectionElements: HTMLElement[] = [];
+  const linkMap = new Map<string, HTMLAnchorElement>();
+
+  navLinks.forEach((link) => {
+    const sectionId = link.getAttribute("href")?.slice(1);
+    if (sectionId) {
+      const section = document.getElementById(sectionId);
+      if (section) {
+        sectionElements.push(section);
+        linkMap.set(sectionId, link);
+      }
+    }
+  });
+
+  if (sectionElements.length > 0) {
+    const sectionObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const sectionId = entry.target.id;
+            // Remove aria-current de todos os links
+            navLinks.forEach((link) => link.removeAttribute("aria-current"));
+            // Adiciona aria-current ao link da seção visível
+            const activeLink = linkMap.get(sectionId);
+            if (activeLink) {
+              activeLink.setAttribute("aria-current", "page");
+            }
+          }
+        });
+      },
+      { threshold: 0, rootMargin: "-20% 0px -70% 0px" }
+    );
+
+    sectionElements.forEach((section) => sectionObserver.observe(section));
+    // Cleanup: desconectar observer em navegação SPA (Astro View Transitions)
+    document.addEventListener("astro:before-swap", () => {
+      sectionObserver.disconnect();
+    }, { once: true });
+  }
+</script>

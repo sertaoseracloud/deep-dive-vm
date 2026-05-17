@@ -3,7 +3,7 @@ import Button from "../ui/Button.astro";
 import SectionHead from "../ui/SectionHead.astro";
 ---
 
-<section class="pricing" id="investimento">
+<section class="pricing" id="investimento" data-reveal>
     <div class="container">
         <SectionHead
             center={true}
@@ -36,7 +36,7 @@ import SectionHead from "../ui/SectionHead.astro";
                 </div>
 
                 <ul class="price-includes">
-                    <li>
+                    <li data-stagger style="animation-delay: 0ms">
                         <svg
                             width="16"
                             height="16"
@@ -52,7 +52,7 @@ import SectionHead from "../ui/SectionHead.astro";
                             Portal, CLI, Terraform e Spec-Driven Dev.</span
                         >
                     </li>
-                    <li>
+                    <li data-stagger style="animation-delay: 80ms">
                         <svg
                             width="16"
                             height="16"
@@ -69,7 +69,7 @@ import SectionHead from "../ui/SectionHead.astro";
                             >.</span
                         >
                     </li>
-                    <li>
+                    <li data-stagger style="animation-delay: 160ms">
                         <svg
                             width="16"
                             height="16"
@@ -85,7 +85,7 @@ import SectionHead from "../ui/SectionHead.astro";
                             (Bônus 01).</span
                         >
                     </li>
-                    <li>
+                    <li data-stagger style="animation-delay: 240ms">
                         <svg
                             width="16"
                             height="16"
@@ -102,7 +102,7 @@ import SectionHead from "../ui/SectionHead.astro";
                             uma <code>spec.md</code>.</span
                         >
                     </li>
-                    <li>
+                    <li data-stagger style="animation-delay: 320ms">
                         <svg
                             width="16"
                             height="16"
@@ -118,7 +118,7 @@ import SectionHead from "../ui/SectionHead.astro";
                             cada (Bônus 02).</span
                         >
                     </li>
-                    <li>
+                    <li data-stagger style="animation-delay: 400ms">
                         <svg
                             width="16"
                             height="16"
@@ -134,7 +134,7 @@ import SectionHead from "../ui/SectionHead.astro";
                             como professor convidado nas gravações (Bônus 03).</span
                         >
                     </li>
-                    <li>
+                    <li data-stagger style="animation-delay: 480ms">
                         <svg
                             width="16"
                             height="16"
@@ -150,7 +150,7 @@ import SectionHead from "../ui/SectionHead.astro";
                             assinado por um Microsoft MVP.</span
                         >
                     </li>
-                    <li>
+                    <li data-stagger style="animation-delay: 560ms">
                         <svg
                             width="16"
                             height="16"
@@ -167,12 +167,11 @@ import SectionHead from "../ui/SectionHead.astro";
                         >
                     </li>
                 </ul>
-                {
-                    /** 
                 <Button
-                    href="https://pay.hotmart.com/..."
+                    href="https://www.hotmart.com"
                     variant="primary"
                     size="massive"
+                    customClass="price-cta"
                 >
                     Quero garantir minha vaga agora
                     <span class="arrow">
@@ -190,8 +189,6 @@ import SectionHead from "../ui/SectionHead.astro";
                         </svg>
                     </span>
                 </Button>
-                */
-                }
                 <div class="price-secure">
                     <span
                         ><svg
@@ -281,6 +278,30 @@ import SectionHead from "../ui/SectionHead.astro";
         box-shadow:
             var(--shadow-card),
             0 0 60px rgba(0, 255, 255, 0.15);
+        transition: transform 0.15s var(--ease-micro), box-shadow 0.15s var(--ease-micro);
+    }
+
+    .price-card:hover {
+        will-change: transform;
+        transform: translateY(-6px) scale(1.01);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--nucleo-eletrico);
+    }
+
+    .price-card:focus-within {
+        outline: 2px solid var(--nucleo-eletrico);
+        outline-offset: 4px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .price-card {
+            transition: box-shadow 0.15s var(--ease-micro);
+            will-change: auto;
+        }
+        .price-card:hover {
+            will-change: auto;
+            transform: none;
+            box-shadow: 0 0 0 2px var(--nucleo-eletrico);
+        }
     }
 
     .price-ribbon {
@@ -412,11 +433,6 @@ import SectionHead from "../ui/SectionHead.astro";
     .price-includes li b {
         color: var(--texto-principal);
         font-weight: 500;
-    }
-
-    :global(.price-cta) {
-        width: 100%;
-        justify-content: center;
     }
 
     .price-secure {

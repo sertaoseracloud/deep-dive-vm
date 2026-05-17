@@ -1,0 +1,38 @@
+[
+  {
+    "url": "http://localhost:64373/deep-dive-vm/",
+    "isRepresentativeRun": false,
+    "htmlPath": "C:\\Repo\\landing-page\\deep-dive-vm\\.claude\\worktrees\\impeccable-teach\\.lighthouseci\\localhost-_deep_dive_vm_-2026_05_17_03_30_55.report.html",
+    "jsonPath": "C:\\Repo\\landing-page\\deep-dive-vm\\.claude\\worktrees\\impeccable-teach\\.lighthouseci\\localhost-_deep_dive_vm_-2026_05_17_03_30_55.report.json",
+    "summary": {
+      "performance": 0.68,
+      "accessibility": 1,
+      "best-practices": 1,
+      "seo": 1
+    }
+  },
+  {
+    "url": "http://localhost:64373/deep-dive-vm/",
+    "isRepresentativeRun": false,
+    "htmlPath": "C:\\Repo\\landing-page\\deep-dive-vm\\.claude\\worktrees\\impeccable-teach\\.lighthouseci\\localhost-_deep_dive_vm_-2026_05_17_03_31_28.report.html",
+    "jsonPath": "C:\\Repo\\landing-page\\deep-dive-vm\\.claude\\worktrees\\impeccable-teach\\.lighthouseci\\localhost-_deep_dive_vm_-2026_05_17_03_31_28.report.json",
+    "summary": {
+      "performance": 0.72,
+      "accessibility": 1,
+      "best-practices": 1,
+      "seo": 1
+    }
+  },
+  {
+    "url": "http://localhost:64373/deep-dive-vm/",
+    "isRepresentativeRun": true,
+    "htmlPath": "C:\\Repo\\landing-page\\deep-dive-vm\\.claude\\worktrees\\impeccable-teach\\.lighthouseci\\localhost-_deep_dive_vm_-2026_05_17_03_31_12.report.html",
+    "jsonPath": "C:\\Repo\\landing-page\\deep-dive-vm\\.claude\\worktrees\\impeccable-teach\\.lighthouseci\\localhost-_deep_dive_vm_-2026_05_17_03_31_12.report.json",
+    "summary": {
+      "performance": 0.72,
+      "accessibility": 1,
+      "best-practices": 1,
+      "seo": 1
+    }
+  }
+]

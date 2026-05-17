@@ -8,7 +8,7 @@ import { test, expect } from "@playwright/test";
  *   - Skip link presence, href, text, and activation (moves focus to #main)
  *   - Focus-visible: focused interactive element has a CSS outline (not "none")
  *
- * Note: main#main has tabindex="-1" added in src/pages/index.astro so that
+ * Note: main#main has tabindex="-1" added in src/pages/deep-dive-vm/index.astro so that
  * activating the skip link via Enter can programmatically receive focus.
  * This is a standard accessibility pattern that does NOT add main to the tab order.
  *

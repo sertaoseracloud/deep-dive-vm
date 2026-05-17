@@ -235,6 +235,19 @@ import claudio1 from "../../assets/claudio1.png";
 </header>
 
 <style>
+    /* CSS fallback: garante visibilidade do conteúdo antes da hidratação React */
+    .hero-content {
+        opacity: 1;
+    }
+
+    /* Sobrescreve opacity:0 do motion.div (initial) antes da hidratação do HeroMotion.
+       A regra :global garante que o Astro não faça scoping nesta seleção.
+       Quando motion.js hidrata, aplica inline style com maior especificidade,
+       então a animação funciona normalmente após hidratação. */
+    :global(astro-island .hero-content) {
+        opacity: 1 !important;
+    }
+
     .hero {
         padding: 80px 0 80px;
         position: relative;
