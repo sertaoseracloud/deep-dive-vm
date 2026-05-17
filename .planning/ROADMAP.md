@@ -29,7 +29,7 @@
 
 **Milestone Goal:** Transform the site into a multi-landing-page platform — the domain root becomes a Linktree-style hub, and each course lives at its own route. The existing Deep Dive VM URL is preserved throughout.
 
-- [ ] **Phase 6: Route Migration** — Remove Astro base config, move LP to file-based route, CNAME preserved, CI green
+- [x] **Phase 6: Route Migration** — Remove Astro base config, move LP to file-based route, CNAME preserved, CI green (completed 2026-05-17)
 - [ ] **Phase 7: Hub Page** — Linktree-style root hub with mentor identity, course cards, social links, and Open Graph
 - [ ] **Phase 8: Multi-LP Scaffold** — Documented, repeatable pattern for adding new landing pages
 
@@ -46,9 +46,9 @@
   4. No hardcoded `/deep-dive-vm/` path remains broken — favicon, JSON-LD offersUrl, and test configs all resolve correctly
 **Plans**: 3 plans
 Plans:
-- [ ] 06-01-PLAN.md — CNAME + refatorar Layout.astro (favicon, offersUrl prop opcional)
-- [ ] 06-02-PLAN.md — Remover base do config + mover LP + criar hub placeholder + build de validação
-- [ ] 06-03-PLAN.md — Atualizar 11 testes Vitest + playwright.config.ts + 4 E2E specs + LHCI blocklist
+- [x] 06-01-PLAN.md — CNAME + refatorar Layout.astro (favicon, offersUrl prop opcional)
+- [x] 06-02-PLAN.md — Remover base do config + mover LP + criar hub placeholder + build de validação
+- [x] 06-03-PLAN.md — Atualizar 11 testes Vitest + playwright.config.ts + 4 E2E specs + LHCI blocklist
 
 ### Phase 7: Hub Page
 **Goal**: The root URL `mentoria.sertaoseracloud.com/` serves a complete Linktree-style hub that a visitor can share on WhatsApp or Instagram and receive a rich preview card.
@@ -80,6 +80,6 @@ Plans:
 | 3. SEO Optimization | v1.0 | 4/4 | Complete | 2026-05-11 |
 | 4. Continuous Validation | v1.0 | 4/4 | Complete | 2026-05-12 |
 | 5. Quality Audit | v1.2 | 3/3 | Complete | 2026-05-16 |
-| 6. Route Migration | v1.3 | 0/3 | Not started | - |
+| 6. Route Migration | v1.3 | 3/3 | Complete   | 2026-05-17 |
 | 7. Hub Page | v1.3 | 0/? | Not started | - |
 | 8. Multi-LP Scaffold | v1.3 | 0/? | Not started | - |

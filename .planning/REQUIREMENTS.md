@@ -28,7 +28,7 @@ vive na sua própria rota (`/deep-dive-vm/`, `/deep-dive-ec2/`, etc.).
 - [ ] **MIGR-03**: `public/CNAME` contém `mentoria.sertaoseracloud.com` — o arquivo é incluído
   em cada build e o domínio personalizado sobrevive a todos os deploys do GitHub Pages
 
-- [ ] **MIGR-04**: Todos os caminhos hardcoded `/deep-dive-vm/` em `src/` estão corrigidos
+- [x] **MIGR-04**: Todos os caminhos hardcoded `/deep-dive-vm/` em `src/` estão corrigidos
   (favicon href em `Layout.astro:48`, JSON-LD `offersUrl` em `Layout.astro:16`), e os
   testes de CI estão atualizados (`playwright.config.ts` `baseURL` e `webServer.url`;
   `tests/seo/seo-meta.test.ts` path para `dist/deep-dive-vm/index.html`)
