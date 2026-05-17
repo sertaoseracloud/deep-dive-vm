@@ -6,5 +6,11 @@ export default defineConfig({
   site: 'https://mentoria.sertaoseracloud.com',
   base: '/deep-dive-vm/',
   outDir: 'dist',
-  integrations: [sitemap(), react()],
+  integrations: [
+    sitemap({
+      // Excluir a rota raiz do hub do sitemap — apenas /deep-dive-vm/ deve ser indexada
+      filter: (page) => !page.endsWith('https://mentoria.sertaoseracloud.com/'),
+    }),
+    react(),
+  ],
 });
