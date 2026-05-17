@@ -12,14 +12,14 @@ import { test, expect } from "@playwright/test";
  * activating the skip link via Enter can programmatically receive focus.
  * This is a standard accessibility pattern that does NOT add main to the tab order.
  *
- * baseURL is configured in playwright.config.ts as http://localhost:4321/deep-dive-vm/
+ * baseURL is configured in playwright.config.ts as http://localhost:4321/
  */
 
 test.describe("Keyboard navigation", () => {
   test("Tab key moves focus through at least 3 interactive elements in logical order", async ({
     page,
   }) => {
-    await page.goto("./");
+    await page.goto("./deep-dive-vm/");
 
     const focused: Array<{ tag: string; text: string }> = [];
     for (let i = 0; i < 6; i++) {
@@ -47,7 +47,7 @@ test.describe("Keyboard navigation", () => {
   });
 
   test("skip link is the first focusable element", async ({ page }) => {
-    await page.goto("./");
+    await page.goto("./deep-dive-vm/");
     await page.keyboard.press("Tab");
     const firstFocused = await page.evaluate(
       () => document.activeElement?.className ?? ""
@@ -60,14 +60,14 @@ test.describe("Skip link functionality", () => {
   test("skip link is present with href='#main' and correct text", async ({
     page,
   }) => {
-    await page.goto("./");
+    await page.goto("./deep-dive-vm/");
     const skipLink = page.locator("a.skip-link");
     await expect(skipLink).toHaveAttribute("href", "#main");
     await expect(skipLink).toHaveText("Pular para o conteúdo");
   });
 
   test("activating skip link moves focus to #main", async ({ page }) => {
-    await page.goto("./");
+    await page.goto("./deep-dive-vm/");
     // Tab to focus the skip link (it is the first focusable element)
     await page.keyboard.press("Tab");
     // Press Enter to activate it
@@ -83,7 +83,7 @@ test.describe("Focus-visible", () => {
   test("focused interactive element has a visible CSS outline (not outline:none)", async ({
     page,
   }) => {
-    await page.goto("./");
+    await page.goto("./deep-dive-vm/");
     // Tab past skip link to the first navigation element
     await page.keyboard.press("Tab"); // skip link
     await page.keyboard.press("Tab"); // first nav link
