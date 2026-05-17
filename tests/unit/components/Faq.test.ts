@@ -9,7 +9,7 @@ const PROJECT_ROOT = join(__dirname, "../../..");
 let builtHtml = "";
 
 beforeAll(() => {
-  builtHtml = readFileSync(join(PROJECT_ROOT, "dist/index.html"), "utf-8");
+  builtHtml = readFileSync(join(PROJECT_ROOT, "dist/deep-dive-vm/index.html"), "utf-8");
 });
 
 describe("Faq component", () => {

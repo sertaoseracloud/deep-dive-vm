@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
  */
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DIST_INDEX = join(__dirname, "../../dist/index.html");
+const DIST_INDEX = join(__dirname, "../../dist/deep-dive-vm/index.html");
 const DIST_DIR = join(__dirname, "../../dist");
 
 let html = "";
