@@ -1,15 +1,289 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { Image } from "astro:assets";
+import claudio2 from "../assets/claudio2.png";
+import { socialLinks } from "../data/social-links";
+import { courses } from "../data/courses";
+import SocialIcon from "../components/ui/SocialIcon.astro";
 ---
 
 <Layout
-	title="Mentoria Sertão Será Cloud"
-	description="Formações técnicas de Azure para engenheiros. Microsoft MVP."
+  title="Cláudio Rapôso — O Sertão será Cloud"
+  description="Formação técnica de alto impacto em cloud. Azure VM, EC2 e mais. Acesse os cursos e redes do mentor."
+  url="https://mentoria.sertaoseracloud.com/"
+  ogImage="/hub-og.png"
 >
-	<meta slot="head" name="robots" content="noindex" />
-	<main id="main" tabindex="-1">
-		<h1>Mentoria Sertão Será Cloud</h1>
-		<p>Em breve: hub de cursos.</p>
-		<a href="/deep-dive-vm/">Deep Dive Azure VM →</a>
-	</main>
+  <a href="#conteudo-principal" class="skip-link">Pular para o conteúdo</a>
+
+  <main id="conteudo-principal" tabindex="-1" aria-label="Hub de cursos e redes sociais">
+    <div class="hub-container">
+
+      <section class="hub-profile" aria-label="Perfil do mentor">
+        <Image
+          src={claudio2}
+          alt="Cláudio Filipe Lima Raposo — mentor"
+          width={128}
+          height={128}
+          class="mentor-photo"
+          loading="eager"
+        />
+        <h1>Cláudio Filipe Lima Raposo</h1>
+        <p class="bio">Systems Architect · 2× MVP Microsoft · Docker Captain</p>
+
+        <div class="social-links" role="list">
+          {socialLinks.map((link) => (
+            <a
+              href={link.url}
+              aria-label={link.ariaLabel}
+              target="_blank"
+              rel="noopener noreferrer"
+              role="listitem"
+              class="social-icon-link"
+            >
+              <SocialIcon name={link.icon} ariaLabel={link.ariaLabel} />
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <hr class="hub-divider" aria-hidden="true" />
+
+      <section class="hub-courses" aria-label="Cursos disponíveis">
+        <h2>Cursos</h2>
+        <div class="course-list">
+          {courses.map((course) => (
+            <div class={`course-card ${course.status}`} data-status={course.status}>
+              <div class="course-header">
+                <h3 class="course-title">{course.title}</h3>
+                <span class={`badge badge-${course.status}`}>
+                  {course.status === 'active' ? 'ATIVO' : 'EM BREVE'}
+                </span>
+              </div>
+              <p class="course-description">{course.description}</p>
+              {course.status === 'active' && (
+                <a href={course.url} class="course-link">Acessar curso →</a>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+    </div>
+  </main>
 </Layout>
+
+<style>
+  .hub-container {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 48px 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Profile section ── */
+  .hub-profile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+  }
+
+  .mentor-photo {
+    width: 128px;
+    height: 128px;
+    border-radius: 50%;
+    border: 2px solid var(--nucleo-eletrico);
+    box-shadow: 0 0 16px rgba(0, 255, 255, 0.3);
+    object-fit: cover;
+  }
+
+  h1 {
+    font-family: "Chakra Petch", sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--texto-principal);
+    margin: 0;
+  }
+
+  .bio {
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--texto-secundario);
+    margin: 0;
+  }
+
+  /* ── Social links ── */
+  .social-links {
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 8px;
+  }
+
+  .social-icon-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    color: var(--texto-terciario);
+    text-decoration: none;
+    transition: color 0.2s ease, filter 0.2s ease;
+    border-radius: 4px;
+  }
+
+  .social-icon-link:hover {
+    color: var(--nucleo-eletrico);
+    filter: drop-shadow(0 0 6px rgba(0, 255, 255, 0.6));
+  }
+
+  /* ── Divider ── */
+  .hub-divider {
+    border: none;
+    border-top: 1px solid var(--hairline-strong);
+    margin: 24px 0;
+  }
+
+  /* ── Courses section ── */
+  .hub-courses {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .hub-courses h2 {
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--texto-principal);
+    margin: 0 0 8px 0;
+  }
+
+  .course-list {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .course-card {
+    background: rgba(27, 41, 60, 0.6);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    padding: 24px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  }
+
+  .course-card.active:hover {
+    border-color: var(--hairline-strong);
+    background: rgba(27, 41, 60, 0.85);
+    transform: translateY(-2px);
+  }
+
+  .course-card.coming-soon {
+    opacity: 0.7;
+    cursor: default;
+  }
+
+  .course-card.coming-soon .course-link {
+    pointer-events: none;
+  }
+
+  .course-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  .course-title {
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--texto-principal);
+    margin: 0;
+  }
+
+  .badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    padding: 2px 8px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .badge-active {
+    color: var(--sucesso);
+    border: 1px solid var(--sucesso);
+  }
+
+  .badge-coming-soon {
+    color: var(--alerta);
+    border: 1px solid var(--alerta);
+  }
+
+  .course-description {
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--texto-secundario);
+    margin: 0 0 16px 0;
+  }
+
+  .course-link {
+    display: inline-block;
+    color: var(--nucleo-eletrico);
+    text-decoration: none;
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .course-link:hover {
+    text-decoration: underline;
+  }
+
+  /* ── Responsive: mobile ── */
+  @media (max-width: 480px) {
+    .mentor-photo {
+      width: 96px;
+      height: 96px;
+    }
+
+    .hub-container {
+      padding: 48px 16px;
+    }
+  }
+
+  /* ── Reduced motion ── */
+  @media (prefers-reduced-motion: reduce) {
+    .social-icon-link {
+      transition: none;
+    }
+
+    .social-icon-link:hover {
+      filter: none;
+    }
+
+    .course-card {
+      transition: none;
+    }
+
+    .course-card.active:hover {
+      transform: none;
+    }
+  }
+</style>
