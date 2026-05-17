@@ -98,11 +98,15 @@ Multiples of 4 only. Values inherited from Layout.astro global section primitive
 - Sticky CTA height: fixed 56px mobile strip (above footer)
 - Touch target minimum: 44px (enforced via `min-height: 44px` on `.btn` at ≤720px and `module summary`)
 
+**Nota sobre exceções:** Todos os valores de exceção acima (40px, 28px, 56px, 44px) são múltiplos de 4 — aprovados para seus contextos específicos. Nenhuma exceção usa valor fora da grade de 4px.
+
 ---
 
 ## Typography
 
 ### Type Scale
+
+**Nota de exceção:** Esta escala tipográfica é documentação de estado existente do codebase (`Layout.astro <style is:global>`), não especificação nova. Escala aprovada pelo projeto — não criar novos tamanhos ou pesos fora desta tabela.
 
 | Role | Font | Size | Weight | Line Height | Usage |
 |------|------|------|--------|-------------|-------|
@@ -596,6 +600,8 @@ interface StickyCtaProps {
 ```
 
 **Python content:** `priceLabel: "DESDE 12× R$ 78,92"`, `ctaText: "Quero começar →"`
+
+**Nota sobre o label do StickyCta:** O texto "Quero começar →" (sem "agora") é intencional para o contexto da faixa móvel compacta — a seta visual substitui funcionalmente a palavra "agora". Se preferir consistência total com os outros CTAs de compra, pode-se usar "Quero começar agora →". Decisão fica ao executor.
 
 **Behavior:** Fixed strip at bottom of viewport on mobile (≤720px). Hidden on desktop. Min-height 56px. Background: `var(--abismo-profundo)` with top border `var(--hairline-strong)`.
 
