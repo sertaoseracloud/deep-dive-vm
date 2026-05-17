@@ -84,7 +84,10 @@ Cross-cutting constraints:
 **Success Criteria** (what must be TRUE):
   1. Visiting `mentoria.sertaoseracloud.com/deep-dive-ec2/` renders a "coming soon" page (no 404)
   2. `HOWTO-new-landing-page.md` at the repository root describes the complete steps to add a new LP — create the page file, add hub card, create og:image, update tests — verified by reading the file and following it to add a hypothetical new route
-**Plans**: TBD
+**Plans**: 3 plans
+  - [ ] 08-01-PLAN.md — EC2 LP-lite page + og:image placeholder (SCAFF-01 production)
+  - [ ] 08-02-PLAN.md — EC2 E2E spec + SEO test 16 (SCAFF-01 verification)
+  - [ ] 08-03-PLAN.md — HOWTO-new-landing-page.md (SCAFF-02)
 
 ## Progress
 
@@ -97,4 +100,4 @@ Cross-cutting constraints:
 | 5. Quality Audit | v1.2 | 3/3 | Complete | 2026-05-16 |
 | 6. Route Migration | v1.3 | 3/3 | Complete   | 2026-05-17 |
 | 7. Hub Page | v1.3 | 3/3 | Executed — pending verify | 2026-05-17 |
-| 8. Multi-LP Scaffold | v1.3 | 0/? | Not started | - |
+| 8. Multi-LP Scaffold | v1.3 | 0/3 | Planned     | - |
