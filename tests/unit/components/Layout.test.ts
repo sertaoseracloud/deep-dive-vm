@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,8 +10,15 @@ let builtHtml = "";
 let hubHtml = "";
 
 beforeAll(() => {
-  builtHtml = readFileSync(join(PROJECT_ROOT, "dist/deep-dive-vm/index.html"), "utf-8");
-  hubHtml = readFileSync(join(PROJECT_ROOT, "dist/index.html"), "utf-8");
+  const dvmPath = join(PROJECT_ROOT, "dist/deep-dive-vm/index.html");
+  const hubPath = join(PROJECT_ROOT, "dist/index.html");
+  if (!existsSync(dvmPath) || !existsSync(hubPath)) {
+    throw new Error(
+      `dist/ files not found. Run 'npm run build' before running Layout tests.\nExpected: ${dvmPath}`
+    );
+  }
+  builtHtml = readFileSync(dvmPath, "utf-8");
+  hubHtml = readFileSync(hubPath, "utf-8");
 });
 
 describe("Layout component", () => {
