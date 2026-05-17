@@ -59,6 +59,36 @@ test.describe("Hub load", () => {
     await page.goto("./");
     await expect(page.locator(".course-card.coming-soon .course-link")).toHaveCount(0);
   });
+
+  test("mentor photo img.mentor-photo is visible on the page", async ({ page }) => {
+    await page.goto("./");
+    await expect(page.locator("img.mentor-photo")).toBeVisible();
+  });
+
+  test(".bio is visible and contains expected tagline text", async ({ page }) => {
+    await page.goto("./");
+    const bio = page.locator(".bio");
+    await expect(bio).toBeVisible();
+    await expect(bio).toContainText("Systems Architect · 2× MVP Microsoft · Docker Captain");
+  });
+
+  test("active course card link href contains /deep-dive-vm/", async ({ page }) => {
+    await page.goto("./");
+    const courseLink = page.locator(".course-card.active .course-link");
+    await expect(courseLink).toBeVisible();
+    const href = await courseLink.getAttribute("href");
+    expect(href).toContain("/deep-dive-vm/");
+  });
+
+  test("all 4 social icon links have rel containing noopener", async ({ page }) => {
+    await page.goto("./");
+    const socialLinks = page.locator(".social-icon-link");
+    await expect(socialLinks).toHaveCount(4);
+    for (let i = 0; i < 4; i++) {
+      const rel = await socialLinks.nth(i).getAttribute("rel");
+      expect(rel).toContain("noopener");
+    }
+  });
 });
 
 test.describe("Hub accessibility", () => {

@@ -88,4 +88,21 @@ describe("Layout component", () => {
   it("LP does not contain noindex meta", () => {
     expect(builtHtml).not.toMatch(/name=["']robots["'][^>]+noindex/i);
   });
+
+  it("hub og:title is present", () => {
+    expect(hubHtml).toContain("og:title");
+  });
+
+  it("hub og:description is present", () => {
+    expect(hubHtml).toContain("og:description");
+  });
+
+  it("hub og:url points to root", () => {
+    const ogUrlMatch =
+      hubHtml.match(/property="og:url"[^>]+content="([^"]+)"/) ??
+      hubHtml.match(/content="([^"]+)"[^>]*property="og:url"/);
+    const content = ogUrlMatch?.[1];
+    expect(content).toBeTruthy();
+    expect(content).toBe("https://mentoria.sertaoseracloud.com/");
+  });
 });
