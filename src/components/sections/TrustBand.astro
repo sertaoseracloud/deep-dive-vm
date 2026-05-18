@@ -9,7 +9,7 @@ const { label, items } = Astro.props;
 
 <div class="trust">
     <div class="container trust-row">
-        <div class="trust-label" set:html={label.replace('\n', '<br />')} />
+        <div class="trust-label" set:html={label.replace(/\n/g, '<br />')} />
         {items.map(item => (
             <div class="trust-item">
                 <Fragment set:html={item.svgHtml} />
