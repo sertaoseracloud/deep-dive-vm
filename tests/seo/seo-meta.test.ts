@@ -194,6 +194,25 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
     expect(ogImage).toBeTruthy();
     expect(ogImage).toContain("ec2-og.png");
   });
+
+  it("17. dist/deep-dive-python-neurodivergentes/index.html og:image points to python-neurodivergentes-og.png", () => {
+    const pythonIndexPath = join(DIST_DIR, "deep-dive-python-neurodivergentes/index.html");
+    expect(
+      existsSync(pythonIndexPath),
+      `dist/deep-dive-python-neurodivergentes/index.html not found. Run 'npm run build' first.`
+    ).toBe(true);
+    const pythonHtml = readFileSync(pythonIndexPath, "utf-8");
+    const ogImage = extractMetaContent(pythonHtml, "og:image");
+    expect(ogImage).toBeTruthy();
+    expect(ogImage).toContain("python-neurodivergentes-og.png");
+  });
+
+  it("18. sitemap-0.xml contains /deep-dive-python-neurodivergentes/", () => {
+    const sitemapPath = join(DIST_DIR, "sitemap-0.xml");
+    expect(existsSync(sitemapPath), "sitemap-0.xml not found. Run 'npm run build' first.").toBe(true);
+    const sitemap = readFileSync(sitemapPath, "utf-8");
+    expect(sitemap).toContain("deep-dive-python-neurodivergentes");
+  });
 });
 
 describe("Sitemap content assertions (dist/sitemap-0.xml)", () => {
