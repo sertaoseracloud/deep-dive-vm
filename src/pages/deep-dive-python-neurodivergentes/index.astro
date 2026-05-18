@@ -1,0 +1,287 @@
+---
+import Layout from "../../layouts/Layout.astro";
+
+import UrgencyBar from "../../components/layout/UrgencyBar.astro";
+import NavBar from "../../components/layout/NavBar.astro";
+import Footer from "../../components/layout/Footer.astro";
+import StickyCta from "../../components/layout/StickyCta.astro";
+
+import Hero from "../../components/sections/Hero.astro";
+import TrustBand from "../../components/sections/TrustBand.astro";
+import PainPoints from "../../components/sections/PainPoints.astro";
+import Method from "../../components/sections/Method.astro";
+import Curriculum from "../../components/sections/Curriculum.astro";
+import Mentor from "../../components/sections/Mentor.astro";
+import ForWho from "../../components/sections/ForWho.astro";
+import Bonuses from "../../components/sections/Bonuses.astro";
+import Pricing from "../../components/sections/Pricing.astro";
+import Faq from "../../components/sections/Faq.astro";
+import FinalCTA from "../../components/sections/FinalCTA.astro";
+import LegalModals from "../../components/ui/LegalModals.astro";
+
+import claudio2 from "../../assets/claudio2.png";
+
+import { PYTHON_COURSE } from "../../data/python-course.ts";
+---
+
+<Layout
+	title="Python para Neurodivergentes · O Sertao será Cloud"
+	description="Deep Dive em Python para devs com TDAH, autismo, dislexia ou ansiedade. 60h em micro-aulas, 5 frentes, Body Doubling semanal. Com Cláudio Raposo, Microsoft MVP."
+	url="https://mentoria.sertaoseracloud.com/deep-dive-python-neurodivergentes/"
+	ogImage="/python-neurodivergentes-og.png"
+	jsonLd={{
+		"@context": "https://schema.org",
+		"@type": "Course",
+		"name": "Python para Neurodivergentes · O Sertao será Cloud",
+		"description": "Deep Dive em Python para devs com TDAH, autismo, dislexia ou ansiedade.",
+		"courseCode": "PY-ND-DEEP-DIVE",
+		"educationalLevel": "Beginner",
+		"provider": {
+			"@type": "Person",
+			"name": "Cláudio Filipe Lima Raposo",
+			"sameAs": [
+				"https://www.linkedin.com/in/cfraposo/",
+				"https://github.com/sertaoseracloud"
+			]
+		},
+		"offers": {
+			"@type": "Offer",
+			"price": "947.00",
+			"priceCurrency": "BRL",
+			"availability": "https://schema.org/InStock",
+			"url": "https://mentoria.sertaoseracloud.com/deep-dive-python-neurodivergentes/#investimento"
+		},
+		"hasCourseInstance": {
+			"@type": "CourseInstance",
+			"courseMode": "Online",
+			"duration": "PT60H",
+			"instructor": {
+				"@type": "Person",
+				"name": "Cláudio Filipe Lima Raposo",
+				"jobTitle": "Microsoft MVP"
+			}
+		}
+	}}
+>
+	<a href="#main" class="skip-link">Pular para o conteúdo</a>
+	<UrgencyBar content="<strong>60H DE CONTEÚDO</strong> · <strong>6 SESSÕES 1:1</strong> · <strong>BODY DOUBLING SEMANAL</strong> · <strong>ACESSO 12 MESES</strong>" />
+	<NavBar />
+	<main id="main" tabindex="-1">
+		<Hero
+			eyebrowTag="DEEP DIVE"
+			eyebrowDesc="Curso 60h · Python · 5 Frentes · Body Doubling"
+			titleHtml='Pare de começar 10 cursos de Python e abandonar todos. Aprenda do jeito que seu <span class="flame">cérebro pede</span>.'
+			sub="Um Deep Dive em Python desenhado para devs neurodivergentes (TDAH, autismo, dislexia, ansiedade) que já tentaram aprender e não conseguiram terminar."
+			points={[
+				{ html: "<strong>60h em micro-aulas</strong> curtas · cadência respeitosa ao hiperfoco e ao cansaço." },
+				{ html: "<strong>5 frentes por módulo</strong>: Visual, Hands-on, Repetição, Projeto e Body Doubling." },
+				{ html: "Professor <strong>ND-friendly</strong> · neurodivergente por dentro, não só por empatia." },
+				{ html: "<strong>30 projetos reais</strong> · nada de exercícios artificiais desconectados do mundo." },
+			]}
+			ctaPrimary={{ href: "#investimento", label: "Quero aprender Python do meu jeito" }}
+			ctaGhost={{ href: "#ementa", label: "Ver Ementa Completa" }}
+			metaBadges={[
+				{ icon: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>', label: "60H · MICRO-AULAS" },
+				{ icon: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M9 21V9"></path></svg>', label: "6 MÓDULOS · 30 PROJETOS" },
+				{ icon: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>', label: "BODY DOUBLING SEMANAL" },
+				{ icon: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6M12 22v-2M4.93 4.93l4.24 4.24M14.83 14.83l4.24 4.24M2 12h6M22 12h-2M4.93 19.07l4.24-4.24M14.83 9.17l4.24-4.24"></path></svg>', label: "ACESSO 12 MESES" },
+			]}
+			portrait={{ src: claudio2, alt: "Cláudio Filipe Lima Raposo, professor do curso Python para Neurodivergentes" }}
+			portraitStats={[
+				{ label: "⟡ 10× MVP · MICROSOFT" },
+				{ label: "⟡ 7× CERTIFIED · AWS" },
+			]}
+			portraitTag={{ name: "Cláudio F. L. Raposo", badge: "PROFESSOR PRINCIPAL" }}
+		/>
+		<TrustBand
+			label={"DESENHADO COM\nE PARA PESSOAS"}
+			items={[
+				{ svgHtml: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>', label: "TDAH" },
+				{ svgHtml: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>', label: "AUTISMO" },
+				{ svgHtml: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>', label: "DISLEXIA" },
+				{ svgHtml: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>', label: "ANSIEDADE" },
+			]}
+		/>
+		<PainPoints
+			eyebrow="O CICLO VICIOSO"
+			titleHtml='Você já tentou aprender Python. <span class="flame">Mais de uma vez.</span>'
+			lede="Reconhece algum desses padrões?"
+			cards={[
+				{ num: "01 // PADRÃO", titleHtml: "Começa animado, chega no for loop e trava. Abandona.", body: "Não é falta de inteligência. É que o formato convencional ignora como cérebros neurodivergentes processam informação nova." },
+				{ num: "02 // PADRÃO", titleHtml: "Faz 3 cursos ao mesmo tempo e não termina nenhum.", body: "Hiperfoco muda de alvo. A aula longa demais mata o ritmo. O projeto artificial não prende." },
+				{ num: "03 // PADRÃO", titleHtml: "Aprende um conceito, semana depois esqueceu tudo.", body: "Sem repetição espaçada, sem reforço ativo. A memória de trabalho diferente pede outras estratégias de consolidação." },
+				{ num: "04 // PADRÃO", titleHtml: "Não consegue programar sozinho sem tutorial na frente.", body: "Dependência do copy-paste sem compreensão real. Os exercícios artificiais não criam memória muscular de código." },
+				{ num: "05 // PADRÃO", titleHtml: "Desistiu porque achou que não tem jeito para programação.", body: "A narrativa errada. O problema não é você. É que ninguém criou um método que respeita como seu cérebro aprende de verdade." },
+			]}
+		/>
+		<Method
+			eyebrow="O MÉTODO · 5 FRENTES ND-FRIENDLY"
+			titleHtml='Cada conceito atravessa <span class="flame">5 frentes</span> projetadas para seu cérebro.'
+			lede="Não é um caminho linear. É uma teia de reforços que trabalha com os pontos fortes de cérebros neurodivergentes: hiperfoco, pensamento visual e aprendizado por projeto."
+			steps={[
+				{ svgHtml: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"></rect><path d="M8 21h8M12 17v4"></path></svg>', label: "FRENTE 01", title: "Visual", bodyHtml: "Diagramas, mapas mentais e analogias do mundo real antes de qualquer linha de código. O cérebro neurodivergente precisa ver o mapa antes de entrar na floresta." },
+				{ svgHtml: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>', label: "FRENTE 02", title: "Hands-on", bodyHtml: "Código real desde o primeiro módulo. Sem hello world isolado. Cada linha tem contexto e propósito visível dentro de um projeto maior." },
+				{ svgHtml: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h18M3 6h18M3 18h18"></path></svg>', label: "FRENTE 03", title: "Repetição", bodyHtml: "O mesmo conceito em 3 formatos diferentes: vídeo, exercício e projeto. Repetição espaçada e reforço ativo para consolidar na memória de longo prazo." },
+				{ svgHtml: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h7l5 5v13a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M10 13l2 2 4-4"></path></svg>', label: "FRENTE 04", title: "Projeto", bodyHtml: "30 projetos reais distribuídos pelos 6 módulos. Nada de exercício artificial. Cada projeto resolve um problema real e entra no portfólio." },
+				{ svgHtml: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>', label: "FRENTE 05", title: "Body Doubling", bodyHtml: "Sessões semanais ao vivo para programar junto. A presença de outra pessoa programando regula o foco do cérebro TDAH e cria ritmo sustentável." },
+			]}
+		/>
+		<Curriculum
+			eyebrow="EMENTA · 6 MÓDULOS · 60H"
+			titleHtml='Do <span class="flame">zero ao portfólio</span> em sequência que faz sentido.'
+			lede="Cada módulo tem as 5 frentes e termina com um projeto real. A ordem foi projetada para construir confiança progressiva, não ansiedade."
+			meta={{ total: "60h", modules: 6, frentes: 5, projects: 30 }}
+			modules={[
+				{
+					num: "M.01", title: "Fundamentos sem Tédio", subtitle: "Variáveis, tipos, controle de fluxo e funções — com projetos reais desde o dia 1.", hours: "08H", isOpen: true,
+					tracks: [
+						{ head: "VISUAL", body: "Mapas mentais de tipos de dados e analogias do mundo físico. Você vê o conceito antes de digitar qualquer código." },
+						{ head: "HANDS-ON", body: "Primeiro script com propósito real: calculadora de IMC, conversor de moeda, gerador de senhas." },
+						{ head: "REPETIÇÃO", body: "O mesmo conceito em vídeo curto, exercício guiado e mini-projeto. Repetição espaçada ativa." },
+						{ head: "PROJETO", body: "Projeto M.01: CLI de produtividade pessoal. Primeiro item do portfólio." },
+						{ head: "BODY DOUBLING", body: "Sessão semanal: programamos o projeto juntos ao vivo. Presença regula foco." },
+					],
+				},
+				{
+					num: "M.02", title: "Estruturas de Dados na Prática", subtitle: "Listas, dicionários, sets e tuplas — sem decorar, só usar em contexto real.", hours: "10H",
+					tracks: [
+						{ head: "VISUAL", body: "Diagramas de estruturas de dados com exemplos do cotidiano. Listas como filas de supermercado, dicionários como agenda telefônica." },
+						{ head: "HANDS-ON", body: "Manipulação de dados reais: CSV de gastos, JSON de API pública, análise de texto." },
+						{ head: "REPETIÇÃO", body: "Exercícios progressivos com feedback imediato. Cada erro tem explicação contextualizada." },
+						{ head: "PROJETO", body: "Projeto M.02: gerenciador de tarefas pessoal com persistência em arquivo." },
+						{ head: "BODY DOUBLING", body: "Sessão ao vivo: refatoração do projeto M.01 usando estruturas de dados aprendidas." },
+					],
+				},
+				{
+					num: "M.03", title: "Orientação a Objetos sem Fórmula", subtitle: "Classes, herança e polimorfismo através de analogias e projetos reais.", hours: "10H",
+					tracks: [
+						{ head: "VISUAL", body: "OOP explicada com analogias: classe como molde de biscoito, objeto como biscoito. Herança como família." },
+						{ head: "HANDS-ON", body: "Modelagem de sistemas reais: biblioteca de livros, sistema de pedidos, jogo simples." },
+						{ head: "REPETIÇÃO", body: "Pattern: implementa, testa, refatora. Três rodadas por conceito central." },
+						{ head: "PROJETO", body: "Projeto M.03: sistema de inventário pessoal com classes e persistência." },
+						{ head: "BODY DOUBLING", body: "Sessão ao vivo: code review do projeto M.02. Você explica seu código, eu explico o meu." },
+					],
+				},
+				{
+					num: "M.04", title: "Automação do Mundo Real", subtitle: "Scripts que fazem coisas úteis: web scraping, automação de arquivos, bots simples.", hours: "10H",
+					tracks: [
+						{ head: "VISUAL", body: "Mapa de ferramentas de automação Python. Quando usar requests vs. selenium vs. beautifulsoup." },
+						{ head: "HANDS-ON", body: "Scripts reais: renomear arquivos em lote, extrair dados de site, enviar email automático." },
+						{ head: "REPETIÇÃO", body: "Cada ferramenta em 3 cenários diferentes. Você vê o padrão, não só o caso." },
+						{ head: "PROJETO", body: "Projeto M.04: bot de monitoramento de preço que avisa no Telegram." },
+						{ head: "BODY DOUBLING", body: "Sessão ao vivo: hackathon de automação. Problema real, 90 minutos, solução em Python." },
+					],
+				},
+				{
+					num: "M.05", title: "Web e APIs com FastAPI", subtitle: "Construir APIs reais, consumir serviços externos, entender HTTP na prática.", hours: "12H",
+					tracks: [
+						{ head: "VISUAL", body: "Como a web funciona em diagramas simples. Request, response, JSON, autenticação — visualmente." },
+						{ head: "HANDS-ON", body: "API funcional desde a primeira aula: endpoints, validação com Pydantic, documentação automática." },
+						{ head: "REPETIÇÃO", body: "CRUD completo implementado 3 vezes: com dados em memória, arquivo e banco SQLite." },
+						{ head: "PROJETO", body: "Projeto M.05: API de rastreamento de hábitos com autenticação e dashboard." },
+						{ head: "BODY DOUBLING", body: "Sessão ao vivo: deploy da API no Railway. Você sai com sua API na internet." },
+					],
+				},
+				{
+					num: "M.06", title: "Dados, Análise e Pequena IA", subtitle: "Pandas, visualização e modelos simples de ML — sem matemática pesada.", hours: "10H",
+					tracks: [
+						{ head: "VISUAL", body: "Dados como tabelas animadas. Transformações visuais antes de qualquer linha de pandas." },
+						{ head: "HANDS-ON", body: "Análise de dados reais: gastos pessoais, dados de saúde, histórico de preços." },
+						{ head: "REPETIÇÃO", body: "Cada operação pandas em 3 datasets diferentes. Você memoriza o padrão, não a sintaxe." },
+						{ head: "PROJETO", body: "Projeto M.06: dashboard de análise pessoal com gráficos interativos e modelo de previsão simples." },
+						{ head: "BODY DOUBLING", body: "Sessão final: apresentação dos projetos. Você mostra o que construiu em 6 módulos." },
+					],
+				},
+			]}
+		/>
+		<Mentor
+			primary={{
+				portrait: { src: claudio2, alt: "Cláudio Filipe Lima Raposo, professor do curso Python para Neurodivergentes" },
+				eyebrow: "O PROFESSOR",
+				name: "Cláudio Filipe Lima Raposo",
+				tagline: "⟡ SYSTEMS ARCHITECT · 10× MVP · 7× AWS · NEURODIVERGENTE",
+				bioHtml: [
+					"<strong>Systems Architect</strong> e <strong>DBA Student no MUST-USA</strong>. Reconhecido pela Microsoft com <strong>10 anos de MVP Award</strong> e pela AWS com <strong>7 certificações</strong>. Neurodivergente, não só por empatia.",
+					"Criou este curso porque é o curso que precisava quando começou a programar. O método das 5 frentes nasceu da sua própria experiência com TDAH: o que funciona para focar, o que precisa de repetição, como Body Doubling mudou a consistência de aprendizado.",
+				],
+				credentials: [
+					{ value: "10×", label: "MICROSOFT<br />MVP AWARD" },
+					{ value: "7×", label: "AWS<br />CERTIFIED" },
+					{ value: "ND", label: "NEURODIVERGENTE<br />POR DENTRO" },
+				],
+			}}
+		/>
+		<ForWho
+			eyebrow="PARA QUEM É ESTE CURSO"
+			titleHtml='Este curso é · e <span class="flame">não é</span> · para você.'
+			isFor={[
+				{ html: "Tem TDAH, autismo, dislexia, ansiedade ou qualquer combinação." },
+				{ html: "Já tentou aprender Python (ou qualquer linguagem) e <b>não conseguiu terminar</b>." },
+				{ html: "Aprende melhor com <b>projetos reais</b> do que com exercícios artificiais." },
+				{ html: "Precisa de <b>estrutura e ritmo</b> — mas que respeite hiperfoco e cansaço." },
+				{ html: "Quer um professor que <b>fala de dentro</b>, não de fora da experiência ND." },
+			]}
+			isNot={[
+				{ html: "Quer apenas um certificado rápido sem aprender de verdade." },
+				{ html: "Não está disposto a <b>programar projetos reais</b> durante o curso." },
+				{ html: "Procura o curso mais barato do mercado, não o mais eficaz para ND." },
+				{ html: "Já domina Python e quer conteúdo avançado de arquitetura de sistemas." },
+			]}
+		/>
+		<Bonuses
+			eyebrow="BÔNUS DESTA TURMA"
+			titleHtml='Você não leva só o curso. Leva o <span class="flame">suporte completo</span>.'
+			lede="Liberados no ato da matrícula · válidos apenas para a turma atual."
+			bonuses={[
+				{ num: "BÔNUS 01", originalPrice: "R$ 297", title: "Biblioteca de Projetos Python", bodyHtml: "Repositório privado com <b>30+ projetos resolvidos</b> em Python: desde scripts de automação até APIs completas. Referência e inspiração para seus próprios projetos." },
+				{ num: "BÔNUS 02 · DESTAQUE", featured: true, originalPrice: "R$ 1.997", title: "6 Sessões de Mentoria 1:1", bodyHtml: "Seis sessões individuais de <b>60 minutos</b> com o Cláudio. Para revisar seu código, destravar bloqueios técnicos e criar um plano de estudos personalizado para seu perfil ND. Agendamento direto." },
+				{ num: "BÔNUS 03", originalPrice: "R$ 197", title: "Guia de Estudo para Cérebros ND", bodyHtml: "Guia prático com <b>estratégias de estudo</b> validadas para TDAH, autismo, dislexia e ansiedade. Técnicas de Pomodoro adaptado, Body Doubling, repetição espaçada e gestão de hiperfoco." },
+			]}
+		/>
+		<Pricing
+			eyebrow="INVESTIMENTO"
+			titleHtml='A diferença entre <span class="flame">começar</span> e terminar está aqui.'
+			lede="Acesso por 12 meses, todos os bônus liberados, certificado e Body Doubling semanal. Pagamento via Hotmart · cartão, PIX ou boleto."
+			ribbon="⟡ ACESSO COMPLETO · ECONOMIA DE R$ 1.050"
+			tierLabel="O Sertao será Cloud"
+			courseName="DEEP DIVE · PYTHON"
+			originalPrice="R$ 1.997"
+			installments={{ count: 12, value: "78", cents: ",92" }}
+			pixPrice="R$ 947"
+			includes={[
+				{ html: "<b>60h</b> de conteúdo em micro-aulas curtas · cadência que respeita hiperfoco e cansaço." },
+				{ html: "<b>6 módulos</b> com as 5 frentes ND-friendly: Visual, Hands-on, Repetição, Projeto e Body Doubling." },
+				{ html: "<b>30 projetos reais</b> que entram direto no portfólio (nada de exercícios artificiais)." },
+				{ html: "<b>Body Doubling semanal</b> · sessões ao vivo para programar junto e manter o ritmo." },
+				{ html: "<b>6 Sessões 1:1</b> de mentoria com Cláudio · 60 min cada (Bônus 02)." },
+				{ html: "<b>Biblioteca de 30+ projetos</b> resolvidos em Python (Bônus 01)." },
+				{ html: "<b>Certificado de conclusão</b> O Sertao será Cloud · assinado por um Microsoft MVP." },
+			]}
+			ctaHref={PYTHON_COURSE.hotmartUrl}
+			ctaText="Quero começar agora"
+			guarantee={{ days: 7, heading: "Garantia incondicional de 7 dias.", body: "Acesse o curso, comece a trilha, faça os projetos. Se em 7 dias você sentir que não é para você · qualquer motivo · devolvemos 100% do investimento. O risco é todo nosso." }}
+		/>
+		<Faq
+			eyebrow="PERGUNTAS FREQUENTES"
+			titleHtml="Antes de você se inscrever."
+			items={[
+				{ question: "Preciso ter experiência com programação?", answerHtml: "<p>Não. O curso começa do <b>zero absoluto</b>. Se você já tentou aprender e não conseguiu terminar, este método foi feito exatamente para você.</p>" },
+				{ question: "Funciona mesmo para quem tem TDAH severo?", answerHtml: "<p>O método das 5 frentes foi desenhado especificamente para como o cérebro com TDAH funciona: micro-aulas que respeitam a janela de atenção, Body Doubling para regular o foco, projetos reais que ativam o interesse genuíno.</p><p>Não existe TDAH <b>severo demais</b> para aprender Python · existe método inadequado para o perfil.</p>" },
+				{ question: "O Body Doubling é obrigatório?", answerHtml: "<p>Não é obrigatório, mas é muito recomendado. As sessões são gravadas para quem não conseguir ao vivo. A presença de outra pessoa programando (mesmo assíncrona) tem efeito comprovado em cérebros TDAH.</p>" },
+				{ question: "Como funciona o acesso?", answerHtml: "<p>O conteúdo principal é <b>gravado e liberado em sequência por módulo</b>. Você assiste no seu ritmo. As sessões de Body Doubling são semanais ao vivo com gravação disponível.</p>" },
+				{ question: "Quanto tempo por semana preciso dedicar?", answerHtml: "<p>O curso foi desenhado para <b>5-7 horas por semana</b>. Alunos que respeitam esse ritmo concluem em ~10 semanas. O acesso é de 12 meses, então há flexibilidade.</p>" },
+				{ question: "Recebo certificado?", answerHtml: "<p>Sim · <b>certificado de conclusão O Sertao será Cloud</b> emitido por Cláudio Filipe Lima Raposo (Microsoft MVP).</p>" },
+				{ question: "E se eu comprar e não gostar?", answerHtml: "<p>Garantia de <b>7 dias incondicional</b>. Você pede reembolso direto pela Hotmart, sem precisar justificar, e recebe 100% do valor de volta. O risco é nosso.</p>" },
+			]}
+		/>
+		<FinalCTA
+			eyebrow="PYTHON PARA NEURODIVERGENTES"
+			headlineHtml='Python do jeito que seu <span class="flame">cérebro pede</span>.'
+			ctaHref="#investimento"
+			ctaText="Quero começar agora"
+		/>
+		<Footer />
+	</main>
+	<StickyCta priceLabel="DESDE 12× R$ 78,92" ctaHref="#investimento" ctaText="Quero começar →" />
+	<LegalModals />
+</Layout>
