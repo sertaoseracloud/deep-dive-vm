@@ -11,6 +11,11 @@ interface MentorCredential {
 interface MentorInfo {
     portrait: { src: ImageMetadata; alt: string };
     eyebrow: string;
+    /**
+     * Mentor's display name. Passed to SectionHead as `titleHtml` and rendered
+     * via `set:html`, so HTML entities in the string will be interpreted.
+     * Use plain text (no raw HTML) to avoid unintended markup injection.
+     */
     name: string;
     tagline: string;
     bioHtml: string[];
