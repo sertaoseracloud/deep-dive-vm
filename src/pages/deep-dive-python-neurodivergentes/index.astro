@@ -240,26 +240,73 @@ import { PYTHON_COURSE } from "../../data/python-course.ts";
 		/>
 		<Pricing
 			eyebrow="INVESTIMENTO"
-			titleHtml='Python que respeita seu cérebro · pelo <span class="flame">preço de uma consulta</span>.'
-			lede="Acesso por 12 meses, todos os bônus liberados, certificado e comunidade neurodivergente. Pagamento via Hotmart · cartão, PIX ou boleto."
-			ribbon="⟡ ACESSO COMPLETO · ECONOMIA DE R$ 1.050"
-			tierLabel="DEEP DIVE · PYTHON"
-			courseName="Curso Architecture Think · Acesso Completo"
-			originalPrice="R$ 1.997"
-			installments={{ count: 12, value: "78", cents: ",92" }}
-			pixPrice="R$ 947"
-			includes={[
-				{ html: "<b>60h</b> em micro-aulas neurodivergent-friendly (8 a 12 min cada)." },
-				{ html: "<b>06 módulos · 30 projetos · 5 frentes</b> por tópico." },
-				{ html: "<b>Cookbook Python</b> com 50+ scripts production-ready (Bônus 01)." },
-				{ html: "<b>6 sessões 1:1</b> de 60 min com o professor (Bônus 02)." },
-				{ html: "<b>Body Doubling semanal</b> ao vivo por 12 meses (Bônus 03)." },
-				{ html: "<b>Certificado de conclusão</b> Architecture Think." },
-				{ html: "<b>Acesso 12 meses</b> + atualizações de conteúdo no período." },
+			titleHtml='Três caminhos. <span class="flame">Você escolhe.</span>'
+			lede="Acesso por 12 meses em todos os planos. Pagamento via Hotmart · cartão, PIX ou boleto."
+			tiers={[
+				{
+					tierLabel: "DEEP DIVE · PYTHON",
+					name: "Curso Solo",
+					description: "Você no seu ritmo, sem sessões 1:1. Ideal pra quem prefere autonomia total.",
+					price: {
+						soloDisplay: "59",
+						soloNote: "À vista no PIX · acesso imediato.",
+					},
+					includes: [
+						{ html: "<b>60h</b> em micro-aulas neurodivergent-friendly." },
+						{ html: "<b>06 módulos · 30 projetos · 5 frentes</b> por tópico." },
+						{ html: "<b>Cookbook Python</b> com 50+ scripts production-ready." },
+						{ html: "<b>Body Doubling semanal</b> ao vivo por 12 meses." },
+						{ html: "<b>Certificado</b> de conclusão Architecture Think." },
+						{ html: "<b>Acesso 12 meses</b> + atualizações no período." },
+						{ html: "Sem sessões 1:1 com o professor.", excluded: true },
+					],
+					ctaHref: PYTHON_COURSE.hotmartUrl,
+					ctaText: "Quero o curso solo",
+					ctaVariant: "ghost",
+				},
+				{
+					ribbon: "⟡ MAIS ESCOLHIDO · 4 SESSÕES 1:1",
+					featured: true,
+					tierLabel: "DEEP DIVE · PYTHON + 4 SESSÕES",
+					name: "Curso + 4 Sessões 1:1",
+					description: "Equilíbrio ideal · autonomia no curso <b>+ 4 sessões de 60 min</b> pra destravar quando precisar.",
+					price: {
+						installments: { count: 12, value: "53", cents: ",92" },
+						pixNote: "OU <b>R$ 647</b> à vista no PIX · sem juros.",
+					},
+					includes: [
+						{ html: "<b>Tudo do plano solo</b> · 60h, projetos, body doubling, certificado, 12 meses." },
+						{ html: "<b>+ 4 sessões 1:1</b> de 60 min com o professor." },
+						{ html: "<b>Revisão de código</b> real do seu projeto." },
+						{ html: "<b>Desbloqueio</b> de paralisia executiva 1:1." },
+						{ html: "<b>Agendamento flexível</b> direto na agenda do Cláudio." },
+					],
+					ctaHref: PYTHON_COURSE.hotmartUrl,
+					ctaText: "Quero curso + 4 sessões",
+					ctaVariant: "primary",
+				},
+				{
+					tierLabel: "DEEP DIVE · PYTHON + MENTORIA",
+					name: "Curso + 6 Sessões 1:1",
+					description: "Mentoria completa · acompanhamento mês a mês para destravar qualquer bloqueio durante o curso.",
+					price: {
+						installments: { count: 12, value: "78", cents: ",92" },
+						pixNote: "OU <b>R$ 947</b> à vista no PIX · sem juros.",
+					},
+					includes: [
+						{ html: "<b>Tudo do plano solo</b> · 60h, projetos, body doubling, certificado, 12 meses." },
+						{ html: "<b>+ 6 sessões 1:1</b> de 60 min com o professor." },
+						{ html: "<b>Revisão de código</b> real do seu projeto." },
+						{ html: "<b>Desbloqueio</b> de paralisia executiva 1:1." },
+						{ html: "<b>Validação</b> de projeto de portfólio antes de publicar." },
+						{ html: "<b>Agendamento flexível</b> direto na agenda do Cláudio." },
+					],
+					ctaHref: PYTHON_COURSE.hotmartUrl,
+					ctaText: "Quero curso + 6 sessões",
+					ctaVariant: "ghost",
+				},
 			]}
-			ctaHref={PYTHON_COURSE.hotmartUrl}
-			ctaText="Quero começar agora"
-			guarantee={{ days: 7, heading: "Garantia incondicional de 7 dias.", body: "Acesse o curso, comece a trilha, mergulhe no cookbook. Se em 7 dias você sentir que não é para você · qualquer motivo · devolvemos 100% do investimento. O risco é todo nosso." }}
+			guarantee={{ days: 7, heading: "Garantia incondicional de 7 dias.", body: "Acesse o curso, comece a trilha, mergulhe no cookbook. Se em 7 dias você sentir que não é para você · qualquer motivo · devolvemos <b>100% do investimento</b>. O risco é todo nosso." }}
 		/>
 		<Faq
 			eyebrow="PERGUNTAS FREQUENTES"
@@ -282,6 +329,6 @@ import { PYTHON_COURSE } from "../../data/python-course.ts";
 		/>
 		<Footer />
 	</main>
-	<StickyCta priceLabel="DESDE <b>12× R$ 78,92</b>" ctaHref="#investimento" ctaText="Quero começar →" />
+	<StickyCta priceLabel="DESDE <b>R$ 59</b> · à vista" ctaHref="#investimento" ctaText="Quero começar →" />
 	<LegalModals />
 </Layout>

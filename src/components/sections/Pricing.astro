@@ -2,27 +2,49 @@
 import Button from "../ui/Button.astro";
 import SectionHead from "../ui/SectionHead.astro";
 
+interface PricingTier {
+  ribbon?: string;
+  featured?: boolean;
+  tierLabel: string;
+  name: string;
+  description?: string;
+  price: {
+    soloDisplay?: string;
+    soloNote?: string;
+    installments?: { count: number; value: string; cents: string };
+    pixNote?: string;
+  };
+  includes: Array<{ html: string; excluded?: boolean }>;
+  ctaHref: string;
+  ctaText: string;
+  ctaVariant?: "primary" | "ghost";
+}
+
 interface PricingProps {
   eyebrow: string;
   titleHtml: string;
   lede: string;
-  ribbon: string;
-  tierLabel: string;
-  courseName: string;
-  originalPrice: string;
-  installments: { count: number; value: string; cents: string };
-  pixPrice: string;
-  pixNote?: string;
-  includes: Array<{ html: string; delay?: number }>;
-  ctaHref: string;
-  ctaText: string;
   guarantee: { days: number; heading: string; body: string };
+  // Multi-tier layout (Python LP)
+  tiers?: PricingTier[];
+  // Single-card layout (VM LP)
+  ribbon?: string;
+  tierLabel?: string;
+  courseName?: string;
+  originalPrice?: string;
+  installments?: { count: number; value: string; cents: string };
+  pixPrice?: string;
+  pixNote?: string;
+  includes?: Array<{ html: string; delay?: number }>;
+  ctaHref?: string;
+  ctaText?: string;
 }
 
 const {
-  eyebrow, titleHtml, lede, ribbon, tierLabel, courseName,
+  eyebrow, titleHtml, lede, guarantee, tiers,
+  ribbon, tierLabel, courseName,
   originalPrice, installments, pixPrice, pixNote, includes,
-  ctaHref, ctaText, guarantee,
+  ctaHref, ctaText,
 } = Astro.props;
 ---
 
@@ -35,109 +57,189 @@ const {
             lede={lede}
         />
 
-        <div class="price-card">
-            <div class="price-ribbon">
-                {ribbon}
+        {tiers ? (
+            <div class="price-grid">
+                {tiers.map((tier) => (
+                    <div class:list={["price-card", { featured: tier.featured }]}>
+                        {tier.ribbon && <div class="price-ribbon">{tier.ribbon}</div>}
+                        <div class="price-body">
+                            <div class="price-tier">{tier.tierLabel}</div>
+                            <h3 class="price-name">{tier.name}</h3>
+                            {tier.description && (
+                                <p class="price-description" set:html={tier.description} />
+                            )}
+                            {tier.price.soloDisplay ? (
+                                <Fragment>
+                                    <div class="price-display">
+                                        <span class="currency">R$</span>
+                                        <span class="num">{tier.price.soloDisplay}</span>
+                                    </div>
+                                    <div class="price-or">{tier.price.soloNote}</div>
+                                </Fragment>
+                            ) : (
+                                <Fragment>
+                                    <div class="price-display">
+                                        <span class="x">{tier.price.installments!.count}×</span>
+                                        <span class="currency">R$</span>
+                                        <span class="num">{tier.price.installments!.value}</span>
+                                        <span class="cents">{tier.price.installments!.cents}</span>
+                                    </div>
+                                    <div class="price-or" set:html={tier.price.pixNote} />
+                                </Fragment>
+                            )}
+                            <ul class="price-includes">
+                                {tier.includes.map((item) => (
+                                    <li class:list={[{ excluded: item.excluded }]}>
+                                        {item.excluded ? (
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                                            </svg>
+                                        ) : (
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                            </svg>
+                                        )}
+                                        <span set:html={item.html} />
+                                    </li>
+                                ))}
+                            </ul>
+                            <Button
+                                href={tier.ctaHref}
+                                variant={tier.ctaVariant ?? "ghost"}
+                                size="massive"
+                                customClass="price-cta"
+                            >
+                                {tier.ctaText}
+                                <span class="arrow">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M5 12h14M13 5l7 7-7 7"></path>
+                                    </svg>
+                                </span>
+                            </Button>
+                        </div>
+                    </div>
+                ))}
             </div>
-            <div class="price-body">
-                <div class="price-tier">{tierLabel}</div>
-                <h3 class="price-name">{courseName}</h3>
-
-                <div class="price-anchor">
-                    <span class="total">DE <s>{originalPrice}</s> · POR</span>
+            <div class="price-secure price-secure--grid">
+                <span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    HOTMART · COMPRA SEGURA
+                </span>
+                <span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                    CARTÃO · PIX · BOLETO
+                </span>
+                <span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L3 7l9 5 9-5-9-5zM3 17l9 5 9-5"></path></svg>
+                    ACESSO IMEDIATO
+                </span>
+            </div>
+        ) : (
+            <div class="price-card">
+                <div class="price-ribbon">
+                    {ribbon}
                 </div>
+                <div class="price-body">
+                    <div class="price-tier">{tierLabel}</div>
+                    <h3 class="price-name">{courseName}</h3>
 
-                <div class="price-display">
-                    <span class="x">{installments.count}×</span>
-                    <span class="currency">R$</span>
-                    <span class="num">{installments.value}</span>
-                    <span class="cents">{installments.cents}</span>
-                </div>
-                <div class="price-or">
-                    OU <b>{pixPrice}</b> à vista no PIX · {pixNote ?? "sem juros, sem pegadinha."}
-                </div>
+                    <div class="price-anchor">
+                        <span class="total">DE <s>{originalPrice}</s> · POR</span>
+                    </div>
 
-                <ul class="price-includes">
-                    {includes.map((item, i) => (
-                        <li data-stagger style={`animation-delay: ${item.delay ?? i * 80}ms`}>
+                    <div class="price-display">
+                        <span class="x">{installments!.count}×</span>
+                        <span class="currency">R$</span>
+                        <span class="num">{installments!.value}</span>
+                        <span class="cents">{installments!.cents}</span>
+                    </div>
+                    <div class="price-or">
+                        OU <b>{pixPrice}</b> à vista no PIX · {pixNote ?? "sem juros, sem pegadinha."}
+                    </div>
+
+                    <ul class="price-includes">
+                        {includes!.map((item, i) => (
+                            <li data-stagger style={`animation-delay: ${item.delay ?? i * 80}ms`}>
+                                <svg
+                                    width="16"
+                                    height="16"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.5"
+                                >
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                                <span set:html={item.html} />
+                            </li>
+                        ))}
+                    </ul>
+                    <Button
+                        href={ctaHref!}
+                        variant="primary"
+                        size="massive"
+                        customClass="price-cta"
+                    >
+                        {ctaText}
+                        <span class="arrow">
                             <svg
-                                width="16"
-                                height="16"
+                                width="18"
+                                height="18"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
                                 stroke-width="2.5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
                             >
-                                <polyline points="20 6 9 17 4 12"></polyline>
+                                <path d="M5 12h14M13 5l7 7-7 7"></path>
                             </svg>
-                            <span set:html={item.html} />
-                        </li>
-                    ))}
-                </ul>
-                <Button
-                    href={ctaHref}
-                    variant="primary"
-                    size="massive"
-                    customClass="price-cta"
-                >
-                    {ctaText}
-                    <span class="arrow">
-                        <svg
-                            width="18"
-                            height="18"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
+                        </span>
+                    </Button>
+                    <div class="price-secure">
+                        <span
+                            ><svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                ><rect x="3" y="11" width="18" height="11" rx="2"
+                                ></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"
+                                ></path></svg
+                            >HOTMART · COMPRA SEGURA</span
                         >
-                            <path d="M5 12h14M13 5l7 7-7 7"></path>
-                        </svg>
-                    </span>
-                </Button>
-                <div class="price-secure">
-                    <span
-                        ><svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            ><rect x="3" y="11" width="18" height="11" rx="2"
-                            ></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"
-                            ></path></svg
-                        >HOTMART · COMPRA SEGURA</span
-                    >
-                    <span
-                        ><svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            ><rect x="2" y="5" width="20" height="14" rx="2"
-                            ></rect><line x1="2" y1="10" x2="22" y2="10"
-                            ></line></svg
-                        >CARTÃO · PIX · BOLETO</span
-                    >
-                    <span
-                        ><svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            ><path d="M12 2L3 7l9 5 9-5-9-5zM3 17l9 5 9-5"
-                            ></path></svg
-                        >ACESSO IMEDIATO</span
-                    >
+                        <span
+                            ><svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                ><rect x="2" y="5" width="20" height="14" rx="2"
+                                ></rect><line x1="2" y1="10" x2="22" y2="10"
+                                ></line></svg
+                            >CARTÃO · PIX · BOLETO</span
+                        >
+                        <span
+                            ><svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                ><path d="M12 2L3 7l9 5 9-5-9-5zM3 17l9 5 9-5"
+                                ></path></svg
+                            >ACESSO IMEDIATO</span
+                        >
+                    </div>
                 </div>
             </div>
-        </div>
+        )}
 
         <div class="guarantee">
             <div class="guarantee-seal">
@@ -169,6 +271,75 @@ const {
         border-bottom: 1px solid var(--hairline-strong);
     }
 
+    /* ── Multi-tier grid ─────────────────────────────── */
+    .price-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        max-width: 1180px;
+        margin: 0 auto;
+        align-items: stretch;
+    }
+
+    @media (max-width: 1100px) {
+        .price-grid {
+            grid-template-columns: 1fr;
+            max-width: 520px;
+        }
+    }
+
+    .price-grid .price-card {
+        max-width: none;
+        margin: 0;
+        border: 1px solid var(--hairline);
+        box-shadow: none;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .price-grid .price-card.featured {
+        border-color: var(--hairline-strong);
+        box-shadow: var(--shadow-card), 0 0 60px rgba(0, 255, 255, 0.15);
+    }
+
+    .price-grid .price-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 32px 32px 28px;
+    }
+
+    .price-grid .price-includes {
+        flex: 1;
+    }
+
+    .price-description {
+        color: var(--texto-secundario);
+        font-size: 13.5px;
+        margin: -12px 0 18px;
+        line-height: 1.5;
+    }
+
+    .price-includes li.excluded {
+        color: var(--texto-terciario, var(--texto-secundario));
+        opacity: 0.55;
+    }
+
+    .price-includes li.excluded svg {
+        color: var(--texto-secundario);
+        filter: none;
+    }
+
+    .price-secure--grid {
+        margin-top: 28px !important;
+    }
+
+    :global(.price-grid .price-cta) {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* ── Single card ─────────────────────────────────── */
     .price-card {
         max-width: 640px;
         margin: 0 auto;
