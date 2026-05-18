@@ -1,59 +1,45 @@
 ---
 import SectionHead from "../ui/SectionHead.astro";
+
+interface Bonus {
+    num: string;
+    featured?: boolean;
+    originalPrice?: string;
+    title: string;
+    bodyHtml: string;
+    delay?: number;
+}
+
+interface BonusesProps {
+    eyebrow: string;
+    titleHtml: string;
+    lede: string;
+    bonuses: Bonus[];
+}
+
+const { eyebrow, titleHtml, lede, bonuses } = Astro.props;
 ---
 
 <section class="bonuses" id="bonus" data-reveal>
     <div class="container">
         <SectionHead
             center={true}
-            eyebrow="BÔNUS EXCLUSIVOS DESTA TURMA"
-            titleHtml='Você não leva só a mentoria. Leva o <span class="flame">arsenal completo</span>.'
-            lede="3 bônus liberados no ato da matrícula · válidos apenas para a turma atual."
+            eyebrow={eyebrow}
+            titleHtml={titleHtml}
+            lede={lede}
         />
 
         <div class="bonus-grid">
-            <div class="bonus-card" data-stagger style="animation-delay: 0ms">
-                <div class="bonus-num">
-                    <span>BÔNUS 01</span>
-                    <span class="price"><s>R$ 497</s> GRÁTIS</span>
+            {bonuses.map((bonus, i) => (
+                <div class={`bonus-card${bonus.featured ? ' featured' : ''}`} data-stagger style={`animation-delay: ${bonus.delay ?? i * 80}ms`}>
+                    <div class="bonus-num">
+                        <span>{bonus.num}</span>
+                        {bonus.originalPrice && <span class="price"><s>{bonus.originalPrice}</s> GRÁTIS</span>}
+                    </div>
+                    <h3>{bonus.title}</h3>
+                    <p set:html={bonus.bodyHtml} />
                 </div>
-                <h3>Toolkit Terraform O Sertao será Cloud</h3>
-                <p>
-                    Repositório privado com <b>30+ módulos Terraform</b> production-ready:
-                    VMs, Scale Sets, Bastion, Key Vault, Log Analytics · código que
-                    você cola no projeto e adapta.
-                </p>
-            </div>
-
-            <div class="bonus-card featured" data-stagger style="animation-delay: 80ms">
-                <div class="bonus-num">
-                    <span>BÔNUS 02 · DESTAQUE</span>
-                    <span class="price"><s>R$ 1.997</s> GRÁTIS</span>
-                </div>
-                <h3>6 Sessões de Mentoria 1:1 com Cláudio</h3>
-                <p>
-                    Seis sessões individuais de <b>60 minutos</b> com o professor
-                    para revisar sua arquitetura real, destravar bloqueios técnicos
-                    e validar decisões antes da produção. Agendamento direto na agenda
-                    do Cláudio.
-                </p>
-            </div>
-
-            <div class="bonus-card" data-stagger style="animation-delay: 160ms">
-                <div class="bonus-num">
-                    <span>BÔNUS 03</span>
-                    <span class="price"><s>R$ 597</s> GRÁTIS</span>
-                </div>
-                <h3>Professor Convidado nas Gravações</h3>
-                <p>
-                    Participação de <b>Marcelo Gonçalves</b> (<i
-                        >Cloud in Focus</i
-                    >) gravando conteúdo junto ao Cláudio · duas vozes, dois
-                    ângulos de campo sobre Azure em escala. Não é masterclass
-                    solta: ele aparece <b>dentro dos módulos</b> agregando contexto
-                    real.
-                </p>
-            </div>
+            ))}
         </div>
     </div>
 </section>

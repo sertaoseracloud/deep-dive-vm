@@ -1,179 +1,86 @@
 ---
 import Button from "../ui/Button.astro";
 import SectionHead from "../ui/SectionHead.astro";
+
+interface PricingProps {
+  eyebrow: string;
+  titleHtml: string;
+  lede: string;
+  ribbon: string;
+  tierLabel: string;
+  courseName: string;
+  originalPrice: string;
+  installments: { count: number; value: string; cents: string };
+  pixPrice: string;
+  pixNote?: string;
+  includes: Array<{ html: string; delay?: number }>;
+  ctaHref: string;
+  ctaText: string;
+  guarantee: { days: number; heading: string; body: string };
+}
+
+const {
+  eyebrow, titleHtml, lede, ribbon, tierLabel, courseName,
+  originalPrice, installments, pixPrice, pixNote, includes,
+  ctaHref, ctaText, guarantee,
+} = Astro.props;
 ---
 
 <section class="pricing" id="investimento" data-reveal>
     <div class="container">
         <SectionHead
             center={true}
-            eyebrow="INVESTIMENTO · TURMA CHAMA AZUL 01"
-            titleHtml='A diferença entre <span class="flame">executor e arquiteto</span> está aqui.'
-            lede="Acesso por 12 meses, todos os bônus liberados, certificado e
-                comunidade. Pagamento via Hotmart · cartão, PIX ou boleto."
+            eyebrow={eyebrow}
+            titleHtml={titleHtml}
+            lede={lede}
         />
 
         <div class="price-card">
             <div class="price-ribbon">
-                ⟡ ACESSO COMPLETO · ECONOMIA DE R$ 1.050
+                {ribbon}
             </div>
             <div class="price-body">
-                <div class="price-tier">O Sertao será Cloud</div>
-                <h3 class="price-name">DEEP DIVE · AZURE VM</h3>
+                <div class="price-tier">{tierLabel}</div>
+                <h3 class="price-name">{courseName}</h3>
 
                 <div class="price-anchor">
-                    <span class="total">DE <s>R$ 1.997</s> · POR</span>
+                    <span class="total">DE <s>{originalPrice}</s> · POR</span>
                 </div>
 
                 <div class="price-display">
-                    <span class="x">12×</span>
+                    <span class="x">{installments.count}×</span>
                     <span class="currency">R$</span>
-                    <span class="num">78</span>
-                    <span class="cents">,92</span>
+                    <span class="num">{installments.value}</span>
+                    <span class="cents">{installments.cents}</span>
                 </div>
                 <div class="price-or">
-                    OU <b>R$ 947</b> à vista no PIX · sem juros, sem pegadinha.
+                    OU <b>{pixPrice}</b> à vista no PIX · {pixNote ?? "sem juros, sem pegadinha."}
                 </div>
 
                 <ul class="price-includes">
-                    <li data-stagger style="animation-delay: 0ms">
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span
-                            ><b>54h</b> de curso gravado em alta densidade · Teoria,
-                            Portal, CLI, Terraform e Spec-Driven Dev.</span
-                        >
-                    </li>
-                    <li data-stagger style="animation-delay: 80ms">
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span
-                            ><b>06 módulos</b> sequenciais · do hipervisor à governança
-                            financeira · atravessados por <b>5 frentes</b
-                            >.</span
-                        >
-                    </li>
-                    <li data-stagger style="animation-delay: 160ms">
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span
-                            ><b>Toolkit Terraform</b> com 30+ módulos production-ready
-                            (Bônus 01).</span
-                        >
-                    </li>
-                    <li data-stagger style="animation-delay: 240ms">
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span
-                            ><b>Frente Spec-Driven Dev</b> · templates do Well-Architected
-                            Framework para gerar VMs production-ready a partir de
-                            uma <code>spec.md</code>.</span
-                        >
-                    </li>
-                    <li data-stagger style="animation-delay: 320ms">
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span
-                            ><b>6 Sessões 1:1</b> de mentoria com Cláudio · 60 min
-                            cada (Bônus 02).</span
-                        >
-                    </li>
-                    <li data-stagger style="animation-delay: 400ms">
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span
-                            ><b>Marcelo Gonçalves</b> (<i>Cloud in Focus</i>)
-                            como professor convidado nas gravações (Bônus 03).</span
-                        >
-                    </li>
-                    <li data-stagger style="animation-delay: 480ms">
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span
-                            ><b>Certificado de conclusão</b> O Sertao será Cloud ·
-                            assinado por um Microsoft MVP.</span
-                        >
-                    </li>
-                    <li data-stagger style="animation-delay: 560ms">
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        <span
-                            ><b>Acesso por 12 meses</b> + atualizações de conteúdo
-                            durante o período.</span
-                        >
-                    </li>
+                    {includes.map((item, i) => (
+                        <li data-stagger style={`animation-delay: ${item.delay ?? i * 80}ms`}>
+                            <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2.5"
+                            >
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span set:html={item.html} />
+                        </li>
+                    ))}
                 </ul>
                 <Button
-                    href="https://www.hotmart.com"
+                    href={ctaHref}
                     variant="primary"
                     size="massive"
                     customClass="price-cta"
                 >
-                    Quero garantir minha vaga agora
+                    {ctaText}
                     <span class="arrow">
                         <svg
                             width="18"
@@ -234,17 +141,12 @@ import SectionHead from "../ui/SectionHead.astro";
 
         <div class="guarantee">
             <div class="guarantee-seal">
-                <span class="big">7</span>
+                <span class="big">{guarantee.days}</span>
                 <span class="small">DIAS</span>
             </div>
             <div>
-                <h3>Garantia incondicional de 7 dias.</h3>
-                <p>
-                    Acesse a mentoria, comece a trilha, mergulhe no toolkit. Se
-                    em 7 dias você sentir que não é para você · qualquer motivo
-                    · devolvemos <b>100% do investimento</b>. O risco é todo
-                    nosso.
-                </p>
+                <h3>{guarantee.heading}</h3>
+                <p set:html={guarantee.body} />
             </div>
         </div>
     </div>

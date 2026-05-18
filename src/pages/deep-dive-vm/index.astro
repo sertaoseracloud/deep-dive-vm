@@ -18,6 +18,10 @@ import Testimonials from "../../components/sections/Testimonials.astro";
 import Pricing from "../../components/sections/Pricing.astro";
 import Faq from "../../components/sections/Faq.astro";
 import LegalModals from "../../components/ui/LegalModals.astro";
+
+import claudio1 from "../../assets/claudio1.png";
+import claudio2 from "../../assets/claudio2.png";
+import marcelo from "../../assets/marcelo.png";
 ---
 
 <Layout
@@ -62,17 +66,231 @@ import LegalModals from "../../components/ui/LegalModals.astro";
 	<UrgencyBar content="<strong>54h</strong> de imersão + <strong>6 sessões 1:1</strong> + <strong>Toolkit Terraform</strong> · acesso por <strong>12 meses</strong>" />
 	<NavBar />
 	<main id="main" tabindex="-1">
-		<Hero />
-		<TrustBand />
-		<PainPoints />
-		<Method />
-		<Curriculum />
-		<Mentor />
-		<ForWho />
-		<Bonuses />
+		<Hero
+			eyebrowTag="DEEP DIVE"
+			eyebrowDesc="Curso 54h · Azure VM · 6 Sessões 1:1 · SSD & WAF"
+			titleHtml='Pare de provisionar VMs no <span class="crossed">improviso</span>.<br />Vire um <span class="flame">Arquiteto de Nuvem</span> que projeta infraestrutura de elite.'
+			sub="A imersão definitiva para Engenheiros que querem dominar <strong>Azure Virtual Machines do átomo ao código declarativo</strong> · Portal, CLI e Terraform · e finalmente serem ouvidos nas decisões de arquitetura."
+			points={[
+				{ html: "<strong>54 horas</strong> divididas em 6 módulos sequenciais · do hipervisor ao Zero Trust." },
+				{ html: "Cada tópico em <strong>5 frentes operacionais</strong>: Teoria, Portal, CLI, Terraform e Spec-Driven Dev · fluidez total." },
+				{ html: "Curso ministrado por <strong>Microsoft MVP &amp; Docker Captain</strong> + <strong>6 sessões de mentoria 1:1</strong> com o Cláudio." },
+				{ html: "<strong>Certificado próprio</strong> O Sertao será Cloud · assinado por Microsoft MVP." },
+			]}
+			ctaPrimary={{ href: "#investimento", label: "Quero ser Arquiteto de Nuvem" }}
+			ctaGhost={{ href: "#ementa", label: "Ver Ementa Completa" }}
+			metaBadges={[
+				{ icon: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>', label: "54h DE CONTEÚDO" },
+				{ icon: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18M9 21V9"></path></svg>', label: "6 MÓDULOS" },
+				{ icon: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L3 7l9 5 9-5-9-5zM3 17l9 5 9-5M3 12l9 5 9-5"></path></svg>', label: "PORTAL · CLI · TERRAFORM · IA" },
+				{ icon: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6M12 22v-2M4.93 4.93l4.24 4.24M14.83 14.83l4.24 4.24M2 12h6M22 12h-2M4.93 19.07l4.24-4.24M14.83 9.17l4.24-4.24"></path></svg>', label: "ACESSO 12 MESES" },
+			]}
+			portrait={{ src: claudio1, alt: "Cláudio Filipe Lima Raposo segurando uma chama elétrica azul" }}
+			portraitStats={[
+				{ label: "⟡ 2× MVP · MICROSOFT" },
+				{ label: "⟡ CAPTAIN · DOCKER" },
+			]}
+			portraitTag={{ name: "Cláudio F. L. Raposo", badge: "PROFESSOR PRINCIPAL" }}
+		/>
+		<TrustBand
+			label={"PROFISSIONAIS\nDE EMPRESAS COMO"}
+			items={[
+				{ svgHtml: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11 11H2V2h9v9zM22 11h-9V2h9v9zM11 22H2v-9h9v9zM22 22h-9v-9h9v9z"></path></svg>', label: "ENTERPRISE" },
+				{ svgHtml: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 17l6-6 4 4 6-6M14 7h6v6"></path></svg>', label: "FINTECH" },
+				{ svgHtml: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-6 9 6v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>', label: "SAAS B2B" },
+				{ svgHtml: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle></svg>', label: "CONSULTORIAS" },
+			]}
+		/>
+		<PainPoints
+			eyebrow="O TETO INVISÍVEL"
+			titleHtml='Você é um engenheiro técnico · mas <span class="flame">ainda não é ouvido</span> nas decisões.'
+			lede="Reconhece algum desses sintomas?"
+			cards={[
+				{ num: "01 // SINTOMA", titleHtml: 'Você cria VMs no Portal "no chute" e reza para o tamanho aguentar a produção.', body: "Sem critério para escolher famílias de instância, dimensionamento, discos gerenciados vs. efêmeros · e o custo no fim do mês é uma surpresa amarga." },
+				{ num: "02 // SINTOMA", titleHtml: "Sua infraestrutura mora em prints, planilhas e scripts que ninguém entende.", body: "Sem Terraform de verdade. Sem reprodutibilidade. Cada novo ambiente é uma noite mal dormida e um deploy de risco." },
+				{ num: "03 // SINTOMA", titleHtml: '"Zero Trust", "Bastion", "Confidential VMs" são termos que aparecem em reuniões que você não conduz.', body: "Você quer subir de Senior para Arquiteto, mas não tem repertório para falar de segmentação, Key Vault, criptografia no host e governança." },
+				{ num: "04 // SINTOMA", titleHtml: "Toda decisão importante de arquitetura é tomada por outro · e você só executa.", body: "Você sabe que <em>poderia</em> liderar. Falta o vocabulário técnico de elite e a visão sistêmica que só uma imersão profunda entrega." },
+				{ num: "05 // SINTOMA", titleHtml: "Em arquiteturas complexas, você ainda provisiona máquinas no improviso · sem spec, sem rastreabilidade.", body: "Topologias multi-tier com Scale Sets, Bastion, Key Vault e Confidential VMs exigem <b>Spec-Driven Development</b> · descrever a intenção (SLA, IOPS, criptografia, segmentação) e gerar IaC validado contra o Well-Architected. Sem isso, cada nova VM vira uma escolha solta que ninguém audita." },
+			]}
+		/>
+		<Method
+			eyebrow="O MÉTODO · O Sertao será Cloud"
+			titleHtml='Cada conceito atravessa <span class="flame">5 frentes operacionais</span>.'
+			lede="Você não aprende um caminho. Aprende todos os caminhos que uma empresa séria usa em produção · com base teórica de arquiteto e fechamento em Spec-Driven Development sob o Well-Architected Framework."
+			steps={[
+				{ svgHtml: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2L3 7l9 5 9-5-9-5zM3 17l9 5 9-5M3 12l9 5 9-5"></path></svg>', label: "FRENTE 01", title: "Parte Teórica", bodyHtml: "Visão de arquiteto: hipervisor, Geração 1 vs. 2, UEFI, Zero Trust, modelos de criptografia, SLAs e taxonomia de instâncias. A base que separa o operador do projetista." },
+				{ svgHtml: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="14" rx="2"></rect><path d="M8 21h8M12 17v4"></path></svg>', label: "FRENTE 02", title: "Portal Azure", bodyHtml: "Provisionamento visual com critério estratégico · assinaturas, regiões, Marketplace, Cost Management, Site Recovery e Bastion configurados como um arquiteto faz." },
+				{ svgHtml: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>', label: "FRENTE 03", title: "Azure CLI", bodyHtml: "Velocidade e automação imperativa. <code>az vm create</code>, <code>az network nsg rule</code>, <code>keyvault set-policy</code>, scripts de desligamento programado, Spot VMs." },
+				{ svgHtml: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M5 6l7 4 7-4M5 18l7-4 7 4M5 6v12M19 6v12"></path></svg>', label: "FRENTE 04", title: "Terraform", bodyHtml: "Infraestrutura como código declarativa e idempotente · <code>azurerm</code>, scale sets, disk encryption, Bastion, Key Vault. O padrão das empresas de elite." },
+				{ svgHtml: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h7l5 5v13a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M10 13l2 2 4-4"></path></svg>', label: "FRENTE 05 · NOVO", title: "Spec-Driven Dev<br />+ Well-Architected", bodyHtml: "Você descreve a VM em <code>spec.md</code> e ela nasce alinhada aos 5 pilares do <b>Well-Architected Framework</b>: Reliability, Security, Cost, Performance e Operational Excellence." },
+			]}
+		/>
+		<Curriculum
+			eyebrow="EMENTA INSTRUCIONAL · 6 MÓDULOS"
+			titleHtml='Do <span class="flame">hipervisor</span> à governança financeira · em sequência cirúrgica.'
+			lede="Cada módulo destrava o seguinte. Sem atalhos, sem furos. A trilha foi desenhada para que você termine projetando arquiteturas inteiras, não apenas executando comandos isolados."
+			meta={{ total: "54h", modules: 6, frentes: 5, projects: 30 }}
+			modules={[
+				{
+					num: "M.01", title: "Fundamentos e Arquitetura de Máquinas Virtuais", subtitle: "Hipervisor, Azure Boost, Geração 1 vs. 2, UEFI & Secure Boot.", hours: "08H", isOpen: true,
+					tracks: [
+						{ head: "TEORIA", body: "IaaS avançado, camada do hipervisor, descarregamento via Azure Boost e a evolução arquitetural Geração 1 → 2 (UEFI, Secure Boot, limites de armazenamento)." },
+						{ head: "PORTAL", body: "Assistente de provisionamento, escolha de assinatura, grupos de recursos, regiões e imagens do Marketplace · Windows, Ubuntu, Red Hat." },
+						{ head: "AZURE CLI", body: "Provisionamento imperativo com <code>az vm create</code>, credenciais administrativas seguras e seleção automatizada de imagens." },
+						{ head: "TERRAFORM", body: "Provider <code>azurerm</code>, <code>azurerm_resource_group</code> e <code>azurerm_linux_virtual_machine</code> · paradigma declarativo e idempotente." },
+						{ head: "SDD + WAF", body: "Escreva a primeira VM em <code>spec.md</code> e gere o Terraform alinhado ao pilar <b>Operational Excellence</b> do Well-Architected." },
+					],
+				},
+				{
+					num: "M.02", title: "Taxonomia, Dimensionamento e Armazenamento", subtitle: "Famílias de instâncias, discos gerenciados vs. efêmeros, expansão sem downtime.", hours: "10H",
+					tracks: [
+						{ head: "TEORIA", body: "Famílias: Propósito Geral, Computação, Memória, Armazenamento. Discos Gerenciados vs. volatilidade dos Discos Efêmeros do SO." },
+						{ head: "PORTAL", body: "Redimensionamento via recomendações do Azure Advisor, anexação de discos de dados e expansão minimizando downtime." },
+						{ head: "AZURE CLI", body: "<code>az vm list-sizes</code>, <code>az vm resize</code>, <code>az vm disk attach</code> · operações em terminal com precisão cirúrgica." },
+						{ head: "TERRAFORM", body: "Variável <code>size</code> dinâmica, <code>azurerm_managed_disk</code> com <code>azurerm_virtual_machine_data_disk_attachment</code>." },
+						{ head: "SDD + WAF", body: "Spec descreve família, IOPS e ciclo de vida · IaC gerado respeita <b>Cost Optimization</b> e <b>Performance Efficiency</b>." },
+					],
+				},
+				{
+					num: "M.03", title: "Rede, Segurança e Modelo Zero Trust", subtitle: "VNets, NSGs, ASGs, Azure Bastion · segmentação e tráfego controlado ponta a ponta.", hours: "10H",
+					tracks: [
+						{ head: "TEORIA", body: "Arquitetura de Virtual Networks, segmentação por sub-redes, NSGs vs. ASGs e o papel do Azure Bastion na eliminação de IPs públicos expostos." },
+						{ head: "PORTAL", body: "Criação visual e priorização hierárquica de regras com Tags de Serviço, implantação do Bastion para acesso criptografado via navegador." },
+						{ head: "AZURE CLI", body: "Automação completa com <code>az network nsg rule create</code> · bloqueios e liberações sob controle de versão." },
+						{ head: "TERRAFORM", body: "Topologia inteira via código: VNet, sub-rede <code>AzureBastionSubnet</code>, <code>azurerm_bastion_host</code> · proteção declarativa." },
+						{ head: "SDD + WAF", body: "Spec define segmentação, regras NSG e Bastion · IaC validado contra o pilar <b>Security</b> do Well-Architected." },
+					],
+				},
+				{
+					num: "M.04", title: "Alta Disponibilidade, Resiliência e Continuidade", subtitle: "Availability Sets, Zones, Scale Sets, Site Recovery · projetando para sobreviver.", hours: "08H",
+					tracks: [
+						{ head: "TEORIA", body: "SLAs: Availability Sets (rack/energia) vs. Availability Zones (datacenter inteiro). VM Scale Sets e Azure Site Recovery." },
+						{ head: "PORTAL", body: "Simulação prática de DR entre Zones com Azure Site Recovery · orquestração ao vivo e testes de failover." },
+						{ head: "AZURE CLI", body: "<code>az vm availability-set create</code> e comandos de escalonamento horizontal moderno via linha de comando." },
+						{ head: "TERRAFORM", body: "<code>azurerm_linux_virtual_machine_scale_set</code> com parâmetro <code>zones</code> para distribuição geométrica resiliente." },
+						{ head: "SDD + WAF", body: "Spec declara SLA-alvo, Zones e DR · Scale Set gerado certifica o pilar <b>Reliability</b> ponta a ponta." },
+					],
+				},
+				{
+					num: "M.05", title: "Criptografia e Proteção de Dados", subtitle: "SSE, Encryption at Host, Confidential VMs, vTPM e Key Vault.", hours: "08H",
+					tracks: [
+						{ head: "TEORIA", body: "Modelos de Server Side Encryption, transição da criptografia legada para Encryption at Host, Confidential VMs nativas e Virtual TPM." },
+						{ head: "PORTAL", body: "Vinculação visual de Customer-Managed Keys ao Azure Key Vault para encriptação de volumes durante a criação." },
+						{ head: "AZURE CLI", body: "Identidade gerenciada autorizada a consumir políticas e chaves via <code>az keyvault set-policy</code>." },
+						{ head: "TERRAFORM", body: "Extensão Key Vault em HCL e <code>azurerm_disk_encryption_set</code> travando o estado da infraestrutura." },
+						{ head: "SDD + WAF", body: "Spec exige CMK + Encryption at Host + vTPM · IaC selado pelo pilar <b>Security</b> com auditabilidade completa." },
+					],
+				},
+				{
+					num: "M.06", title: "Governança, Custos e Observabilidade", subtitle: "Reserved Instances, Spot, Savings Plans, Cost Management, VM Insights.", hours: "10H",
+					tracks: [
+						{ head: "TEORIA", body: "Modelos de precificação: Pay-As-You-Go, Reserved, Savings Plans e Spot Instances. Diferença entre métricas de Host e Guest." },
+						{ head: "PORTAL", body: "Azure Cost Management granular, Azure Monitor + VM Insights e centralização de logs no Log Analytics Workspace." },
+						{ head: "AZURE CLI", body: "Automações utilitárias para auto-shutdown, scripts de Spot com <code>--priority Spot</code> e monitoramento de teto financeiro." },
+						{ head: "TERRAFORM", body: "Instâncias efêmeras com <code>priority = \"Spot\"</code>, política de despejo e <code>azurerm_log_analytics_workspace</code> integrado." },
+						{ head: "SDD + WAF", body: "Spec define tags, budgets e telemetria · IaC entrega <b>Cost Optimization</b> + <b>Operational Excellence</b> auditáveis." },
+					],
+				},
+			]}
+		/>
+		<Mentor
+			primary={{
+				portrait: { src: claudio2, alt: "Cláudio Filipe Lima Raposo" },
+				eyebrow: "O MENTOR",
+				name: "Cláudio Filipe Lima Raposo",
+				tagline: "⟡ SYSTEMS ARCHITECT · 2× MVP · DOCKER CAPTAIN · GREEN SW CHAMPION",
+				bioHtml: [
+					"<strong>Systems Architect </strong> e <strong>DBA Student no MUST-USA</strong>. Reconhecido pela Microsoft com <strong>2 anos de MVP Award</strong>, pela Docker com <strong>2 anos de Captain</strong> e como <strong>Green Software Champion</strong> · além de <strong>10× certificado Microsoft e 7× AWS</strong>.",
+					"Stack políglota · <strong>GoLang, Java, .NET e Python</strong> · atravessando Azure, AWS e operando arquiteturas em escala corporativa. Já guiou centenas de engenheiros na transição para Arquiteto de Nuvem com <strong>sessões cirúrgicas</strong> que ligam detalhe técnico (UEFI, Encryption at Host, Spot VMs) à decisão estratégica (custo, risco, time-to-market).",
+				],
+				credentials: [
+					{ value: "2×", label: "MICROSOFT<br />MVP AWARD" },
+					{ value: "⚓", label: "DOCKER<br />CAPTAIN · 2Y" },
+					{ value: "17×", label: "CERTIFICAÇÕES<br />MSFT &amp; AWS" },
+				],
+			}}
+			guest={{
+				portrait: { src: marcelo, alt: "Marcelo Gonçalves · Cloud in Focus" },
+				eyebrow: "Cloud in Focus",
+				name: "Marcelo Gonçalves",
+				tagline: "⟡ DUAL MVP (INTUNE &amp; AZURE) · DOCKER CAPTAIN · IBM CHAMPION 2026 · MCT",
+				bioHtml: [
+					"Criador do <strong>Cloud in Focus</strong>, referência brasileira em conteúdo prático sobre Azure e operação de nuvem em escala. <strong>Dual Microsoft MVP (Intune &amp; Azure)</strong>, <strong>Docker Captain</strong>, <strong>IBM Champion 2026</strong> e <strong>MCT</strong> (Microsoft Certified Trainer).",
+					"Atua nos eixos críticos da nuvem moderna: <strong>Intune, Defender, Cybersecurity, SCCM, Azure, GCP, OCI e FinOps</strong>. Marcelo grava conteúdo <strong>lado a lado com o Cláudio dentro dos módulos</strong> · duas vozes, dois ângulos de campo. Onde o Cláudio traz o rigor de arquiteto de sistemas, Marcelo traz o <strong>olhar de quem opera segurança e endpoint em produção</strong>.",
+				],
+				credentials: [
+					{ value: "2×", label: "MICROSOFT MVP<br />INTUNE &amp; AZURE" },
+					{ value: "IBM", label: "CHAMPION<br />2026" },
+					{ value: "MCT", label: "DOCKER CAPTAIN<br />+ MCT" },
+				],
+			}}
+		/>
+		<ForWho
+			eyebrow="SELEÇÃO DE TURMA"
+			titleHtml='Este curso é · e <span class="flame">não é</span> · para você.'
+			isFor={[
+				{ html: "É <b>Engenheiro Pleno ou Sênior</b> e quer atravessar o teto invisível para Arquiteto." },
+				{ html: "Já mexeu com Azure de leve, mas quer <b>fluência total</b>: Portal, CLI, Terraform." },
+				{ html: "Quer dominar a <b>ferramenta</b> de ponta a ponta · do Portal ao Terraform." },
+				{ html: "É consultor / freelancer e quer <b>cobrar mais</b> entregando arquitetura, não tarefa." },
+				{ html: "Quer projetar para <b>resiliência, segurança e custo</b> · não só \"subir e ver se aguenta\"." },
+			]}
+			isNot={[
+				{ html: "Procura curso introdutório de \"o que é nuvem\". Aqui, vamos fundo." },
+				{ html: "Não está disposto a <b>colocar a mão</b> no Portal, CLI e Terraform durante 54h." },
+				{ html: "Espera \"fórmula mágica\" para cargo Arquiteto sem domínio técnico real." },
+				{ html: "Quer apenas badges em LinkedIn sem profundidade arquitetural." },
+			]}
+		/>
+		<Bonuses
+			eyebrow="BÔNUS EXCLUSIVOS DESTA TURMA"
+			titleHtml='Você não leva só a mentoria. Leva o <span class="flame">arsenal completo</span>.'
+			lede="3 bônus liberados no ato da matrícula · válidos apenas para a turma atual."
+			bonuses={[
+				{ num: "BÔNUS 01", originalPrice: "R$ 497", title: "Toolkit Terraform O Sertao será Cloud", bodyHtml: "Repositório privado com <b>30+ módulos Terraform</b> production-ready: VMs, Scale Sets, Bastion, Key Vault, Log Analytics · código que você cola no projeto e adapta." },
+				{ num: "BÔNUS 02 · DESTAQUE", featured: true, originalPrice: "R$ 1.997", title: "6 Sessões de Mentoria 1:1 com Cláudio", bodyHtml: "Seis sessões individuais de <b>60 minutos</b> com o professor para revisar sua arquitetura real, destravar bloqueios técnicos e validar decisões antes da produção. Agendamento direto na agenda do Cláudio." },
+				{ num: "BÔNUS 03", originalPrice: "R$ 597", title: "Professor Convidado nas Gravações", bodyHtml: "Participação de <b>Marcelo Gonçalves</b> (<i>Cloud in Focus</i>) gravando conteúdo junto ao Cláudio · duas vozes, dois ângulos de campo sobre Azure em escala. Não é masterclass solta: ele aparece <b>dentro dos módulos</b> agregando contexto real." },
+			]}
+		/>
 		<Testimonials />
-		<Pricing />
-		<Faq />
+		<Pricing
+			eyebrow="INVESTIMENTO · TURMA CHAMA AZUL 01"
+			titleHtml='A diferença entre <span class="flame">executor e arquiteto</span> está aqui.'
+			lede="Acesso por 12 meses, todos os bônus liberados, certificado e comunidade. Pagamento via Hotmart · cartão, PIX ou boleto."
+			ribbon="⟡ ACESSO COMPLETO · ECONOMIA DE R$ 1.050"
+			tierLabel="O Sertao será Cloud"
+			courseName="DEEP DIVE · AZURE VM"
+			originalPrice="R$ 1.997"
+			installments={{ count: 12, value: "78", cents: ",92" }}
+			pixPrice="R$ 947"
+			includes={[
+				{ html: "<b>54h</b> de curso gravado em alta densidade · Teoria, Portal, CLI, Terraform e Spec-Driven Dev." },
+				{ html: "<b>06 módulos</b> sequenciais · do hipervisor à governança financeira · atravessados por <b>5 frentes</b>." },
+				{ html: "<b>Toolkit Terraform</b> com 30+ módulos production-ready (Bônus 01)." },
+				{ html: "<b>Frente Spec-Driven Dev</b> · templates do Well-Architected Framework para gerar VMs production-ready a partir de uma <code>spec.md</code>." },
+				{ html: "<b>6 Sessões 1:1</b> de mentoria com Cláudio · 60 min cada (Bônus 02)." },
+				{ html: "<b>Marcelo Gonçalves</b> (<i>Cloud in Focus</i>) como professor convidado nas gravações (Bônus 03)." },
+				{ html: "<b>Certificado de conclusão</b> O Sertao será Cloud · assinado por um Microsoft MVP." },
+				{ html: "<b>Acesso por 12 meses</b> + atualizações de conteúdo durante o período." },
+			]}
+			ctaHref="https://www.hotmart.com"
+			ctaText="Quero garantir minha vaga agora"
+			guarantee={{ days: 7, heading: "Garantia incondicional de 7 dias.", body: "Acesse a mentoria, comece a trilha, mergulhe no toolkit. Se em 7 dias você sentir que não é para você · qualquer motivo · devolvemos <b>100% do investimento</b>. O risco é todo nosso." }}
+		/>
+		<Faq
+			eyebrow="PERGUNTAS FREQUENTES"
+			titleHtml="Antes de você se inscrever."
+			items={[
+				{ question: "Como funciona o acesso? É ao vivo ou gravado?", answerHtml: "<p>O conteúdo principal das 54h é <b>gravado em alta densidade</b>, liberado em sequência por módulo. Você assiste no seu ritmo, com legendas e velocidade ajustável.</p><p>Adicionalmente, a comunidade tem <b>encontros mensais ao vivo</b> com Cláudio para revisão de arquiteturas reais e tira-dúvidas sincronizado.</p>" },
+				{ question: "Preciso ter experiência prévia com Azure?", answerHtml: "<p>Não é obrigatório, mas <b>recomendado</b>. A mentoria parte de fundamentos rapidamente e acelera para tópicos de arquiteto (Confidential VMs, Encryption at Host, Spot, Scale Sets).</p><p>Se você já é Engenheiro Pleno/Sênior em qualquer cloud (AWS, GCP) e nunca tocou Azure · vai conseguir acompanhar tranquilamente.</p>" },
+				{ question: "Em quanto tempo eu termino as 54 horas?", answerHtml: "<p>Alunos que dedicam <b>6h por semana</b> concluem em ~9 semanas. Quem dedica 10h+/semana, em 5–6 semanas. O acesso é de 12 meses, então não há pressa · mas a turma da comunidade ativa é a que está cursando agora.</p>" },
+				{ question: "Recebo certificado? Vale para certificações Microsoft?", answerHtml: "<p>Sim · <b>certificado de conclusão O Sertao será Cloud</b> emitido por Cláudio Filipe Lima Raposo (Microsoft MVP).</p><p>O certificado <b>não substitui</b> certificações oficiais Microsoft, mas o conteúdo prático te dá base sólida para encará-las depois · o foco aqui é domínio da <b>ferramenta</b>, não preparação de prova.</p>" },
+				{ question: "Posso parcelar? Quais formas de pagamento?", answerHtml: "<p>Pagamento processado pela <b>Hotmart</b>: cartão de crédito em <b>até 12×</b>, PIX (com desconto à vista) e boleto bancário. Cartões internacionais aceitos.</p>" },
+				{ question: "E se eu comprar e não gostar?", answerHtml: "<p>Garantia de <b>7 dias incondicional</b>. Você pede reembolso direto pela Hotmart, sem precisar justificar, e recebe 100% do valor de volta. O risco é nosso.</p>" },
+				{ question: "Vou ter contato direto com o Cláudio?", answerHtml: "<p>Sim. O Bônus 02 inclui <b>6 sessões individuais de 60 minutos</b> com o Cláudio · você agenda direto na agenda dele para revisar arquiteturas reais, destravar bloqueios e validar decisões.</p><p>Sessões adicionais 1:1 podem ser contratadas após a matrícula via WhatsApp do suporte.</p>" },
+				{ question: "O conteúdo é apenas Azure ou cobre AWS/GCP?", answerHtml: "<p>Este curso é <b>100% Deep Dive em Azure Virtual Machines</b>. Os princípios de arquitetura (Zero Trust, alta disponibilidade, criptografia, IaC, Spec-Driven Dev, Well-Architected) são <b>universais</b> e você os aplica em qualquer nuvem · mas a prática é sempre na stack Microsoft Azure.</p>" },
+			]}
+		/>
 		<Footer />
 		<StickyCta priceLabel="DESDE <b>12× R$ 78,92</b>" ctaHref="#investimento" ctaText="Quero começar →" />
 		<LegalModals />

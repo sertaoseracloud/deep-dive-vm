@@ -1,162 +1,35 @@
 ---
 import SectionHead from "../ui/SectionHead.astro";
+
+interface FaqItem {
+    question: string;
+    answerHtml: string;
+}
+
+interface FaqProps {
+    eyebrow: string;
+    titleHtml: string;
+    items: FaqItem[];
+}
+
+const { eyebrow, titleHtml, items } = Astro.props;
 ---
 
 <section id="faq" data-reveal>
     <div class="container">
         <SectionHead
             center={true}
-            eyebrow="PERGUNTAS FREQUENTES"
-            titleHtml="Antes de você se inscrever."
+            eyebrow={eyebrow}
+            titleHtml={titleHtml}
         />
 
         <div class="faq">
-            <details>
-                <summary
-                    >Como funciona o acesso? É ao vivo ou gravado?<span
-                        class="plus">+</span
-                    ></summary
-                >
-                <div class="ans">
-                    <p>
-                        O conteúdo principal das 54h é <b
-                            >gravado em alta densidade</b
-                        >, liberado em sequência por módulo. Você assiste no seu
-                        ritmo, com legendas e velocidade ajustável.
-                    </p>
-                    <p>
-                        Adicionalmente, a comunidade tem <b
-                            >encontros mensais ao vivo</b
-                        > com Cláudio para revisão de arquiteturas reais e tira-dúvidas
-                        sincronizado.
-                    </p>
-                </div>
-            </details>
-
-            <details>
-                <summary
-                    >Preciso ter experiência prévia com Azure?<span class="plus"
-                        >+</span
-                    ></summary
-                >
-                <div class="ans">
-                    <p>
-                        Não é obrigatório, mas <b>recomendado</b>. A mentoria
-                        parte de fundamentos rapidamente e acelera para tópicos
-                        de arquiteto (Confidential VMs, Encryption at Host,
-                        Spot, Scale Sets).
-                    </p>
-                    <p>
-                        Se você já é Engenheiro Pleno/Sênior em qualquer cloud
-                        (AWS, GCP) e nunca tocou Azure · vai conseguir
-                        acompanhar tranquilamente.
-                    </p>
-                </div>
-            </details>
-
-            <details>
-                <summary
-                    >Em quanto tempo eu termino as 54 horas?<span class="plus"
-                        >+</span
-                    ></summary
-                >
-                <div class="ans">
-                    <p>
-                        Alunos que dedicam <b>6h por semana</b> concluem em ~9 semanas.
-                        Quem dedica 10h+/semana, em 5–6 semanas. O acesso é de 12
-                        meses, então não há pressa · mas a turma da comunidade ativa
-                        é a que está cursando agora.
-                    </p>
-                </div>
-            </details>
-
-            <details>
-                <summary
-                    >Recebo certificado? Vale para certificações Microsoft?<span
-                        class="plus">+</span
-                    ></summary
-                >
-                <div class="ans">
-                    <p>
-                        Sim · <b>certificado de conclusão O Sertao será Cloud</b
-                        > emitido por Cláudio Filipe Lima Raposo (Microsoft MVP).
-                    </p>
-                    <p>
-                        O certificado <b>não substitui</b> certificações oficiais
-                        Microsoft, mas o conteúdo prático te dá base sólida para encará-las
-                        depois · o foco aqui é domínio da <b>ferramenta</b>, não
-                        preparação de prova.
-                    </p>
-                </div>
-            </details>
-
-            <details>
-                <summary
-                    >Posso parcelar? Quais formas de pagamento?<span
-                        class="plus">+</span
-                    ></summary
-                >
-                <div class="ans">
-                    <p>
-                        Pagamento processado pela <b>Hotmart</b>: cartão de
-                        crédito em <b>até 12×</b>, PIX (com desconto à vista) e
-                        boleto bancário. Cartões internacionais aceitos.
-                    </p>
-                </div>
-            </details>
-
-            <details>
-                <summary
-                    >E se eu comprar e não gostar?<span class="plus">+</span
-                    ></summary
-                >
-                <div class="ans">
-                    <p>
-                        Garantia de <b>7 dias incondicional</b>. Você pede
-                        reembolso direto pela Hotmart, sem precisar justificar,
-                        e recebe 100% do valor de volta. O risco é nosso.
-                    </p>
-                </div>
-            </details>
-
-            <details>
-                <summary
-                    >Vou ter contato direto com o Cláudio?<span class="plus"
-                        >+</span
-                    ></summary
-                >
-                <div class="ans">
-                    <p>
-                        Sim. O Bônus 02 inclui <b
-                            >6 sessões individuais de 60 minutos</b
-                        > com o Cláudio · você agenda direto na agenda dele para revisar
-                        arquiteturas reais, destravar bloqueios e validar decisões.
-                    </p>
-                    <p>
-                        Sessões adicionais 1:1 podem ser contratadas após a
-                        matrícula via WhatsApp do suporte.
-                    </p>
-                </div>
-            </details>
-
-            <details>
-                <summary
-                    >O conteúdo é apenas Azure ou cobre AWS/GCP?<span
-                        class="plus">+</span
-                    ></summary
-                >
-                <div class="ans">
-                    <p>
-                        Este curso é <b
-                            >100% Deep Dive em Azure Virtual Machines</b
-                        >. Os princípios de arquitetura (Zero Trust, alta
-                        disponibilidade, criptografia, IaC, Spec-Driven Dev,
-                        Well-Architected) são <b>universais</b> e você os aplica em
-                        qualquer nuvem · mas a prática é sempre na stack Microsoft
-                        Azure.
-                    </p>
-                </div>
-            </details>
+            {items.map(item => (
+                <details>
+                    <summary>{item.question}<span class="plus">+</span></summary>
+                    <div class="ans" set:html={item.answerHtml} />
+                </details>
+            ))}
         </div>
     </div>
 </section>

@@ -1,130 +1,103 @@
 ---
 import SectionHead from "../ui/SectionHead.astro";
 import { Image } from "astro:assets";
-import claudio2 from "../../assets/claudio2.png";
-import marcelo from "../../assets/marcelo.png";
+import type { ImageMetadata } from "astro";
+
+interface MentorCredential {
+    value: string;
+    label: string;
+}
+
+interface MentorInfo {
+    portrait: { src: ImageMetadata; alt: string };
+    eyebrow: string;
+    name: string;
+    tagline: string;
+    bioHtml: string[];
+    credentials: MentorCredential[];
+}
+
+interface MentorProps {
+    primary: MentorInfo;
+    guest?: MentorInfo;
+}
+
+const { primary, guest } = Astro.props;
 ---
 
 <section class="mentor" id="mentor" data-reveal>
     <div class="container">
         <div class="mentor-grid">
             <div class="mentor-portrait">
-                <Image src={claudio2} alt="Cláudio Filipe Lima Raposo" loading="lazy" />
+                <Image src={primary.portrait.src} alt={primary.portrait.alt} loading="lazy" />
                 <div class="brackets">
                     <span></span><span></span><span></span><span></span>
                 </div>
             </div>
             <div>
                 <SectionHead
-                    eyebrow="O MENTOR"
-                    titleHtml="Cláudio Filipe Lima Raposo"
+                    eyebrow={primary.eyebrow}
+                    titleHtml={primary.name}
                 />
                 <div class="mentor-name">
-                    ⟡ SYSTEMS ARCHITECT · 2× MVP · DOCKER CAPTAIN · GREEN SW
-                    CHAMPION
+                    {primary.tagline}
                 </div>
-                <p class="mentor-bio">
-                    <strong>Systems Architect </strong> e <strong
-                        >DBA Student no MUST-USA</strong
-                    >. Reconhecido pela Microsoft com <strong
-                        >2 anos de MVP Award</strong
-                    >, pela Docker com <strong>2 anos de Captain</strong> e como
-                    <strong>Green Software Champion</strong> · além de <strong
-                        >10× certificado Microsoft e 7× AWS</strong
-                    >.
-                </p>
-                <p class="mentor-bio">
-                    Stack políglota · <strong
-                        >GoLang, Java, .NET e Python</strong
-                    > · atravessando Azure, AWS e operando arquiteturas em escala
-                    corporativa. Já guiou centenas de engenheiros na transição para
-                    Arquiteto de Nuvem com <strong>sessões cirúrgicas</strong> que
-                    ligam detalhe técnico (UEFI, Encryption at Host, Spot VMs) à decisão
-                    estratégica (custo, risco, time-to-market).
-                </p>
+                {primary.bioHtml.map(para => (
+                    <p class="mentor-bio" set:html={para} />
+                ))}
                 <div class="mentor-credentials">
-                    <div class="credential">
-                        <div class="v">2×</div>
-                        <div class="l">MICROSOFT<br />MVP AWARD</div>
-                    </div>
-                    <div class="credential">
-                        <div class="v">⚓</div>
-                        <div class="l">DOCKER<br />CAPTAIN · 2Y</div>
-                    </div>
-                    <div class="credential">
-                        <div class="v">17×</div>
-                        <div class="l">CERTIFICAÇÕES<br />MSFT &amp; AWS</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="mentor-divider" aria-hidden="true">
-            <span class="line"></span>
-            <span class="label">+ PROFESSOR CONVIDADO</span>
-            <span class="line"></span>
-        </div>
-
-        <div class="mentor-grid reverse">
-            <div>
-                <SectionHead
-                    eyebrow="Cloud in Focus"
-                    titleHtml="Marcelo Gonçalves"
-                />
-
-                <div class="mentor-name">
-                    ⟡ DUAL MVP (INTUNE &amp; AZURE) · DOCKER CAPTAIN · IBM
-                    CHAMPION 2026 · MCT
-                </div>
-                <p class="mentor-bio">
-                    Criador do <strong>Cloud in Focus</strong>, referência
-                    brasileira em conteúdo prático sobre Azure e operação de
-                    nuvem em escala. <strong
-                        >Dual Microsoft MVP (Intune &amp; Azure)</strong
-                    >, <strong>Docker Captain</strong>, <strong
-                        >IBM Champion 2026</strong
-                    > e <strong>MCT</strong> (Microsoft Certified Trainer).
-                </p>
-                <p class="mentor-bio">
-                    Atua nos eixos críticos da nuvem moderna: <strong
-                        >Intune, Defender, Cybersecurity, SCCM, Azure, GCP, OCI
-                        e FinOps</strong
-                    >. Marcelo grava conteúdo <strong
-                        >lado a lado com o Cláudio dentro dos módulos</strong
-                    > · duas vozes, dois ângulos de campo. Onde o Cláudio traz o rigor
-                    de arquiteto de sistemas, Marcelo traz o
-                    <strong
-                        >olhar de quem opera segurança e endpoint em produção</strong
-                    >.
-                </p>
-                <div class="mentor-credentials">
-                    <div class="credential">
-                        <div class="v">2×</div>
-                        <div class="l">
-                            MICROSOFT MVP<br />INTUNE &amp; AZURE
+                    {primary.credentials.map(cred => (
+                        <div class="credential">
+                            <div class="v">{cred.value}</div>
+                            <div class="l" set:html={cred.label} />
                         </div>
-                    </div>
-                    <div class="credential">
-                        <div class="v">IBM</div>
-                        <div class="l">CHAMPION<br />2026</div>
-                    </div>
-                    <div class="credential">
-                        <div class="v">MCT</div>
-                        <div class="l">DOCKER CAPTAIN<br />+ MCT</div>
-                    </div>
-                </div>
-            </div>
-            <div class="mentor-portrait">
-                <Image
-                    src={marcelo}
-                    alt="Marcelo Gonçalves · Cloud in Focus"
-                    loading="lazy"
-                />
-                <div class="brackets">
-                    <span></span><span></span><span></span><span></span>
+                    ))}
                 </div>
             </div>
         </div>
+
+        {guest && (
+            <div class="mentor-divider" aria-hidden="true">
+                <span class="line"></span>
+                <span class="label">+ PROFESSOR CONVIDADO</span>
+                <span class="line"></span>
+            </div>
+        )}
+
+        {guest && (
+            <div class="mentor-grid reverse">
+                <div>
+                    <SectionHead
+                        eyebrow={guest.eyebrow}
+                        titleHtml={guest.name}
+                    />
+                    <div class="mentor-name">
+                        {guest.tagline}
+                    </div>
+                    {guest.bioHtml.map(para => (
+                        <p class="mentor-bio" set:html={para} />
+                    ))}
+                    <div class="mentor-credentials">
+                        {guest.credentials.map(cred => (
+                            <div class="credential">
+                                <div class="v">{cred.value}</div>
+                                <div class="l" set:html={cred.label} />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                <div class="mentor-portrait">
+                    <Image
+                        src={guest.portrait.src}
+                        alt={guest.portrait.alt}
+                        loading="lazy"
+                    />
+                    <div class="brackets">
+                        <span></span><span></span><span></span><span></span>
+                    </div>
+                </div>
+            </div>
+        )}
     </div>
 </section>
 

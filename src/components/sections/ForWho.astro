@@ -1,13 +1,22 @@
 ---
 import SectionHead from "../ui/SectionHead.astro";
+
+interface ForWhoProps {
+    eyebrow: string;
+    titleHtml: string;
+    isFor: Array<{ html: string }>;
+    isNot: Array<{ html: string }>;
+}
+
+const { eyebrow, titleHtml, isFor, isNot } = Astro.props;
 ---
 
 <section id="selecao" data-reveal>
     <div class="container">
         <SectionHead
             center={true}
-            eyebrow="SELEÇÃO DE TURMA"
-            titleHtml='Este curso é · e <span class="flame">não é</span> · para você.'
+            eyebrow={eyebrow}
+            titleHtml={titleHtml}
         />
 
         <div class="for-who">
@@ -28,77 +37,21 @@ import SectionHead from "../ui/SectionHead.astro";
                     É para você se…
                 </h3>
                 <ul>
-                    <li>
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        É <b>Engenheiro Pleno ou Sênior</b> e quer atravessar o teto
-                        invisível para Arquiteto.
-                    </li>
-                    <li>
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        Já mexeu com Azure de leve, mas quer <b
-                            >fluência total</b
-                        >: Portal, CLI, Terraform.
-                    </li>
-                    <li>
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        Quer dominar a <b>ferramenta</b> de ponta a ponta · do Portal
-                        ao Terraform.
-                    </li>
-                    <li>
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        É consultor / freelancer e quer <b>cobrar mais</b> entregando
-                        arquitetura, não tarefa.
-                    </li>
-                    <li>
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <polyline points="20 6 9 17 4 12"></polyline>
-                        </svg>
-                        Quer projetar para <b>resiliência, segurança e custo</b> ·
-                        não só "subir e ver se aguenta".
-                    </li>
+                    {isFor.map(item => (
+                        <li>
+                            <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2.5"
+                            >
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <Fragment set:html={item.html} />
+                        </li>
+                    ))}
                 </ul>
             </div>
 
@@ -120,65 +73,22 @@ import SectionHead from "../ui/SectionHead.astro";
                     Não é para você se…
                 </h3>
                 <ul>
-                    <li>
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                        Procura curso introdutório de "o que é nuvem". Aqui, vamos
-                        fundo.
-                    </li>
-                    <li>
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                        Não está disposto a <b>colocar a mão</b> no Portal, CLI e
-                        Terraform durante 54h.
-                    </li>
-                    <li>
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                        Espera "fórmula mágica" para cargo Arquiteto sem domínio técnico
-                        real.
-                    </li>
-                    <li>
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2.5"
-                        >
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                        Quer apenas badges em LinkedIn sem profundidade arquitetural.
-                    </li>
+                    {isNot.map(item => (
+                        <li>
+                            <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2.5"
+                            >
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                            <Fragment set:html={item.html} />
+                        </li>
+                    ))}
                 </ul>
             </div>
         </div>

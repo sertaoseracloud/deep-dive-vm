@@ -5,9 +5,10 @@ interface Props {
     subtitle: string;
     hours: string;
     isOpen?: boolean;
+    tracks: Array<{ head: string; body: string }>;
 }
 
-const { num, title, subtitle, hours, isOpen = false } = Astro.props;
+const { num, title, subtitle, hours, isOpen = false, tracks } = Astro.props;
 ---
 
 <details class="module" open={isOpen}>
@@ -22,7 +23,12 @@ const { num, title, subtitle, hours, isOpen = false } = Astro.props;
     </summary>
     <div class="module-body">
         <div class="module-tracks">
-            <slot />
+            {tracks.map(track => (
+                <div class="track">
+                    <div class="head">{track.head}</div>
+                    <p set:html={track.body} />
+                </div>
+            ))}
         </div>
     </div>
 </details>

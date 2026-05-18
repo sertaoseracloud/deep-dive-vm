@@ -1,65 +1,21 @@
 ---
-/* Componente TrustBand - Versão Blindada para Visibilidade Total */
+interface TrustBandProps {
+    label: string;
+    items: Array<{ svgHtml: string; label: string }>;
+}
+
+const { label, items } = Astro.props;
 ---
 
 <div class="trust">
     <div class="container trust-row">
-        <div class="trust-label">
-            PROFISSIONAIS<br />DE EMPRESAS COMO
-        </div>
-
-        <div class="trust-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                    d="M11 11H2V2h9v9zM22 11h-9V2h9v9zM11 22H2v-9h9v9zM22 22h-9v-9h9v9z"
-                ></path>
-            </svg>
-            ENTERPRISE
-        </div>
-
-        <div class="trust-item">
-            <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-            >
-                <path d="M4 17l6-6 4 4 6-6M14 7h6v6"></path>
-            </svg>
-            FINTECH
-        </div>
-
-        <div class="trust-item">
-            <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-            >
-                <path d="M3 9l9-6 9 6v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
-            </svg>
-            SAAS B2B
-        </div>
-
-        <div class="trust-item">
-            <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-            >
-                <circle cx="12" cy="12" r="10"></circle>
-                <circle cx="12" cy="12" r="4"></circle>
-            </svg>
-            CONSULTORIAS
-        </div>
+        <div class="trust-label" set:html={label.replace('\n', '<br />')} />
+        {items.map(item => (
+            <div class="trust-item">
+                <Fragment set:html={item.svgHtml} />
+                {item.label}
+            </div>
+        ))}
     </div>
 </div>
 

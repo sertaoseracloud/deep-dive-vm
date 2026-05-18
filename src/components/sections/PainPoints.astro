@@ -1,80 +1,38 @@
 ---
 import SectionHead from "../ui/SectionHead.astro";
+
+interface PainCard {
+    num: string;
+    titleHtml: string;
+    body: string;
+}
+
+interface PainPointsProps {
+    eyebrow: string;
+    titleHtml: string;
+    lede: string;
+    cards: PainCard[];
+}
+
+const { eyebrow, titleHtml, lede, cards } = Astro.props;
 ---
 
 <section class="pain" id="pain" data-reveal>
     <div class="container">
         <SectionHead
-            eyebrow="O TETO INVISÍVEL"
-            titleHtml='Você é um engenheiro técnico · mas <span class="flame">ainda não é ouvido</span> nas decisões.'
-            lede="Reconhece algum desses sintomas?"
+            eyebrow={eyebrow}
+            titleHtml={titleHtml}
+            lede={lede}
         />
 
         <div class="pain-grid">
-            <div class="pain-card">
-                <span class="num">01 // SINTOMA</span>
-                <h3>
-                    Você cria VMs no Portal "no chute" e reza para o tamanho
-                    aguentar a produção.
-                </h3>
-                <p>
-                    Sem critério para escolher famílias de instância,
-                    dimensionamento, discos gerenciados vs. efêmeros · e o custo
-                    no fim do mês é uma surpresa amarga.
-                </p>
-            </div>
-
-            <div class="pain-card">
-                <span class="num">02 // SINTOMA</span>
-                <h3>
-                    Sua infraestrutura mora em prints, planilhas e scripts que
-                    ninguém entende.
-                </h3>
-                <p>
-                    Sem Terraform de verdade. Sem reprodutibilidade. Cada novo
-                    ambiente é uma noite mal dormida e um deploy de risco.
-                </p>
-            </div>
-
-            <div class="pain-card">
-                <span class="num">03 // SINTOMA</span>
-                <h3>
-                    "Zero Trust", "Bastion", "Confidential VMs" são termos que
-                    aparecem em reuniões que você não conduz.
-                </h3>
-                <p>
-                    Você quer subir de Senior para Arquiteto, mas não tem
-                    repertório para falar de segmentação, Key Vault,
-                    criptografia no host e governança.
-                </p>
-            </div>
-
-            <div class="pain-card">
-                <span class="num">04 // SINTOMA</span>
-                <h3>
-                    Toda decisão importante de arquitetura é tomada por outro ·
-                    e você só executa.
-                </h3>
-                <p>
-                    Você sabe que <em>poderia</em> liderar. Falta o vocabulário técnico
-                    de elite e a visão sistêmica que só uma imersão profunda entrega.
-                </p>
-            </div>
-
-            <div class="pain-card">
-                <span class="num">05 // SINTOMA</span>
-                <h3>
-                    Em arquiteturas complexas, você ainda provisiona máquinas no
-                    improviso · sem spec, sem rastreabilidade.
-                </h3>
-                <p>
-                    Topologias multi-tier com Scale Sets, Bastion, Key Vault e
-                    Confidential VMs exigem <b>Spec-Driven Development</b> · descrever
-                    a intenção (SLA, IOPS, criptografia, segmentação) e gerar IaC
-                    validado contra o Well-Architected. Sem isso, cada nova VM vira
-                    uma escolha solta que ninguém audita.
-                </p>
-            </div>
+            {cards.map(card => (
+                <div class="pain-card">
+                    <span class="num">{card.num}</span>
+                    <h3 set:html={card.titleHtml} />
+                    <p set:html={card.body} />
+                </div>
+            ))}
         </div>
     </div>
 </section>
