@@ -166,11 +166,10 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
     expect(existsSync(join(DIST_DIR, "sitemap-index.xml"))).toBe(true);
   });
 
-  it("14. sitemap-0.xml contains root / and /deep-dive-vm/", () => {
+  it("14. sitemap-0.xml contains /deep-dive-vm/", () => {
     const sitemapPath = join(DIST_DIR, "sitemap-0.xml");
     expect(existsSync(sitemapPath), `sitemap-0.xml not found at ${sitemapPath}`).toBe(true);
     const sitemap = readFileSync(sitemapPath, "utf-8");
-    expect(sitemap).toContain("https://mentoria.sertaoseracloud.com/");
     expect(sitemap).toContain("https://mentoria.sertaoseracloud.com/deep-dive-vm/");
   });
 
@@ -218,7 +217,7 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
 describe("Sitemap content assertions (dist/sitemap-0.xml)", () => {
   const SITEMAP_PATH = join(DIST_DIR, "sitemap-0.xml");
 
-  it("14. sitemap-0.xml contains the deep-dive-vm URL", () => {
+  it("19. sitemap-0.xml contains the deep-dive-vm URL", () => {
     if (!existsSync(SITEMAP_PATH)) {
       throw new Error(
         `sitemap-0.xml not found. Run 'npm run build' before running SEO tests.\nExpected path: ${SITEMAP_PATH}`
@@ -228,7 +227,7 @@ describe("Sitemap content assertions (dist/sitemap-0.xml)", () => {
     expect(sitemap).toContain("deep-dive-vm");
   });
 
-  it("15. sitemap-0.xml does NOT contain the hub root URL (mentoria.sertaoseracloud.com/)", () => {
+  it("20. sitemap-0.xml does NOT contain the hub root URL (mentoria.sertaoseracloud.com/)", () => {
     if (!existsSync(SITEMAP_PATH)) {
       throw new Error(
         `sitemap-0.xml not found. Run 'npm run build' before running SEO tests.\nExpected path: ${SITEMAP_PATH}`
