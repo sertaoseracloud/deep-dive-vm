@@ -40,9 +40,10 @@ Migrar o wireframe Claude Design "Python para Neurodivergentes" para uma landing
     includes: string[];    // array of items (HTML allowed)
     ctaHref: string;       // Hotmart URL
     ctaText: string;
-    guarantee: { days: number; text: string };
+    guarantee: { days: number; heading: string; body: string };
   }
   ```
+  *(Campo `guarantee` expandido de `{ days, text }` para `{ days, heading, body }` — alinhado com UI-SPEC §9 e RESEARCH.md para granularidade de renderização. Decisão formalizada 2026-05-17.)*
 - Após refactor, VM LP passa seus dados via props (não quebra comportamento atual).
 - Python LP passa os dados do wireframe via props.
 
