@@ -40,14 +40,14 @@ test.describe("Hub load", () => {
     }
   });
 
-  test("2 course cards are present", async ({ page }) => {
+  test("3 course cards are present", async ({ page }) => {
     await page.goto("./");
-    await expect(page.locator(".course-card")).toHaveCount(2);
+    await expect(page.locator(".course-card")).toHaveCount(3);
   });
 
   test("active course card is visible", async ({ page }) => {
     await page.goto("./");
-    await expect(page.locator(".course-card.active")).toBeVisible();
+    await expect(page.locator(".course-card.active").first()).toBeVisible();
   });
 
   test("coming-soon course card is visible", async ({ page }) => {
@@ -74,10 +74,18 @@ test.describe("Hub load", () => {
 
   test("active course card link href contains /deep-dive-vm/", async ({ page }) => {
     await page.goto("./");
-    const courseLink = page.locator(".course-card.active .course-link");
+    const courseLink = page.locator(".course-card.active .course-link").first();
     await expect(courseLink).toBeVisible();
     const href = await courseLink.getAttribute("href");
     expect(href).toContain("/deep-dive-vm/");
+  });
+
+  test("Python active course card link href contains /deep-dive-python-neurodivergentes/", async ({ page }) => {
+    await page.goto("./");
+    const courseLinks = page.locator(".course-card.active .course-link");
+    await expect(courseLinks).toHaveCount(2); // VM + Python ambos active
+    const hrefs = await courseLinks.evaluateAll(links => links.map(l => l.getAttribute("href")));
+    expect(hrefs.some(h => h?.includes("/deep-dive-python-neurodivergentes/"))).toBe(true);
   });
 
   test("all active social icon links have rel containing noopener", async ({ page }) => {
