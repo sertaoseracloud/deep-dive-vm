@@ -2,8 +2,8 @@
 status: complete
 phase: 09-python-neurodivergentes
 source: 09-01-SUMMARY.md, 09-02-SUMMARY.md, 09-03-SUMMARY.md
-started: 2026-05-18T08:30:00Z
-updated: 2026-05-18T08:35:00Z
+started: 2026-05-18T09:00:00Z
+updated: 2026-05-18T09:10:00Z
 ---
 
 ## Current Test
@@ -12,50 +12,42 @@ updated: 2026-05-18T08:35:00Z
 
 ## Tests
 
-### 1. LP Python carrega em /deep-dive-python-neurodivergentes/
-expected: Abrindo http://localhost:4321/deep-dive-python-neurodivergentes/ no browser, a página carrega completa — sem 404, sem tela branca, sem erros no console.
+### 1. Pricing — grid de 3 planos visível
+expected: Abrindo http://localhost:4321/deep-dive-python-neurodivergentes/#investimento no browser, a seção Pricing exibe um grid com 3 cards lado a lado (desktop). O título da seção é "Três caminhos. Você escolhe." e o lede diz "Acesso por 12 meses em todos os planos."
 result: pass
 
-### 2. Hero — conteúdo e CTAs
-expected: O Hero exibe o H1 "Pare de começar 10 cursos de Python e abandonar todos. Aprenda do jeito que seu cérebro pede.", os 4 bullet points, o botão primário "Quero aprender Python do meu jeito" (→ #investimento) e o botão ghost "Ver Ementa Completa" (→ #ementa). A foto do Cláudio aparece com "⟡ 2× MVP · MICROSOFT" e "⟡ NEURODIVERGENT-FRIENDLY".
+### 2. Tier 1 — Curso Solo
+expected: O primeiro card (à esquerda) exibe tier "DEEP DIVE · PYTHON", título "Curso Solo", preço "R$ 59" (sem parcelas), nota "À vista no PIX · acesso imediato.", 6 itens incluídos com checkmark ciano, e 1 item excluído "Sem sessões 1:1 com o professor" com X e opacidade reduzida. O botão CTA é ghost "Quero o curso solo".
 result: pass
 
-### 3. Hub exibe card Python ativo
-expected: Abrindo http://localhost:4321/ no browser, aparece um card "Python para Neurodivergentes" com link funcional para /deep-dive-python-neurodivergentes/ — sem badge "Em breve". O hub exibe agora 3 cards no total.
+### 3. Tier 2 — Curso + 4 Sessões (featured)
+expected: O card central exibe ribbon "⟡ MAIS ESCOLHIDO · 4 SESSÕES 1:1", tier "DEEP DIVE · PYTHON + 4 SESSÕES", título "Curso + 4 Sessões 1:1", preço "12× R$ 53,92" e "OU R$ 647 à vista no PIX", 5 itens incluídos. O botão CTA é primary "Quero curso + 4 sessões". O card central tem borda e sombra mais evidentes que os demais.
 result: pass
 
-### 4. Seção Pricing — conteúdo fiel ao wireframe
-expected: A seção Pricing (#investimento) exibe: título "Python que respeita seu cérebro · pelo preço de uma consulta", ribbon "⟡ ACESSO COMPLETO · ECONOMIA DE R$ 1.050", preço 12× R$ 78,92 / R$ 947 PIX, e exatamente 7 includes: 60h micro-aulas, 06 módulos/30 projetos/5 frentes, Cookbook Python 50+ scripts, 6 sessões 1:1, Body Doubling semanal, Certificado, Acesso 12 meses.
+### 4. Tier 3 — Curso + 6 Sessões
+expected: O terceiro card (à direita) exibe tier "DEEP DIVE · PYTHON + MENTORIA", título "Curso + 6 Sessões 1:1", preço "12× R$ 78,92" e "OU R$ 947 à vista no PIX", 6 itens incluídos. O botão CTA é ghost "Quero curso + 6 sessões".
 result: pass
 
-### 5. Seção Mentor — credenciais corretas
-expected: A seção Mentor exibe Cláudio com tagline "⟡ SYSTEMS ARCHITECT · 2× MVP · 10× MSFT CERTIFIED · NEURODIVERGENTE" e 3 credenciais: "2× MICROSOFT MVP AWARD", "10× MICROSOFT CERTIFIED", "7× AWS CERTIFIED".
+### 5. Guarantee — presente abaixo do grid
+expected: Abaixo dos 3 cards (e do price-secure badges), aparece o selo de garantia circular "7 / DIAS" com o texto "Garantia incondicional de 7 dias." e o corpo explicativo mencionando "100% do investimento".
 result: pass
 
-### 6. Todas as 11 seções presentes e na ordem correta
-expected: Scrollando a página, aparecem em ordem: Hero → TrustBand (TDAH/Autismo/Dislexia/Ansiedade) → PainPoints (5 cards) → Method (5 frentes) → Curriculum (6 módulos com accordion) → Mentor → ForWho (Para quem é / Não é) → Bonuses (3 bônus) → Pricing → FAQ (7 perguntas) → FinalCTA ("Python do jeito que seu cérebro pede.") → Footer. Sem seção Testimonials.
+### 6. StickyCta — preço atualizado
+expected: Em viewport mobile (largura < 720px), a barra sticky exibe "DESDE R$ 59 · à vista" (antes era "12× R$ 78,92"). O botão "Quero começar →" ainda funciona e leva para #investimento.
 result: pass
 
-### 7. Curriculum — 6 módulos expandíveis
-expected: A seção Currículo (#ementa) exibe 6 módulos. M.01 (8H) começa aberto com as 5 frentes visíveis. Clicando em M.02–M.06, cada um abre e exibe suas 5 frentes (VISUAL, HANDS-ON, REPETIÇÃO, PROJETO, BODY DOUBLING).
-result: pass
-
-### 8. Sticky CTA mobile
-expected: Em viewport mobile (ou reduzindo o browser para largura < 720px), aparece a barra sticky "DESDE 12× R$ 78,92" com botão "Quero começar →" no rodapé da tela.
-result: pass
-
-### 9. VM LP sem regressão
-expected: Abrindo http://localhost:4321/deep-dive-vm/ no browser, a página carrega normalmente com todo o conteúdo original — seção Pricing exibe "TURMA CHAMA AZUL 01", preço 12× R$ 78,92, 8 includes, Testimonials presente.
+### 7. VM LP — Pricing sem regressão
+expected: Abrindo http://localhost:4321/deep-dive-vm/#investimento no browser, a seção Pricing exibe o card único com ribbon "⟡ ACESSO COMPLETO · ECONOMIA DE R$ 1.050", tier "DEEP DIVE · VM", preço 12× R$ 78,92, 8 includes e o botão primário — sem grid de 3 cards.
 result: pass
 
 ## Summary
 
-total: 9
-passed: 9
+total: 7
+passed: 7
 issues: 0
 pending: 0
 skipped: 0
 
 ## Gaps
 
-[none yet]
+[none]
