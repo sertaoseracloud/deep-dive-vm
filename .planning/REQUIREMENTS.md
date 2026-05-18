@@ -35,7 +35,7 @@ multi-LP, migrando o wireframe do Claude Design para Astro. O curso ficará disp
   `og:image` apontando para `python-neurodivergentes-og.png` (1200×630px gerado via sharp),
   `og:url = https://mentoria.sertaoseracloud.com/deep-dive-python-neurodivergentes/`
 
-- [ ] **PY-05**: Suite de testes verde após a adição — E2E spec para a LP Python (HTTP 200,
+- [x] **PY-05**: Suite de testes verde após a adição — E2E spec para a LP Python (HTTP 200,
   seções visíveis, CTA presente, back-link), teste SEO no Vitest (og:image no HTML compilado),
   sem regressão nas LPs existentes (deep-dive-vm, hub)
 
