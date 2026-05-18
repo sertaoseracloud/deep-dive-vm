@@ -110,10 +110,10 @@ Cross-cutting constraints:
   3. O hub em `mentoria.sertaoseracloud.com/` exibe card ativo (sem badge "Em breve") com link para o curso
   4. `public/python-neurodivergentes-og.png` existe (1200×630) e `og:image` aponta para ele
   5. CI verde: E2E spec (HTTP 200, seções, CTA), teste SEO Vitest, zero regressão nas LPs existentes
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 **Wave 1** — Assets e infraestrutura (parallel-safe)
-- [ ] 09-01-PLAN.md — OG image via sharp, python-course.ts, courses.ts (3ª entrada Python active), UrgencyBar + StickyCta data-driven
+- [x] 09-01-PLAN.md — OG image via sharp, python-course.ts, courses.ts (3ª entrada Python active), UrgencyBar + StickyCta data-driven
 
 **Wave 2** *(blocked on Wave 1)*
 - [ ] 09-02-PLAN.md — Refatorar 11 componentes de seção para props-based, criar FinalCTA.astro, criar LP Python index.astro, atualizar VM LP
@@ -138,4 +138,4 @@ Cross-cutting constraints:
 | 6. Route Migration | v1.3 | 3/3 | Complete   | 2026-05-17 |
 | 7. Hub Page | v1.3 | 3/3 | Complete | 2026-05-17 |
 | 8. Multi-LP Scaffold | v1.3 | 3/3 | Complete | 2026-05-17 |
-| 9. Python para Neurodivergentes LP | v1.4 | 0/3 | Planned | - |
+| 9. Python para Neurodivergentes LP | v1.4 | 1/3 | In Progress|  |

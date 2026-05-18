@@ -27,11 +27,11 @@ multi-LP, migrando o wireframe do Claude Design para Astro. O curso ficará disp
 - [ ] **PY-02**: O design é fiel ao wireframe Claude Design — mesmo design system do projeto
   (paleta de cores, tokens CSS, tipografia, layout grid, animações `[data-reveal]`)
 
-- [ ] **PY-03**: O hub em `mentoria.sertaoseracloud.com/` exibe card ativo para "Python para
+- [x] **PY-03**: O hub em `mentoria.sertaoseracloud.com/` exibe card ativo para "Python para
   Neurodivergentes" com link direto para `/deep-dive-python-neurodivergentes/` — sem badge
   "Em breve"
 
-- [ ] **PY-04**: A LP possui meta tags Open Graph completas: `og:title`, `og:description`,
+- [x] **PY-04**: A LP possui meta tags Open Graph completas: `og:title`, `og:description`,
   `og:image` apontando para `python-neurodivergentes-og.png` (1200×630px gerado via sharp),
   `og:url = https://mentoria.sertaoseracloud.com/deep-dive-python-neurodivergentes/`
 
