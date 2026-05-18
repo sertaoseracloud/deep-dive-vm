@@ -1,5 +1,11 @@
 ---
 import Button from "../ui/Button.astro";
+
+interface Props {
+  courseSubtitle?: string;
+}
+
+const { courseSubtitle = "Deep Dive" } = Astro.props;
 ---
 
 <nav class="nav" aria-label="Navegação principal" data-scrolled="false">
@@ -15,7 +21,7 @@ import Button from "../ui/Button.astro";
         </defs>
         <path d="M12 2l2.09 6.26H20l-4.95 3.64L16.9 18 12 14.27 7.1 18l1.85-6.1L4 8.26h5.91z"></path>
       </svg>
-      <span class="name">O Sertao será Cloud<small>Deep Dive · Azure VM</small></span>
+      <span class="name">O Sertao será Cloud<small>{courseSubtitle}</small></span>
     </a>
 
     <div class="nav-links">
