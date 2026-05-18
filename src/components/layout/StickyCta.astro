@@ -1,14 +1,21 @@
 ---
 import Button from "../ui/Button.astro";
+
+interface Props {
+  priceLabel: string;
+  ctaHref: string;
+  ctaText: string;
+}
+const { priceLabel, ctaHref, ctaText } = Astro.props;
 ---
 
 <div class="sticky-cta" data-testid="sticky-cta">
     <div class="meta">
-        divido em  <b>12× R$ 78,92</b>
+        <Fragment set:html={priceLabel} />
     </div>
 
-    <Button href="#investimento" variant="primary" customClass="sticky-btn">
-        Quero começar →
+    <Button href={ctaHref} variant="primary" customClass="sticky-btn">
+        {ctaText}
     </Button>
 </div>
 

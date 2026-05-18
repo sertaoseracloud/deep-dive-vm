@@ -1,12 +1,13 @@
 ---
-/* Pode adicionar propriedades aqui se desejar tornar o texto dinâmico no futuro.
-  Exemplo: const { horas = "54h", sessoes = "6" } = Astro.props;
-*/
+interface Props {
+  content: string;
+}
+const { content } = Astro.props;
 ---
 
 <div class="urgency-bar" role="status" aria-label="Resumo do programa">
   <span class="live-dot" aria-hidden="true"></span>
-  <strong>54h</strong> de imersão + <strong>6 sessões 1:1</strong> + <strong>Toolkit Terraform</strong> · acesso por <strong>12 meses</strong>
+  <Fragment set:html={content} />
 </div>
 
 <style>
