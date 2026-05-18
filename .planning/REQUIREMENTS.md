@@ -20,11 +20,11 @@ multi-LP, migrando o wireframe do Claude Design para Astro. O curso ficará disp
 
 ## PY — Landing Page Python para Neurodivergentes
 
-- [ ] **PY-01**: A rota `/deep-dive-python-neurodivergentes/` existe e serve a landing page
+- [x] **PY-01**: A rota `/deep-dive-python-neurodivergentes/` existe e serve a landing page
   completa com todas as seções do wireframe: Hero (título + CTA), Público-alvo / Para quem é,
   Módulos / Currículo, e Pricing / Oferta — sem 404
 
-- [ ] **PY-02**: O design é fiel ao wireframe Claude Design — mesmo design system do projeto
+- [x] **PY-02**: O design é fiel ao wireframe Claude Design — mesmo design system do projeto
   (paleta de cores, tokens CSS, tipografia, layout grid, animações `[data-reveal]`)
 
 - [x] **PY-03**: O hub em `mentoria.sertaoseracloud.com/` exibe card ativo para "Python para

@@ -116,7 +116,7 @@ Cross-cutting constraints:
 - [x] 09-01-PLAN.md — OG image via sharp, python-course.ts, courses.ts (3ª entrada Python active), UrgencyBar + StickyCta data-driven
 
 **Wave 2** *(blocked on Wave 1)*
-- [ ] 09-02-PLAN.md — Refatorar 11 componentes de seção para props-based, criar FinalCTA.astro, criar LP Python index.astro, atualizar VM LP
+- [x] 09-02-PLAN.md — Refatorar 11 componentes de seção para props-based, criar FinalCTA.astro, criar LP Python index.astro, atualizar VM LP
 
 **Wave 3** *(blocked on Wave 2)*
 - [ ] 09-03-PLAN.md — python-lp.spec.ts (E2E), hub.spec.ts count 2→3, seo-meta.test.ts testes 17-18, validação suite completa
