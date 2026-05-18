@@ -20,4 +20,10 @@ export const courses: Course[] = [
     url: '/deep-dive-ec2/',
     status: 'coming-soon',
   },
+  {
+    title: 'Python para Neurodivergentes',
+    description: 'Deep Dive em Python para devs com TDAH, autismo, dislexia ou ansiedade. 60h em micro-aulas, 5 frentes, Body Doubling semanal.',
+    url: '/deep-dive-python-neurodivergentes/',
+    status: 'active',
+  },
 ];
