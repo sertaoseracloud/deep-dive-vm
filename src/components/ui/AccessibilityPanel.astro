@@ -1,0 +1,428 @@
+---
+// Painel "♿ Acessibilidade": perfis rápidos, tema, tamanho do texto e opções de
+// leitura, conforto e Libras. As mudanças valem na hora e ficam salvas neste
+// navegador. Mesmo modelo dos playgrounds DivergePHP e DivergeTerraform.
+import { TEMAS, GRUPOS, PERFIS } from "../../lib/preferencias";
+---
+
+<button
+	type="button"
+	class="a11y-fab"
+	id="btn-acessibilidade"
+	aria-haspopup="dialog"
+	aria-controls="dialogo-a11y"
+	title="Acessibilidade"
+>
+	<span aria-hidden="true">♿</span>
+	<span class="sr-only">Acessibilidade</span>
+</button>
+
+<dialog id="dialogo-a11y" class="a11y-dialogo" aria-labelledby="a11y-titulo">
+	<div class="a11y-cabecalho">
+		<h2 id="a11y-titulo">Acessibilidade</h2>
+		<button type="button" class="a11y-fechar" data-fechar aria-label="Fechar">
+			<span aria-hidden="true">&times;</span>
+		</button>
+	</div>
+
+	<div class="a11y-corpo" tabindex="0">
+		<p class="a11y-ajuda">
+			As mudanças valem na hora e ficam salvas neste navegador. Sem escolha salva,
+			o site segue o seu sistema (contraste alto e menos movimento).
+		</p>
+
+		<section aria-labelledby="a11y-perfis-titulo">
+			<h3 id="a11y-perfis-titulo">Perfis rápidos</h3>
+			<div class="a11y-perfis">
+				{Object.entries(PERFIS).map(([id, perfil]) => (
+					<button type="button" class="a11y-perfil" data-perfil={id} aria-pressed="false">
+						<b>{perfil.rotulo}</b>
+						<span>{perfil.ajuda}</span>
+					</button>
+				))}
+			</div>
+		</section>
+
+		<fieldset>
+			<legend>Tema</legend>
+			<div class="a11y-temas">
+				{Object.entries(TEMAS).map(([valor, rotulo]) => (
+					<label class="a11y-opcao">
+						<input type="radio" name="a11y-tema" value={valor} />
+						<span class="a11y-amostra" data-amostra={valor} aria-hidden="true"></span>
+						{rotulo}
+					</label>
+				))}
+			</div>
+		</fieldset>
+
+		<fieldset>
+			<legend>Tamanho do texto</legend>
+			<div class="a11y-tamanho">
+				<button type="button" id="a11y-menor" aria-label="Diminuir o texto">A−</button>
+				<output id="a11y-tamanho" aria-live="polite">100%</output>
+				<button type="button" id="a11y-maior" aria-label="Aumentar o texto">A+</button>
+			</div>
+		</fieldset>
+
+		{Object.entries(GRUPOS).map(([grupo, itens]) => (
+			<fieldset>
+				<legend>{grupo}</legend>
+				{Object.entries(itens).map(([chave, rotulo]) => (
+					<label class="a11y-opcao">
+						<input type="checkbox" name={chave} data-opcao />
+						{rotulo}
+					</label>
+				))}
+			</fieldset>
+		))}
+
+		<div class="a11y-rodape">
+			<button type="button" id="a11y-padrao">Restaurar padrão</button>
+			<a href="/acessibilidade/">Declaração de acessibilidade</a>
+		</div>
+	</div>
+</dialog>
+
+<p id="a11y-aviso" class="sr-only" role="status" aria-live="polite"></p>
+
+<script>
+	import {
+		TAMANHOS,
+		alternarPerfil,
+		aplicarPreferencias,
+		gravarPreferencias,
+		lerPreferencias,
+		limparPreferencias,
+		perfilAtivo,
+		preferenciasDoSistema,
+		type Preferencias,
+	} from "../../lib/preferencias";
+	import { ativarLibras } from "../../lib/libras";
+
+	const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+	const dialogo = $<HTMLDialogElement>("dialogo-a11y");
+	const aviso = $("a11y-aviso");
+
+	let prefs: Preferencias = lerPreferencias() ?? preferenciasDoSistema();
+
+	const anunciar = (texto: string) => {
+		// Esvazia e preenche de novo: repetir o mesmo aviso também é falado.
+		aviso.textContent = "";
+		setTimeout(() => (aviso.textContent = texto), 50);
+	};
+
+	const libras = (ligar: boolean) =>
+		ativarLibras(ligar).catch(() =>
+			anunciar("Não foi possível carregar o VLibras agora. Tente de novo mais tarde.")
+		);
+
+	const aplicar = () => aplicarPreferencias(prefs);
+
+	function sincronizar() {
+		dialogo.querySelectorAll<HTMLInputElement>('input[name="a11y-tema"]').forEach((i) => {
+			i.checked = i.value === prefs.tema;
+		});
+		dialogo.querySelectorAll<HTMLInputElement>("input[data-opcao]").forEach((i) => {
+			i.checked = Boolean(prefs[i.name as keyof Preferencias]);
+		});
+		dialogo.querySelectorAll<HTMLButtonElement>("[data-perfil]").forEach((b) => {
+			b.setAttribute("aria-pressed", String(perfilAtivo(prefs, b.dataset.perfil!)));
+		});
+		$("a11y-tamanho").textContent = `${prefs.tamanho}%`;
+		$<HTMLButtonElement>("a11y-menor").disabled = prefs.tamanho === TAMANHOS[0];
+		$<HTMLButtonElement>("a11y-maior").disabled = prefs.tamanho === TAMANHOS[TAMANHOS.length - 1];
+	}
+
+	function mudar(novas: Partial<Preferencias>, mensagem = "Preferência aplicada.") {
+		const antes = prefs;
+		prefs = { ...prefs, ...novas };
+		if (prefs.libras !== antes.libras) libras(prefs.libras);
+		aplicar();
+		gravarPreferencias(prefs);
+		sincronizar();
+		anunciar(mensagem);
+	}
+
+	aplicar();
+	if (prefs.libras) libras(true);
+	sincronizar();
+
+	dialogo.addEventListener("click", (e) => {
+		const alvo = e.target as HTMLElement;
+		// Clique no fundo (fora da caixa) fecha.
+		if (alvo === dialogo) return dialogo.close();
+		if (alvo.closest("[data-fechar]")) return dialogo.close();
+		const perfil = alvo.closest<HTMLElement>("[data-perfil]");
+		if (perfil) {
+			const id = perfil.dataset.perfil!;
+			const novas = alternarPerfil(prefs, id);
+			mudar(novas, perfilAtivo(novas, id) ? "Perfil ligado." : "Perfil desligado.");
+		}
+	});
+
+	dialogo.addEventListener("change", (e) => {
+		const input = e.target as HTMLInputElement;
+		if (input.name === "a11y-tema") mudar({ tema: input.value as Preferencias["tema"] }, "Tema aplicado.");
+		else if (input.dataset.opcao !== undefined)
+			mudar({ [input.name]: input.checked }, input.checked ? "Opção ligada." : "Opção desligada.");
+	});
+
+	const passo = (delta: number) => {
+		const proximo = TAMANHOS[TAMANHOS.indexOf(prefs.tamanho as (typeof TAMANHOS)[number]) + delta];
+		if (proximo) mudar({ tamanho: proximo }, `Texto em ${proximo}%.`);
+	};
+	$("a11y-menor").addEventListener("click", () => passo(-1));
+	$("a11y-maior").addEventListener("click", () => passo(1));
+
+	$("a11y-padrao").addEventListener("click", () => {
+		if (prefs.libras) libras(false);
+		limparPreferencias();
+		prefs = preferenciasDoSistema();
+		aplicar();
+		sincronizar();
+		anunciar("Preferências restauradas.");
+	});
+
+	$("btn-acessibilidade").addEventListener("click", () => {
+		sincronizar();
+		dialogo.showModal();
+	});
+</script>
+
+<style>
+	.a11y-fab {
+		position: fixed;
+		left: 16px;
+		bottom: 16px;
+		z-index: 70;
+		width: 48px;
+		height: 48px;
+		border-radius: 50%;
+		border: 2px solid var(--nucleo-eletrico);
+		background: var(--abismo-profundo);
+		color: var(--texto-principal);
+		font-size: 1.5rem;
+		line-height: 1;
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.a11y-fab:hover {
+		background: var(--sub-nivel);
+	}
+
+	/* No celular, as LPs têm a barra fixa de CTA no rodapé: o botão sobe. */
+	@media (max-width: 720px) {
+		:global(body:has(.sticky-cta)) .a11y-fab {
+			bottom: 88px;
+		}
+	}
+
+	.a11y-dialogo {
+		width: min(560px, calc(100% - 32px));
+		max-height: min(86vh, 900px);
+		padding: 0;
+		border: 1px solid var(--hairline-strong);
+		border-radius: 4px;
+		background: var(--abismo-profundo);
+		color: var(--texto-principal);
+		font-family: var(--font-body);
+	}
+
+	.a11y-dialogo[open] {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.a11y-dialogo::backdrop {
+		background: rgba(0, 0, 0, 0.7);
+	}
+
+	.a11y-cabecalho {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 16px 20px;
+		border-bottom: 1px solid var(--hairline);
+	}
+
+	.a11y-cabecalho h2 {
+		margin: 0;
+		font-size: 1.25rem;
+	}
+
+	.a11y-fechar {
+		width: 40px;
+		height: 40px;
+		background: transparent;
+		border: 1px solid var(--hairline);
+		color: var(--texto-principal);
+		font-size: 1.5rem;
+		cursor: pointer;
+	}
+
+	.a11y-corpo {
+		overflow-y: auto;
+		overflow-x: hidden;
+		padding: 16px 20px 20px;
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	/* Anula o "section { padding: 96px 0 }" global das LPs. */
+	.a11y-corpo section {
+		padding: 0;
+	}
+
+	.a11y-ajuda {
+		margin: 0;
+		color: var(--texto-secundario);
+		font-size: 0.875rem;
+		line-height: 1.5;
+	}
+
+	.a11y-corpo h3 {
+		margin: 0 0 8px;
+		font-size: 1rem;
+	}
+
+	fieldset {
+		min-width: 0;
+		margin: 0;
+		padding: 12px 14px;
+		border: 1px solid var(--hairline);
+		border-radius: 4px;
+	}
+
+	legend {
+		padding: 0 6px;
+		font-weight: 600;
+	}
+
+	.a11y-perfis {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+		gap: 8px;
+	}
+
+	.a11y-perfil {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		text-align: left;
+		padding: 10px 12px;
+		border: 1px solid var(--hairline);
+		border-radius: 4px;
+		background: transparent;
+		color: var(--texto-principal);
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.a11y-perfil span {
+		color: var(--texto-secundario);
+		font-size: 0.8125rem;
+		line-height: 1.4;
+	}
+
+	.a11y-perfil[aria-pressed="true"] {
+		border-color: var(--nucleo-eletrico);
+		box-shadow: inset 0 0 0 1px var(--nucleo-eletrico);
+	}
+
+	.a11y-perfil[aria-pressed="true"] b::after {
+		content: " ✓";
+	}
+
+	.a11y-temas {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.a11y-opcao {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-height: 32px;
+		line-height: 1.4;
+		cursor: pointer;
+	}
+
+	.a11y-opcao input {
+		width: 20px;
+		height: 20px;
+		flex: none;
+		accent-color: var(--nucleo-eletrico);
+	}
+
+	.a11y-amostra {
+		width: 18px;
+		height: 18px;
+		flex: none;
+		border-radius: 50%;
+		border: 1px solid var(--texto-secundario);
+	}
+
+	.a11y-amostra[data-amostra="padrao"] {
+		background: linear-gradient(135deg, #0a0f1e 50%, #00ffff 50%);
+	}
+
+	.a11y-amostra[data-amostra="alto-contraste"] {
+		background: linear-gradient(135deg, #000 50%, #ffff00 50%);
+	}
+
+	.a11y-amostra[data-amostra="suave"] {
+		background: linear-gradient(135deg, #1c2128 50%, #8cc7c7 50%);
+	}
+
+	.a11y-tamanho {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+
+	.a11y-tamanho button,
+	.a11y-rodape button {
+		min-width: 44px;
+		min-height: 44px;
+		padding: 0 14px;
+		border: 1px solid var(--hairline-strong);
+		border-radius: 4px;
+		background: transparent;
+		color: var(--texto-principal);
+		font: inherit;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.a11y-tamanho button:disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
+	}
+
+	.a11y-tamanho output {
+		min-width: 4ch;
+		text-align: center;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.a11y-rodape {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+	}
+
+	.a11y-rodape a {
+		color: var(--nucleo-eletrico);
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+	}
+</style>

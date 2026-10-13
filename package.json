@@ -1,9 +1,9 @@
 {
   "name": "template-dd",
   "type": "module",
-  "version": "0.0.1",
+  "version": "1.4.0",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.18.0"
   },
   "scripts": {
     "dev": "astro dev",
@@ -17,20 +17,15 @@
     "test:all": "vitest run --coverage",
     "lighthouse": "lighthouse https://mentoria.sertaoseracloud.com/deep-dive-vm/ --output json --output-path lighthouse-report.json --chrome-flags=\"--headless --no-sandbox\"",
     "lighthouse:ci": "npm run build && npx astro preview & sleep 3 && npm run lighthouse",
-    "capture:baselines": "node src/scripts/capture-baselines.js",
     "test:axe": "npx playwright test tests/e2e/motion-accessibility.spec.ts --project=chromium",
     "test:perf": "lhci autorun"
   },
   "dependencies": {
-    "@astrojs/react": "^7.0.1",
     "@astrojs/sitemap": "^3.7.4",
     "astro": "^7.3.8",
     "astro-seo": "^1.2.0",
     "gray-matter": "^4.0.3",
-    "motion": "^12.38.0",
     "pixelmatch": "^7.2.0",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6",
     "rehype-parse": "^9.0.1",
     "rehype-remark": "^10.0.1",
     "remark": "^15.0.1",
@@ -45,11 +40,9 @@
     "@playwright/test": "^1.59.1",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
     "@vitest/coverage-v8": "^5.0.4",
     "happy-dom": "^20.9.0",
-    "impeccable": "^4.5.2",
+    "impeccable": "4.5.2",
     "jsdom": "^25.0.1",
     "lighthouse": "^13.5.0",
     "playwright": "^1.59.1",

@@ -1,6 +1,9 @@
 ---
 import { SEO } from "astro-seo";
+import { Font } from "astro:assets";
 import claudio1 from "../assets/claudio1.png";
+import AccessibilityPanel from "../components/ui/AccessibilityPanel.astro";
+import { CHAVE_APLICADO, COR_DA_BARRA } from "../lib/preferencias";
 
 interface Props {
 	title: string;
@@ -25,6 +28,20 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 <html lang="pt-BR">
 	<head>
 		<meta charset="utf-8" />
+		<meta name="theme-color" content={COR_DA_BARRA.padrao} />
+		<!-- Reaplica a escolha do painel ♿ antes da primeira pintura (sem piscar o tema). -->
+		<script is:inline define:vars={{ chave: CHAVE_APLICADO }}>
+			try {
+				var a = JSON.parse(localStorage.getItem(chave));
+				if (a) {
+					var r = document.documentElement;
+					r.setAttribute("data-tema", a.tema);
+					r.style.setProperty("--escala", a.escala);
+					a.classes.forEach(function (c) { r.classList.add(c); });
+					document.querySelector('meta[name="theme-color"]').setAttribute("content", a.cor);
+				}
+			} catch (e) {}
+		</script>
 		<SEO
 			title={title}
 			description={resolvedDescription}
@@ -43,7 +60,7 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 				},
 			}}
 			twitter={{
-				creator: "@sertaoseracloud", // Ajustado conforme o perfil do mentor
+				creator: "@sertaoseracloud",
 				card: "summary_large_image",
 			}}
 			extend={{
@@ -75,26 +92,18 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 			}}
 		/>
 
-		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<link
-			rel="preload"
-			as="style"
-			href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Chakra+Petch:wght@400;500;600;700&display=swap"
-			onload="this.onload=null;this.rel='stylesheet'"
-		/>
-		<noscript>
-			<link
-				rel="stylesheet"
-				href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Chakra+Petch:wght@400;500;600;700&display=swap"
-			/>
-		</noscript>
+		<!-- Pré-carrega só o que aparece acima da dobra; o resto chega sob demanda. -->
+		<Font cssVariable="--font-body" preload={[{ style: "normal", subset: "latin" }]} />
+		<Font cssVariable="--font-display" preload={[{ weight: 700, style: "normal", subset: "latin" }]} />
+		<Font cssVariable="--font-mono" preload={[{ style: "normal", subset: "latin" }]} />
+		<Font cssVariable="--font-legivel" />
 		{jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
 		<slot name="head" />
 	</head>
 	<body>
 		<div class="ambient" aria-hidden="true"></div>
 		<slot />
+		<AccessibilityPanel />
 		<script>
 			const revealEls = document.querySelectorAll("[data-reveal]");
 			if (revealEls.length > 0) {
@@ -139,6 +148,30 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 		top: 0;
 	}
 
+	/* Tamanho do texto do painel ♿: todas as fontes do site estão em rem. */
+	html {
+		font-size: calc(100% * var(--escala, 1));
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	/* Foco do teclado sempre visível (WCAG 2.4.7); :where() deixa os
+	   componentes refinarem sem brigar por especificidade. */
+	:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+		outline: 2px solid var(--nucleo-eletrico);
+		outline-offset: 2px;
+	}
+
 	:root {
 		--chama-primaria: #1a3ac8;
 		--chama-hover: #2548e0;
@@ -160,6 +193,141 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 		/* Easing tokens — ANIM-03 */
 		--ease-entrance: cubic-bezier(0.25, 1, 0.5, 1);
 		--ease-micro: cubic-bezier(0.0, 0.0, 0.2, 1);
+	}
+
+	/* ————————————————————————————————
+	   Temas do painel ♿. Sem escolha salva (:root sem data-tema), o sistema
+	   operacional decide: contraste alto ou cores forçadas → alto contraste.
+	   ———————————————————————————————— */
+	:root[data-tema="alto-contraste"] {
+		--chama-primaria: #0033cc;
+		--chama-hover: #0040ff;
+		--nucleo-eletrico: #ffff00;
+		--abismo-profundo: #000000;
+		--sub-nivel: #000000;
+		--texto-principal: #ffffff;
+		--texto-secundario: #ffffff;
+		--texto-terciario: #f0f0f0;
+		--sucesso: #3dff9e;
+		--alerta: #ffc04d;
+		--grid-line: transparent;
+		--hairline: rgba(255, 255, 255, 0.7);
+		--hairline-strong: #ffff00;
+	}
+
+	@media (prefers-contrast: more) {
+		:root:not([data-tema]) {
+			--chama-primaria: #0033cc;
+			--chama-hover: #0040ff;
+			--nucleo-eletrico: #ffff00;
+			--abismo-profundo: #000000;
+			--sub-nivel: #000000;
+			--texto-principal: #ffffff;
+			--texto-secundario: #ffffff;
+			--texto-terciario: #f0f0f0;
+			--grid-line: transparent;
+			--hairline: rgba(255, 255, 255, 0.7);
+			--hairline-strong: #ffff00;
+		}
+	}
+
+	:root[data-tema="suave"] {
+		--chama-primaria: #3b5a9a;
+		--chama-hover: #4867a8;
+		--nucleo-eletrico: #8cc7c7;
+		--abismo-profundo: #1c2128;
+		--sub-nivel: #252b34;
+		--texto-principal: #e6e9ee;
+		--texto-secundario: #c9d0db;
+		--texto-terciario: #a3adbd;
+		--sucesso: #8fcfb3;
+		--alerta: #dcbb80;
+		--grid-line: transparent;
+		--hairline: rgba(220, 225, 235, 0.16);
+		--hairline-strong: rgba(140, 199, 199, 0.45);
+	}
+
+	/* Sem brilho, gradiente nem grade nos temas de alto contraste e suave. */
+	:root[data-tema="alto-contraste"] .ambient,
+	:root[data-tema="suave"] .ambient {
+		background: var(--abismo-profundo);
+	}
+
+	:root[data-tema="alto-contraste"] .hero::before,
+	:root[data-tema="suave"] .hero::before {
+		display: none;
+	}
+
+	:root[data-tema="alto-contraste"] *,
+	:root[data-tema="suave"] * {
+		text-shadow: none !important;
+	}
+
+	:root[data-tema="alto-contraste"] :where(a, button, input, summary, [tabindex]):focus-visible {
+		outline-width: 3px;
+	}
+
+	/* Opções de leitura (WCAG 1.4.8 e 1.4.12) */
+	:root.a11y-fonte-legivel body,
+	:root.a11y-fonte-legivel body :not(code, pre, kbd, samp) {
+		font-family: var(--font-legivel) !important;
+	}
+
+	:root.a11y-espacamento body :is(p, li, dd, dt, label, .course-description) {
+		line-height: 1.8 !important;
+		letter-spacing: 0.04em !important;
+		word-spacing: 0.16em !important;
+	}
+
+	:root.a11y-espacamento body :is(p, ul, ol) {
+		margin-bottom: 1.25em;
+	}
+
+	:root.a11y-linhas-curtas body :is(p, li, dd) {
+		max-width: 65ch;
+	}
+
+	:root.a11y-links body a,
+	:root.a11y-links body .link-btn {
+		text-decoration: underline !important;
+		text-underline-offset: 3px;
+	}
+
+	:root.a11y-links :where(a, button, input, summary, [tabindex]):focus-visible {
+		outline-width: 4px !important;
+	}
+
+	/* Reduzir animações: pelo painel ou pelo sistema operacional. */
+	:root.a11y-sem-movimento *,
+	:root.a11y-sem-movimento *::before,
+	:root.a11y-sem-movimento *::after {
+		animation-duration: 0.001ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.001ms !important;
+		scroll-behavior: auto !important;
+	}
+
+	:root.a11y-sem-movimento [data-reveal],
+	:root.a11y-sem-movimento [data-stagger] {
+		opacity: 1 !important;
+		transform: none !important;
+		animation: none !important;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		html {
+			scroll-behavior: auto !important;
+		}
+	}
+
+	/* Cores forçadas (Alto contraste do Windows): bordas visíveis nos cartões. */
+	@media (forced-colors: active) {
+		.ambient {
+			display: none;
+		}
+		:where(a, button, input, summary, [tabindex]):focus-visible {
+			outline: 3px solid CanvasText;
+		}
 	}
 
 	/* Scroll reveal — ANIM-02 */
@@ -202,22 +370,15 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 		[data-stagger] { animation: none; opacity: 1; transform: none; }
 	}
 
-	.hero-stagger-item {
-		animation: fade-up 400ms var(--ease-entrance) forwards;
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.hero-stagger-item { animation: none; opacity: 1; transform: none; }
-	}
-
 	body {
 		margin: 0;
 		padding: 0;
 		background-color: var(--abismo-profundo);
 		color: var(--texto-principal);
-		font-family: "Space Grotesk", system-ui, sans-serif;
+		font-family: var(--font-body);
 		min-height: 100vh;
 		overflow-x: hidden;
+		overflow-wrap: break-word;
 	}
 
 	/* O fundo radial original */
@@ -265,6 +426,12 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 		max-width: 1240px;
 		margin: 0 auto;
 		padding: 0 32px;
+	}
+
+	@media (max-width: 480px) {
+		.container {
+			padding: 0 16px;
+		}
 	}
 	/* ————————————————————————————————
      Section primitives (Fiel ao original)

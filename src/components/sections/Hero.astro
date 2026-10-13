@@ -129,19 +129,6 @@ const {
 </header>
 
 <style>
-    /* CSS fallback: garante visibilidade do conteúdo antes da hidratação React */
-    .hero-content {
-        opacity: 1;
-    }
-
-    /* Sobrescreve opacity:0 do motion.div (initial) antes da hidratação do HeroMotion.
-       A regra :global garante que o Astro não faça scoping nesta seleção.
-       Quando motion.js hidrata, aplica inline style com maior especificidade,
-       então a animação funciona normalmente após hidratação. */
-    :global(astro-island .hero-content) {
-        opacity: 1 !important;
-    }
-
     .hero {
         padding: 80px 0 80px;
         position: relative;
@@ -176,9 +163,13 @@ const {
 
     @media (max-width: 980px) {
         .hero-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(0, 1fr);
             gap: 40px;
         }
+    }
+
+    .hero-grid > * {
+        min-width: 0;
     }
 
     /* Eyebrow específico do Hero */
@@ -186,8 +177,8 @@ const {
         display: inline-flex;
         align-items: center;
         gap: 10px;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         letter-spacing: 0.28em;
         text-transform: uppercase;
         color: var(--nucleo-eletrico);
@@ -205,11 +196,11 @@ const {
         border: 1px solid var(--hairline-strong);
         padding: 3px 8px;
         background: rgba(0, 255, 255, 0.06);
-        font-size: 10px;
+        font-size: 0.75rem;
     }
 
     .hero-title {
-        font-family: "Chakra Petch", sans-serif;
+        font-family: var(--font-display);
         font-weight: 600;
         font-size: clamp(26px, 3vw, 42px);
         line-height: 1.05;
@@ -234,7 +225,7 @@ const {
     }
 
     .hero-sub {
-        font-size: 14px;
+        font-size: 0.875rem;
         line-height: 1.55;
         color: var(--texto-secundario);
         max-width: 56ch;
@@ -260,7 +251,7 @@ const {
         display: flex;
         align-items: flex-start;
         gap: 10px;
-        font-size: 12.5px;
+        font-size: 0.7812rem;
         color: var(--texto-secundario);
     }
 
@@ -283,8 +274,8 @@ const {
         display: flex;
         flex-wrap: wrap;
         gap: 24px;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         letter-spacing: 0.18em;
         text-transform: uppercase;
         color: var(--texto-secundario);
@@ -391,9 +382,9 @@ const {
     }
 
     .portrait-tag .name {
-        font-family: "Chakra Petch", sans-serif;
+        font-family: var(--font-display);
         font-weight: 600;
-        font-size: 16px;
+        font-size: 1rem;
         color: #fff;
     }
 
@@ -407,8 +398,8 @@ const {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 9px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         letter-spacing: 0.18em;
         text-transform: uppercase;
         padding: 4px 8px;
@@ -433,8 +424,8 @@ const {
         border: 1px solid var(--hairline);
         backdrop-filter: blur(8px);
         padding: 8px 12px;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 10px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         letter-spacing: 0.14em;
         text-transform: uppercase;
         color: var(--texto-secundario);

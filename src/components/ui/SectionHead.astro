@@ -39,8 +39,8 @@ const { eyebrow, idx, titleHtml, lede, center = false } = Astro.props;
         display: inline-flex;
         align-items: center;
         gap: 10px;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         letter-spacing: 0.28em;
         text-transform: uppercase;
         color: var(--nucleo-eletrico);
@@ -62,11 +62,11 @@ const { eyebrow, idx, titleHtml, lede, center = false } = Astro.props;
         border: 1px solid var(--hairline-strong);
         padding: 3px 8px;
         background: rgba(0, 255, 255, 0.06);
-        font-size: 10px;
+        font-size: 0.75rem;
     }
 
     h2.section-title {
-        font-family: "Chakra Petch", sans-serif;
+        font-family: var(--font-display);
         font-weight: 600;
         font-size: clamp(30px, 3.6vw, 48px);
         line-height: 1.05;
@@ -84,7 +84,7 @@ const { eyebrow, idx, titleHtml, lede, center = false } = Astro.props;
     }
 
     .section-lede {
-        font-size: 18px;
+        font-size: 1.125rem;
         line-height: 1.6;
         color: var(--texto-secundario);
         max-width: 64ch;

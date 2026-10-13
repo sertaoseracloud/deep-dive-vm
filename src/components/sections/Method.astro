@@ -97,17 +97,17 @@ const { eyebrow, titleHtml, lede, steps } = Astro.props;
     }
 
     .method-cell .label {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 10px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         letter-spacing: 0.22em;
         text-transform: uppercase;
         color: var(--nucleo-eletrico);
     }
 
     .method-cell h3 {
-        font-family: "Chakra Petch", sans-serif;
+        font-family: var(--font-display);
         font-weight: 600;
-        font-size: 22px;
+        font-size: 1.375rem;
         margin: 0;
         line-height: 1.15;
         letter-spacing: -0.005em;
@@ -115,7 +115,7 @@ const { eyebrow, titleHtml, lede, steps } = Astro.props;
 
     .method-cell p {
         margin: 0;
-        font-size: 14px;
+        font-size: 0.875rem;
         color: var(--texto-secundario);
         line-height: 1.55;
     }

@@ -11,7 +11,7 @@ const { courseSubtitle = "Deep Dive" } = Astro.props;
 <nav class="nav" aria-label="Navegação principal" data-scrolled="false">
   <div class="container nav-row">
     <a href="#top" class="brand">
-      <svg class="star-mark" viewBox="0 0 24 24" fill="url(#bgs)">
+      <svg class="star-mark" viewBox="0 0 24 24" fill="url(#bgs)" aria-hidden="true" focusable="false">
         <defs>
           <radialGradient id="bgs" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stop-color="#FFFFFF"></stop>
@@ -24,7 +24,7 @@ const { courseSubtitle = "Deep Dive" } = Astro.props;
       <span class="name">O Sertao será Cloud<small>{courseSubtitle}</small></span>
     </a>
 
-    <div class="nav-links">
+    <div class="nav-links" id="nav-links">
       <a href="#metodo">Método</a>
       <a href="#ementa">Ementa</a>
       <a href="#mentor">Professor</a>
@@ -38,6 +38,7 @@ const { courseSubtitle = "Deep Dive" } = Astro.props;
       class="hamburger"
       aria-label="Abrir menu de navegação"
       aria-expanded="false"
+      aria-controls="nav-links"
       type="button"
     >
       <svg width="22" height="16" viewBox="0 0 22 16" fill="none" aria-hidden="true">
@@ -79,16 +80,20 @@ const { courseSubtitle = "Deep Dive" } = Astro.props;
   /* O container interno gerencia o alinhamento e o espaçamento vertical (padding) */
   .nav-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 0;
+    gap: 8px 12px;
+    /* só vertical: o horizontal vem do .container */
+    padding-block: 14px;
   }
 
   .brand {
+    min-width: 0;
     display: flex;
     align-items: center;
     gap: 12px;
-    font-family: "Chakra Petch", sans-serif;
+    font-family: var(--font-display);
     font-weight: 600;
     letter-spacing: 0.05em;
     text-decoration: none;
@@ -102,13 +107,13 @@ const { courseSubtitle = "Deep Dive" } = Astro.props;
   }
 
   .brand .name {
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
 
   .brand .name small {
     display: block;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 9px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
     letter-spacing: 0.22em;
     color: var(--texto-secundario);
     font-weight: 400;
@@ -124,7 +129,7 @@ const { courseSubtitle = "Deep Dive" } = Astro.props;
 
   .nav-links a {
     text-decoration: none;
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: var(--texto-secundario);
     transition: color 0.15s var(--ease-micro), border-color 0.15s var(--ease-micro);
   }
@@ -149,13 +154,39 @@ const { courseSubtitle = "Deep Dive" } = Astro.props;
   */
   :global(.nav-cta) {
     padding: 10px 18px !important;
-    font-size: 12px !important;
+    font-size: 0.75rem !important;
     min-height: auto !important;
   }
 
+  /* No celular a barra fixa do rodapé (StickyCta) já traz o CTA. */
+  @media (max-width: 720px) {
+    :global(.nav-cta) {
+      display: none !important;
+    }
+  }
+
+  /* Celular e tablet: os links viram um menu que abre abaixo da barra. */
   @media (max-width: 980px) {
     .nav-links {
       display: none;
+      order: 10;
+      flex-basis: 100%;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      padding: 4px 0 8px;
+      border-top: 1px solid var(--hairline);
+    }
+
+    .nav[data-menu="aberto"] .nav-links {
+      display: flex;
+    }
+
+    .nav-links a {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+      font-size: 1rem;
     }
   }
 
@@ -164,12 +195,14 @@ const { courseSubtitle = "Deep Dive" } = Astro.props;
     background: transparent;
     border: none;
     cursor: pointer;
+    min-width: 44px;
+    min-height: 44px;
     padding: 8px;
     color: var(--texto-principal, #fff);
     border-radius: 4px;
   }
   @media (max-width: 980px) {
-    .hamburger { display: flex; align-items: center; }
+    .hamburger { display: flex; align-items: center; justify-content: center; }
   }
 </style>
 
@@ -205,25 +238,29 @@ const { courseSubtitle = "Deep Dive" } = Astro.props;
 </script>
 
 <script>
+  // Menu do celular: o hambúrguer mostra os links abaixo da barra.
+  // Esc fecha e devolve o foco ao botão; escolher um link também fecha.
   const btn = document.getElementById("hamburger-btn");
-  if (btn) {
-    let menuOpen = false;
-    btn.addEventListener("click", () => {
-      menuOpen = !menuOpen;
-      btn.setAttribute("aria-expanded", String(menuOpen));
-      btn.setAttribute("aria-label", menuOpen ? "Fechar menu de navegação" : "Abrir menu de navegação");
-      window.dispatchEvent(new CustomEvent("toggle-menu"));
-    });
-    // Ouvir estado explícito enviado pelo MobileMenuMotion (ex.: fechar via Escape)
-    const onSetMenu = (e: Event) => {
-      const { open } = (e as CustomEvent<{ open: boolean }>).detail;
-      menuOpen = open;
-      btn.setAttribute("aria-expanded", String(open));
-      btn.setAttribute("aria-label", open ? "Fechar menu de navegação" : "Abrir menu de navegação");
+  const navMenu = document.querySelector<HTMLElement>(".nav");
+  if (btn && navMenu) {
+    const definir = (aberto: boolean) => {
+      navMenu.dataset.menu = aberto ? "aberto" : "fechado";
+      btn.setAttribute("aria-expanded", String(aberto));
+      btn.setAttribute("aria-label", aberto ? "Fechar menu de navegação" : "Abrir menu de navegação");
     };
-    window.addEventListener("set-menu", onSetMenu);
+    btn.addEventListener("click", () => definir(navMenu.dataset.menu !== "aberto"));
+    navMenu.querySelectorAll(".nav-links a").forEach((link) =>
+      link.addEventListener("click", () => definir(false))
+    );
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && navMenu.dataset.menu === "aberto") {
+        definir(false);
+        btn.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
     document.addEventListener("astro:before-swap", () => {
-      window.removeEventListener("set-menu", onSetMenu);
+      document.removeEventListener("keydown", onKeyDown);
     }, { once: true });
   }
 </script>

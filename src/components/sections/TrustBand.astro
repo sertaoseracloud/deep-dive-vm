@@ -43,8 +43,8 @@ const { label, items } = Astro.props;
     }
 
     .trust-label {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 10px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         line-height: 1.4;
         letter-spacing: 0.22em;
         text-transform: uppercase;
@@ -56,8 +56,8 @@ const { label, items } = Astro.props;
         display: flex;
         align-items: center;
         gap: 12px;
-        font-family: "Chakra Petch", sans-serif;
-        font-size: 14px;
+        font-family: var(--font-display);
+        font-size: 0.875rem;
         letter-spacing: 0.06em;
         color: #ffffff; /* Texto em branco puro */
         text-transform: uppercase;

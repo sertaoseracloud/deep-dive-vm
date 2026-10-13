@@ -6,7 +6,7 @@
     <div class="container">
         <div class="footer-row">
             <div class="brand">
-                <svg class="star-mark" viewBox="0 0 24 24" fill="url(#bgs2)">
+                <svg class="star-mark" viewBox="0 0 24 24" fill="url(#bgs2)" aria-hidden="true" focusable="false">
                     <defs>
                         <radialGradient id="bgs2" cx="50%" cy="50%" r="50%">
                             <stop offset="0%" stop-color="#FFFFFF"></stop>
@@ -25,11 +25,10 @@
                 >
             </div>
             <div class="footer-meta">
-                <a href="javascript:openLegalModal('modal-terms')">Termos</a>
-                <a href="javascript:openLegalModal('modal-privacy')"
-                    >Privacidade</a
-                >
+                <button type="button" class="link-btn" data-open-legal="modal-terms">Termos</button>
+                <button type="button" class="link-btn" data-open-legal="modal-privacy">Privacidade</button>
                 <a href="mailto:contato@architecturethink.com">Suporte</a>
+                <a href="/acessibilidade/">Acessibilidade</a>
             </div>
         </div>
         <div class="footer-disclaimer">
@@ -56,8 +55,8 @@
         grid-template-columns: 1fr auto;
         gap: 24px;
         align-items: center;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         letter-spacing: 0.16em;
         text-transform: uppercase;
         color: var(--texto-secundario);
@@ -67,7 +66,7 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        font-family: "Chakra Petch", sans-serif;
+        font-family: var(--font-display);
         font-weight: 600;
         letter-spacing: 0.05em;
     }
@@ -79,13 +78,13 @@
     }
 
     .brand .name {
-        font-size: 15px;
+        font-size: 0.9375rem;
     }
 
     .brand .name small {
         display: block;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 9px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         letter-spacing: 0.22em;
         color: var(--texto-secundario);
         font-weight: 400;
@@ -99,13 +98,27 @@
         flex-wrap: wrap;
     }
 
-    .footer-meta a {
+    .footer-meta a,
+    .footer-meta .link-btn {
         color: var(--texto-secundario);
         text-decoration: none;
         transition: color 0.2s;
+        /* alvo de toque >= 24px (WCAG 2.5.8) */
+        display: inline-flex;
+        align-items: center;
+        min-height: 24px;
     }
 
-    .footer-meta a:hover {
+    .footer-meta .link-btn {
+        background: none;
+        border: 0;
+        padding: 0;
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .footer-meta a:hover,
+    .footer-meta .link-btn:hover {
         color: var(--nucleo-eletrico);
     }
 
@@ -113,8 +126,8 @@
         margin-top: 24px;
         padding-top: 20px;
         border-top: 1px dashed var(--hairline);
-        font-family: "JetBrains Mono", monospace;
-        font-size: 10px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         letter-spacing: 0.06em;
         color: var(--texto-terciario);
         line-height: 1.6;

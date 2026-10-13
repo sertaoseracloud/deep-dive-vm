@@ -133,6 +133,8 @@ test.describe("Price card CSS hover properties", () => {
 
     const priceCard = page.locator(".price-card").first();
     await expect(priceCard).toBeVisible();
+    // will-change só é ligado no :hover (evita camada de composição permanente).
+    await priceCard.hover();
 
     // Verificar computed style will-change (confirma que CSS foi aplicado)
     const willChange = await priceCard.evaluate(

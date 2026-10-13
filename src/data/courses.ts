@@ -7,6 +7,8 @@ export interface Course {
   status: CourseStatus;
   /** Curso hospedado fora deste site: o hub abre em nova aba. */
   external?: boolean;
+  /** Repositório público no GitHub: o card mostra "Dar uma star". */
+  repo?: string;
 }
 
 export const courses: Course[] = [
@@ -16,6 +18,7 @@ export const courses: Course[] = [
     url: 'https://sertaoseracloud.github.io/php-playground/',
     status: 'active',
     external: true,
+    repo: 'https://github.com/sertaoseracloud/php-playground',
   },
   {
     title: 'DivergeTerraform',
@@ -23,5 +26,6 @@ export const courses: Course[] = [
     url: 'https://sertaoseracloud.github.io/terraform-playground/',
     status: 'active',
     external: true,
+    repo: 'https://github.com/sertaoseracloud/terraform-playground',
   },
 ];

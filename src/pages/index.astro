@@ -30,20 +30,21 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
         <h1>Cláudio Filipe Lima Raposo</h1>
         <p class="bio">Systems Architect · 2× MVP Microsoft · Docker Captain</p>
 
-        <div class="social-links" role="list">
+        <ul class="social-links" aria-label="Redes sociais">
           {socialLinks.map((link) => (
-            <a
-              href={link.url}
-              aria-label={link.ariaLabel}
-              target="_blank"
-              rel="noopener noreferrer"
-              role="listitem"
-              class="social-icon-link"
-            >
-              <SocialIcon name={link.icon} />
-            </a>
+            <li>
+              <a
+                href={link.url}
+                aria-label={`${link.ariaLabel} (abre em nova aba)`}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="social-icon-link"
+              >
+                <SocialIcon name={link.icon} />
+              </a>
+            </li>
           ))}
-        </div>
+        </ul>
       </section>
 
       <hr class="hub-divider" aria-hidden="true" />
@@ -61,13 +62,25 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
               </div>
               <p class="course-description">{course.description}</p>
               {course.status === 'active' && (
-                course.external ? (
-                  <a href={course.url} class="course-link" target="_blank" rel="noopener noreferrer">
-                    Acessar curso →<span class="sr-only"> (abre em nova aba)</span>
-                  </a>
-                ) : (
-                  <a href={course.url} class="course-link">Acessar curso →</a>
-                )
+                <div class="course-actions">
+                  {course.external ? (
+                    <a href={course.url} class="course-link" target="_blank" rel="noopener noreferrer">
+                      Acessar curso<span aria-hidden="true"> →</span><span class="sr-only"> {course.title} (abre em nova aba)</span>
+                    </a>
+                  ) : (
+                    <a href={course.url} class="course-link">
+                      Acessar curso<span aria-hidden="true"> →</span><span class="sr-only"> {course.title}</span>
+                    </a>
+                  )}
+                  {course.repo && (
+                    <a href={course.repo} class="course-star" target="_blank" rel="noopener noreferrer">
+                      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+                        <path fill="currentColor" d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z" />
+                      </svg>
+                      Dar uma star no GitHub<span class="sr-only"> para o {course.title} (abre em nova aba)</span>
+                    </a>
+                  )}
+                </div>
               )}
             </div>
           ))}
@@ -76,6 +89,10 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
 
     </div>
   </main>
+
+  <footer class="hub-footer">
+    <a href="/acessibilidade/">Acessibilidade</a>
+  </footer>
 </Layout>
 
 <style>
@@ -106,8 +123,8 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
   }
 
   h1 {
-    font-family: "Chakra Petch", sans-serif;
-    font-size: 28px;
+    font-family: var(--font-display);
+    font-size: 1.75rem;
     font-weight: 700;
     line-height: 1.1;
     color: var(--texto-principal);
@@ -115,8 +132,8 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
   }
 
   .bio {
-    font-family: "Space Grotesk", system-ui, sans-serif;
-    font-size: 16px;
+    font-family: var(--font-body);
+    font-size: 1rem;
     font-weight: 400;
     line-height: 1.5;
     color: var(--texto-secundario);
@@ -129,7 +146,9 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
     flex-direction: row;
     gap: 16px;
     justify-content: center;
-    margin-top: 8px;
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
   }
 
   .social-icon-link {
@@ -163,8 +182,8 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
   }
 
   .hub-courses h2 {
-    font-family: "Space Grotesk", system-ui, sans-serif;
-    font-size: 20px;
+    font-family: var(--font-body);
+    font-size: 1.25rem;
     font-weight: 600;
     line-height: 1.2;
     color: var(--texto-principal);
@@ -210,8 +229,10 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
   }
 
   .course-title {
-    font-family: "Space Grotesk", system-ui, sans-serif;
-    font-size: 20px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-family: var(--font-body);
+    font-size: 1.25rem;
     font-weight: 600;
     line-height: 1.2;
     color: var(--texto-principal);
@@ -219,8 +240,8 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
   }
 
   .badge {
-    font-family: "JetBrains Mono", monospace;
-    font-size: 11px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
     font-weight: 400;
     text-transform: uppercase;
     letter-spacing: 0.18em;
@@ -240,37 +261,76 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
   }
 
   .course-description {
-    font-family: "Space Grotesk", system-ui, sans-serif;
-    font-size: 16px;
+    font-family: var(--font-body);
+    font-size: 1rem;
     font-weight: 400;
     line-height: 1.5;
     color: var(--texto-secundario);
     margin: 0 0 16px 0;
   }
 
-  .course-link {
-    display: inline-block;
-    color: var(--nucleo-eletrico);
-    text-decoration: none;
-    font-family: "Space Grotesk", system-ui, sans-serif;
-    font-size: 14px;
+  .course-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* Alvos de toque de 44px (WCAG 2.5.5) */
+  .course-link,
+  .course-star {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 4px;
+    font-family: var(--font-body);
+    font-size: 0.875rem;
     font-weight: 600;
+    text-decoration: none;
+  }
+
+  .course-link {
+    background: var(--chama-primaria);
+    color: #ffffff;
   }
 
   .course-link:hover {
-    text-decoration: underline;
+    background: var(--chama-hover);
   }
 
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+  .course-star {
+    border: 1px solid var(--hairline-strong);
+    color: var(--texto-principal);
+  }
+
+  .course-star svg {
+    color: var(--alerta);
+  }
+
+  .course-star:hover {
+    border-color: var(--nucleo-eletrico);
+    color: var(--nucleo-eletrico);
+  }
+
+  .hub-footer {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    padding: 0 16px 80px;
+  }
+
+  .hub-footer a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--texto-secundario);
+  }
+
+  .hub-footer a:hover {
+    color: var(--nucleo-eletrico);
   }
 
   /* ── Responsive: mobile ── */
@@ -282,6 +342,10 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
 
     .hub-container {
       padding: 48px 16px;
+    }
+
+    .course-card {
+      padding: 16px;
     }
   }
 

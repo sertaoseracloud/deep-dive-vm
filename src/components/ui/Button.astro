@@ -39,9 +39,9 @@ const classList = [
     padding: 18px 28px;
     background: var(--chama-primaria);
     color: #fff;
-    font-family: "Chakra Petch", sans-serif;
+    font-family: var(--font-display);
     font-weight: 600;
-    font-size: 14px;
+    font-size: 0.875rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     border: 1px solid transparent;
@@ -54,6 +54,9 @@ const classList = [
     text-align: left;
     text-decoration: none;
     width: fit-content;
+    /* Nunca mais largo que a coluna: em telas estreitas o texto quebra (WCAG 1.4.10). */
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 
   .btn:hover {
@@ -83,7 +86,13 @@ const classList = [
   /* Variante Massive */
   .btn.massive {
     padding: 22px 40px;
-    font-size: 16px;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    .btn.massive {
+      padding: 18px 20px;
+    }
   }
 
   /* Variante Solid Core */

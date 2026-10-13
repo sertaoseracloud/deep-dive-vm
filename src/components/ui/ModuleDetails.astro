@@ -67,8 +67,8 @@ const { num, title, subtitle, hours, isOpen = false, tracks } = Astro.props;
     }
 
     .module-num {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         letter-spacing: 0.18em;
         color: var(--nucleo-eletrico);
         background: rgba(0, 255, 255, 0.06);
@@ -77,18 +77,18 @@ const { num, title, subtitle, hours, isOpen = false, tracks } = Astro.props;
     }
 
     .module-title {
-        font-family: "Chakra Petch", sans-serif;
+        font-family: var(--font-display);
         font-weight: 600;
-        font-size: 19px;
+        font-size: 1.1875rem;
         color: var(--texto-principal);
         line-height: 1.25;
     }
 
     .module-title small {
         display: block;
-        font-family: "Space Grotesk", sans-serif;
+        font-family: var(--font-body);
         font-weight: 400;
-        font-size: 13px;
+        font-size: 0.8125rem;
         color: var(--texto-secundario);
         margin-top: 4px;
         letter-spacing: 0;
@@ -96,8 +96,8 @@ const { num, title, subtitle, hours, isOpen = false, tracks } = Astro.props;
     }
 
     .module-hours {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         color: var(--texto-secundario);
         letter-spacing: 0.14em;
     }
@@ -147,8 +147,8 @@ const { num, title, subtitle, hours, isOpen = false, tracks } = Astro.props;
         display: flex;
         align-items: center;
         gap: 8px;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 10px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         letter-spacing: 0.18em;
         text-transform: uppercase;
         color: var(--nucleo-eletrico);
@@ -161,14 +161,14 @@ const { num, title, subtitle, hours, isOpen = false, tracks } = Astro.props;
 
     .module-tracks :global(.track p) {
         margin: 0;
-        font-size: 13px;
+        font-size: 0.8125rem;
         line-height: 1.5;
         color: var(--texto-secundario);
     }
 
     .module-tracks :global(.track p code) {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 12px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         color: #9fffff;
         background: rgba(0, 255, 255, 0.05);
         padding: 1px 5px;
@@ -186,6 +186,24 @@ const { num, title, subtitle, hours, isOpen = false, tracks } = Astro.props;
         .module-tracks {
             grid-template-columns: repeat(2, 1fr);
         }
+    }
+
+    @media (max-width: 480px) {
+        .module-tracks {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+
+    /* Nomes de recurso longos (azurerm_linux_virtual_machine) quebram em vez de
+       serem cortados pelo overflow do módulo (WCAG 1.4.10). */
+    .module-tracks :global(.track) {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .module summary > * {
+        min-width: 0;
+        overflow-wrap: anywhere;
     }
 
     @media (max-width: 720px) {

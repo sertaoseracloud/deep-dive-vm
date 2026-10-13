@@ -22,8 +22,9 @@ describe("UrgencyBar component", () => {
     expect(builtHtml).toMatch(/class="urgency-bar"/);
   });
 
-  it("urgency-bar has role=status for accessibility", () => {
-    expect(builtHtml).toContain('role="status"');
+  it("urgency-bar é um <aside> nomeado, não uma região viva", () => {
+    expect(builtHtml).toMatch(/<aside class="urgency-bar"[^>]*aria-label="Resumo do programa"/);
+    expect(builtHtml).not.toMatch(/class="urgency-bar"[^>]*role="status"/);
   });
 
   it("urgency-bar contains program summary text (54h)", () => {

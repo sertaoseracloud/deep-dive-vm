@@ -102,28 +102,29 @@ test.describe("Hamburger aria-expanded — motion-accessibility consolidation (W
     await expect(hamburger).toHaveAttribute("aria-expanded", "false");
   });
 
-  test("MobileMenuMotion nav aria-hidden reflects open/closed state after hamburger click", async ({
+  test("menu do celular: hambúrguer mostra os links, Esc fecha e devolve o foco", async ({
     page,
   }) => {
-    // Hambúrguer só é visível no layout mobile.
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("./deep-dive-vm/");
 
     const hamburger = page.locator("#hamburger-btn");
-    await expect(hamburger).toBeVisible();
+    const ementa = page.locator("#nav-links").getByRole("link", { name: "Ementa" });
+    await expect(hamburger).toHaveAttribute("aria-controls", "nav-links");
+    await expect(ementa).toBeHidden();
 
-    const mobileNav = page.locator('nav[aria-label="Mobile navigation menu"]');
-
-    // Closed: aria-hidden="true"
-    await expect(mobileNav).toHaveAttribute("aria-hidden", "true");
-
-    // Open: aria-hidden absent
     await hamburger.click();
-    await expect(mobileNav).not.toHaveAttribute("aria-hidden");
+    await expect(ementa).toBeVisible();
 
-    // Closed again: aria-hidden="true"
+    await page.keyboard.press("Escape");
+    await expect(ementa).toBeHidden();
+    await expect(hamburger).toBeFocused();
+    await expect(hamburger).toHaveAttribute("aria-expanded", "false");
+
+    // Escolher um link fecha o menu.
     await hamburger.click();
-    await expect(mobileNav).toHaveAttribute("aria-hidden", "true");
+    await ementa.click();
+    await expect(hamburger).toHaveAttribute("aria-expanded", "false");
   });
 });
 
@@ -187,49 +188,6 @@ test.describe("QUAL-02: reduced-motion compliance", () => {
 
     // Com reduced-motion: animation:none → animationName === "none"
     // CSS: @media (prefers-reduced-motion: reduce) { [data-stagger] { animation: none } }
-    expect(animationName).toBe("none");
-  });
-
-  test(".hero-stagger-item está ausente no DOM com reduced-motion ativo", async ({
-    page,
-  }) => {
-    // D-AUDIT-02: emulateMedia ANTES de page.goto
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto("./deep-dive-vm/");
-
-    // HeroMotionSingle verifica window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    // Se prefersReduced === true: retorna sem aplicar a classe hero-stagger-item
-    // Logo: com reduced-motion, .hero-stagger-item NÃO deve existir no DOM
-    const count = await page.locator(".hero-stagger-item").count();
-    expect(count).toBe(0);
-  });
-
-  test("motion.span[data-testid='motion-label'] com reduced-motion não tem animação CSS ativa", async ({
-    page,
-  }) => {
-    // D-AUDIT-02: emulateMedia ANTES de page.goto
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto("./deep-dive-vm/");
-
-    // SettingsToggle usa MotionConfig reducedMotion="user"
-    // Com prefers-reduced-motion ativo, o Motion suprime automaticamente via matchMedia
-    const motionLabel = page.locator('span[data-testid="motion-label"]');
-
-    if (await motionLabel.count() === 0) {
-      // SettingsToggle requer client:load hydration — pode não estar disponível no preview estático
-      test.skip(true, "SettingsToggle requires client:load hydration — span[data-testid='motion-label'] not found in static preview");
-      return;
-    }
-
-    // Verificar animationName via getComputedStyle — MotionConfig reducedMotion="user"
-    // suprime animações CSS geradas pelo Motion quando prefers-reduced-motion está ativo
-    const animationName = await page.evaluate(() => {
-      const el = document.querySelector('span[data-testid="motion-label"]');
-      if (!el) return null;
-      return window.getComputedStyle(el).animationName;
-    });
-
-    // Com MotionConfig reducedMotion="user": animações suprimidas → animationName === "none"
     expect(animationName).toBe("none");
   });
 });

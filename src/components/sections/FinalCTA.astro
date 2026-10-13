@@ -52,8 +52,8 @@ const { eyebrow, headlineHtml, ctaHref, ctaText } = Astro.props;
     }
 
     .final-cta-eyebrow {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         letter-spacing: 0.28em;
         text-transform: uppercase;
         color: var(--nucleo-eletrico);
@@ -61,7 +61,7 @@ const { eyebrow, headlineHtml, ctaHref, ctaText } = Astro.props;
     }
 
     h2.final-cta-headline {
-        font-family: "Chakra Petch", sans-serif;
+        font-family: var(--font-display);
         font-size: clamp(28px, 3vw, 44px);
         font-weight: 600;
         text-wrap: balance;

@@ -29,9 +29,13 @@ test.describe("CTA buttons", () => {
 
   test("NavBar CTA has href pointing to #investimento", async ({ page }) => {
     await page.goto("./deep-dive-vm/");
-    const navCta = page.locator('[data-testid="nav-cta"]');
-    await expect(navCta).toBeVisible();
-    await expect(navCta).toHaveAttribute("href", "#investimento");
+    // Até 720 px o CTA do topo some e quem leva ao investimento é a barra fixa do rodapé.
+    const celular = (page.viewportSize()?.width ?? 1280) <= 720;
+    const cta = celular
+      ? page.locator('[data-testid="sticky-cta"] a')
+      : page.locator('[data-testid="nav-cta"]');
+    await expect(cta).toBeVisible();
+    await expect(cta).toHaveAttribute("href", "#investimento");
   });
 });
 

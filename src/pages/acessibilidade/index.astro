@@ -1,0 +1,208 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { PERFIS, TEMAS, GRUPOS } from "../../lib/preferencias";
+---
+
+<Layout
+  title="Acessibilidade · O Sertão será Cloud"
+  description="Como o site O Sertão será Cloud cuida da acessibilidade: painel com temas, tamanho do texto, leitura facilitada, menos movimento e Libras com o VLibras."
+  url="https://mentoria.sertaoseracloud.com/acessibilidade/"
+  ogImage="/hub-og.png"
+>
+  <a href="#conteudo-principal" class="skip-link">Pular para o conteúdo</a>
+
+  <main id="conteudo-principal" tabindex="-1">
+    <article class="declaracao">
+      <a href="/" class="back-link"><span aria-hidden="true">←</span> Ver todos os cursos</a>
+
+      <h1>Declaração de acessibilidade</h1>
+      <p class="lede">
+        Queremos que qualquer pessoa consiga conhecer e comprar os cursos, inclusive quem
+        usa leitor de tela, navega só pelo teclado, enxerga pouco, é surda ou é
+        neurodivergente. A meta é seguir as Diretrizes de Acessibilidade para Conteúdo Web
+        (WCAG) 2.2, nível AA.
+      </p>
+
+      <section aria-labelledby="painel">
+        <h2 id="painel">Painel ♿ Acessibilidade</h2>
+        <p>
+          O botão <strong>♿</strong>, no canto inferior esquerdo de todas as páginas, abre um
+          painel com as opções abaixo. As mudanças valem na hora e ficam salvas só neste
+          navegador.
+        </p>
+        <h3>Perfis rápidos</h3>
+        <ul>
+          {Object.values(PERFIS).map((perfil) => (
+            <li><strong>{perfil.rotulo}</strong>: {perfil.ajuda}</li>
+          ))}
+        </ul>
+        <p>Os perfis não são diagnósticos. Cada opção continua ajustável uma a uma.</p>
+        <h3>Temas</h3>
+        <ul>
+          {Object.values(TEMAS).map((tema) => <li>{tema}</li>)}
+        </ul>
+        <h3>Tamanho do texto</h3>
+        <p>De 87,5% a 175%, sem perder conteúdo nem criar rolagem para os lados.</p>
+        {Object.entries(GRUPOS).map(([grupo, itens]) => (
+          <Fragment>
+            <h3>{grupo}</h3>
+            <ul>
+              {Object.values(itens).map((rotulo) => <li>{rotulo}</li>)}
+            </ul>
+          </Fragment>
+        ))}
+      </section>
+
+      <section aria-labelledby="sistema">
+        <h2 id="sistema">O site segue o seu sistema</h2>
+        <p>
+          Enquanto você não escolhe nada no painel, o site respeita as preferências do sistema
+          operacional: <strong>reduzir movimento</strong> desliga as animações, e
+          <strong>aumentar contraste</strong> ou <strong>cores forçadas</strong> (Alto
+          contraste do Windows) aplicam o tema de alto contraste.
+        </p>
+      </section>
+
+      <section aria-labelledby="teclado">
+        <h2 id="teclado">Teclado e leitor de tela</h2>
+        <ul>
+          <li>
+            <kbd>Tab</kbd> percorre links e botões, sempre com o foco visível; o primeiro
+            item é “Pular para o conteúdo”.
+          </li>
+          <li><kbd>Esc</kbd> fecha o painel de acessibilidade, os termos e o menu do celular.</li>
+          <li>Janelas (painel, termos e privacidade) prendem o foco e devolvem ao botão que as abriu.</li>
+          <li>Links que abrem outra aba avisam isso ao leitor de tela.</li>
+          <li>Imagens informativas têm texto alternativo; ícones decorativos ficam ocultos.</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="libras">
+        <h2 id="libras">Libras</h2>
+        <p>
+          A opção de Libras usa o <a href="https://www.gov.br/governodigital/pt-br/vlibras" target="_blank" rel="noopener noreferrer">VLibras<span class="sr-only"> (abre em nova aba)</span></a>,
+          do Governo Federal: um avatar traduz para Libras o texto que você seleciona. O
+          tradutor só é carregado quando você liga a opção. Nenhum conteúdo do site depende
+          de som.
+        </p>
+      </section>
+
+      <section aria-labelledby="como-testamos">
+        <h2 id="como-testamos">Como verificamos</h2>
+        <p>
+          A cada mudança, testes automáticos rodam o axe-core (WCAG 2.2 AA) em todas as
+          páginas e em todos os temas, inclusive com 320 px de largura e texto em 175%, e
+          conferem alvos de toque e tamanho mínimo de texto. O Lighthouse audita o site toda
+          semana. Testes automáticos não pegam tudo: se algo atrapalhar você, conte para a
+          gente.
+        </p>
+      </section>
+
+      <section aria-labelledby="limitacoes">
+        <h2 id="limitacoes">Limitações conhecidas</h2>
+        <ul>
+          <li>O VLibras é um serviço externo e pode ficar fora do ar.</li>
+          <li>O pagamento acontece na Hotmart, que tem a própria política de acessibilidade.</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="contato">
+        <h2 id="contato">Encontrou uma barreira?</h2>
+        <p>
+          Escreva para <a href="mailto:contato@architecturethink.com">contato@architecturethink.com</a>
+          ou abra uma
+          <a href="https://github.com/sertaoseracloud/deep-dive-vm/issues" target="_blank" rel="noopener noreferrer">issue no GitHub<span class="sr-only"> (abre em nova aba)</span></a>.
+          Diga a página, o que você tentou fazer e, se puder, qual navegador e tecnologia
+          assistiva usa.
+        </p>
+      </section>
+
+      <p class="atualizado">Atualizada em 13 de outubro de 2026.</p>
+    </article>
+  </main>
+</Layout>
+
+<style>
+  .declaracao {
+    position: relative;
+    z-index: 1;
+    max-width: 72ch;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+    color: var(--texto-secundario);
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  /* Anula o "section { padding: 96px 0 }" global das LPs. */
+  .declaracao section {
+    padding: 0;
+  }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 44px;
+    color: var(--texto-terciario);
+    text-decoration: none;
+    font-size: 0.875rem;
+  }
+
+  .back-link:hover {
+    color: var(--nucleo-eletrico);
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    line-height: 1.15;
+    color: var(--texto-principal);
+    margin: 8px 0 16px;
+  }
+
+  h2 {
+    font-family: var(--font-body);
+    font-size: 1.375rem;
+    color: var(--texto-principal);
+    margin: 40px 0 8px;
+  }
+
+  h3 {
+    font-size: 1.0625rem;
+    color: var(--texto-principal);
+    margin: 20px 0 4px;
+  }
+
+  .lede {
+    font-size: 1.125rem;
+  }
+
+  a {
+    color: var(--nucleo-eletrico);
+    overflow-wrap: anywhere;
+  }
+
+  ul {
+    padding-left: 1.25em;
+  }
+
+  li + li {
+    margin-top: 6px;
+  }
+
+  kbd {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    padding: 1px 6px;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 3px;
+    color: var(--texto-principal);
+  }
+
+  .atualizado {
+    margin-top: 40px;
+    color: var(--texto-terciario);
+    font-size: 0.875rem;
+  }
+</style>

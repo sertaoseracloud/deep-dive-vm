@@ -149,8 +149,8 @@ const { primary, guest } = Astro.props;
         align-items: center;
         gap: 16px;
         margin: 80px 0 60px;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         letter-spacing: 0.24em;
         color: var(--nucleo-eletrico);
     }
@@ -225,8 +225,8 @@ const { primary, guest } = Astro.props;
     }
 
     .mentor-name {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         letter-spacing: 0.22em;
         text-transform: uppercase;
         color: var(--nucleo-eletrico);
@@ -235,7 +235,7 @@ const { primary, guest } = Astro.props;
 
     .mentor-bio {
         color: var(--texto-secundario);
-        font-size: 16px;
+        font-size: 1rem;
         line-height: 1.7;
         margin-bottom: 24px;
     }
@@ -266,17 +266,17 @@ const { primary, guest } = Astro.props;
     }
 
     .credential .v {
-        font-family: "Chakra Petch", sans-serif;
+        font-family: var(--font-display);
         font-weight: 700;
-        font-size: 28px;
+        font-size: 1.75rem;
         color: var(--texto-principal);
         margin-bottom: 4px;
         line-height: 1;
     }
 
     .credential .l {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 10px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
         letter-spacing: 0.18em;
         text-transform: uppercase;
         color: var(--texto-secundario);
