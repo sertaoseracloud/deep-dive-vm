@@ -71,8 +71,19 @@ Provably high-quality multi-LP platform — every push is validated by 115 tests
 ## Tech Debt
 
 - WhatsApp social link desabilitado — aguarda número E.164 real (configura em `src/data/social-links.ts`)
-- LHCI performance gate 80%: score local 72% — pré-existente, não é regressão v1.3
-- `motion-accessibility.spec.ts`: 7 falhas pré-existentes (price-cta/hamburger não implementados)
+- `npm audit` (dev): CVEs altas só no `@lhci/cli` 0.15.1 (lighthouse 12 / puppeteer), sem correção upstream; o gate bloqueante cobre apenas produção
+- Cores fixas (rgba/hex) em ~150 pontos dos componentes impedem um tema claro; os temas do painel trocam só os tokens
+
+### Resolvidos na v1.4 (2026-10-13)
+
+- Suíte unitária quebrada (Bonuses, SettingsToggle) e cobertura abaixo do gate de 95% → 100%
+- E2E: testes desatualizados de hambúrguer/price-card; blocos sempre em `skip`
+- Menu do celular inexistente (o hambúrguer só alternava `aria-expanded`) → menu nativo no NavBar
+- Componentes React nunca montados (Carousel, SettingsToggle, TestimonialCard, HeroMotion, MobileMenuMotion) e integração React removidos
+- Lighthouse semanal falhando (3 configs; usava a que exige servidor) → só `.lighthouserc.json`
+- CLS 0,33 na LP pela troca de fontes do Google → fontes locais com fallbacks ajustados (CLS 0)
+- 71 vulnerabilidades no `npm audit` → 0 altas/críticas em produção (Astro 7, vitest 5, sharp 0.35)
+- `.lighthouseci/` versionado na `main`; README do template; `impeccable` sem versão fixa; script `capture:baselines` apontando para arquivo inexistente
 
 ## Evolution
 
@@ -85,4 +96,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Current State
 
 ---
-*Last updated: 2026-05-17 — v1.3 shipped*
+*Last updated: 2026-10-13 — v1.4 shipped*
