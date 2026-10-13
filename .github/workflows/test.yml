@@ -12,23 +12,19 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: "npm"
       - run: npm ci
       - name: Unit + Integration tests (coverage gate >= 95%)
         run: npm run test:all
-      # Gate sobre o que vai para produção (site estático). As ferramentas de
-      # auditoria (@lhci/cli -> lighthouse 12 / puppeteer) trazem CVEs sem
-      # correção upstream; ficam visíveis no passo informativo abaixo.
-      - name: npm audit (supply-chain gate — produção)
-        run: npm audit --omit=dev --audit-level=high
-      - name: npm audit (dev tooling — informativo)
+      # Todas as dependências, inclusive as de dev. As CVEs do @lhci/cli
+      # (puppeteer antigo) são resolvidas pelos "overrides" do package.json.
+      - name: npm audit (supply-chain gate)
         run: npm audit --audit-level=high
-        continue-on-error: true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage-report
@@ -78,8 +74,8 @@ jobs:
     permissions:
       contents: read   # no write needed — artifacts are uploaded, not committed
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: "npm"
@@ -90,7 +86,7 @@ jobs:
         run: npx playwright test --project=chromium
         env:
           CI: true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-report-chromium
@@ -102,8 +98,8 @@ jobs:
     permissions:
       contents: read   # no write needed — artifacts are uploaded, not committed
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: "npm"
@@ -115,7 +111,7 @@ jobs:
         continue-on-error: true
         env:
           CI: true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: playwright-report-cross-browser
@@ -128,11 +124,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: "npm"
@@ -154,7 +150,7 @@ jobs:
           git add -f .lighthouseci/
           git diff --staged --quiet || git commit -m "chore: update lhci results [skip ci]"
           git push origin lhci-results
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: lighthouse-report

@@ -47,5 +47,11 @@
     "lighthouse": "^13.5.0",
     "playwright": "^1.59.1",
     "vitest": "^5.0.4"
+  },
+  "overrides": {
+    "puppeteer-core": "^25.13.0",
+    "@puppeteer/browsers": "^3.2.4",
+    "basic-ftp": "^6.2.3",
+    "tmp": "^0.2.7"
   }
 }

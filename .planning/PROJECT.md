@@ -71,7 +71,6 @@ Provably high-quality multi-LP platform — every push is validated by 115 tests
 ## Tech Debt
 
 - WhatsApp social link desabilitado — aguarda número E.164 real (configura em `src/data/social-links.ts`)
-- `npm audit` (dev): CVEs altas só no `@lhci/cli` 0.15.1 (lighthouse 12 / puppeteer), sem correção upstream; o gate bloqueante cobre apenas produção
 - Cores fixas (rgba/hex) em ~150 pontos dos componentes impedem um tema claro; os temas do painel trocam só os tokens
 
 ### Resolvidos na v1.4 (2026-10-13)
