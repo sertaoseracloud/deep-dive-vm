@@ -6,7 +6,7 @@ import AxeBuilder from "@axe-core/playwright";
  *
  * Covers HUB-01 through HUB-04:
  *   HUB-01: Mentor identity section (h1 visible, responsive viewport)
- *   HUB-02: Course cards (active + coming-soon structure)
+ *   HUB-02: Course cards (PHP + Terraform playgrounds, external links)
  *   HUB-03: Social icon links (4 networks, aria-label per link)
  *   HUB-04: Open Graph hub-og.png (verified via Layout.test.ts and seo-meta.test.ts)
  *
@@ -40,24 +40,14 @@ test.describe("Hub load", () => {
     }
   });
 
-  test("3 course cards are present", async ({ page }) => {
+  test("2 course cards are present", async ({ page }) => {
     await page.goto("./");
-    await expect(page.locator(".course-card")).toHaveCount(3);
+    await expect(page.locator(".course-card")).toHaveCount(2);
   });
 
   test("active course card is visible", async ({ page }) => {
     await page.goto("./");
     await expect(page.locator(".course-card.active").first()).toBeVisible();
-  });
-
-  test("coming-soon course card is visible", async ({ page }) => {
-    await page.goto("./");
-    await expect(page.locator(".course-card.coming-soon")).toBeVisible();
-  });
-
-  test("coming-soon course card has no clickable course-link", async ({ page }) => {
-    await page.goto("./");
-    await expect(page.locator(".course-card.coming-soon .course-link")).toHaveCount(0);
   });
 
   test("mentor photo img.mentor-photo is visible on the page", async ({ page }) => {
@@ -72,20 +62,24 @@ test.describe("Hub load", () => {
     await expect(bio).toContainText("Systems Architect · 2× MVP Microsoft · Docker Captain");
   });
 
-  test("active course card link href contains /deep-dive-vm/", async ({ page }) => {
-    await page.goto("./");
-    const courseLink = page.locator(".course-card.active .course-link").first();
-    await expect(courseLink).toBeVisible();
-    const href = await courseLink.getAttribute("href");
-    expect(href).toContain("/deep-dive-vm/");
-  });
-
-  test("Python active course card link href contains /deep-dive-python-neurodivergentes/", async ({ page }) => {
+  test("course links point to the PHP and Terraform playgrounds", async ({ page }) => {
     await page.goto("./");
     const courseLinks = page.locator(".course-card.active .course-link");
-    await expect(courseLinks).toHaveCount(2); // VM + Python ambos active
+    await expect(courseLinks).toHaveCount(2); // PHP + Terraform ambos active
     const hrefs = await courseLinks.evaluateAll(links => links.map(l => l.getAttribute("href")));
-    expect(hrefs.some(h => h?.includes("/deep-dive-python-neurodivergentes/"))).toBe(true);
+    expect(hrefs).toEqual([
+      "https://sertaoseracloud.github.io/php-playground/",
+      "https://sertaoseracloud.github.io/terraform-playground/",
+    ]);
+  });
+
+  test("external course links open in a new tab with noopener noreferrer", async ({ page }) => {
+    await page.goto("./");
+    const courseLinks = page.locator(".course-card.active .course-link");
+    for (let i = 0; i < 2; i++) {
+      await expect(courseLinks.nth(i)).toHaveAttribute("target", "_blank");
+      await expect(courseLinks.nth(i)).toHaveAttribute("rel", "noopener noreferrer");
+    }
   });
 
   test("all active social icon links have rel containing noopener", async ({ page }) => {

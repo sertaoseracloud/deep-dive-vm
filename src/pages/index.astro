@@ -9,7 +9,7 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
 
 <Layout
   title="Cláudio Rapôso — O Sertão será Cloud"
-  description="Formação técnica de alto impacto em cloud. Azure VM, EC2 e mais. Acesse os cursos e redes do mentor."
+  description="Cursos gratuitos no navegador: DivergePHP e DivergeTerraform. Acesse os cursos e redes do mentor."
   url="https://mentoria.sertaoseracloud.com/"
   ogImage="/hub-og.png"
 >
@@ -61,7 +61,13 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
               </div>
               <p class="course-description">{course.description}</p>
               {course.status === 'active' && (
-                <a href={course.url} class="course-link">Acessar curso →</a>
+                course.external ? (
+                  <a href={course.url} class="course-link" target="_blank" rel="noopener noreferrer">
+                    Acessar curso →<span class="sr-only"> (abre em nova aba)</span>
+                  </a>
+                ) : (
+                  <a href={course.url} class="course-link">Acessar curso →</a>
+                )
               )}
             </div>
           ))}
@@ -253,6 +259,18 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
 
   .course-link:hover {
     text-decoration: underline;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   /* ── Responsive: mobile ── */
