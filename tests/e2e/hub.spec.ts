@@ -6,7 +6,8 @@ import AxeBuilder from "@axe-core/playwright";
  *
  * Covers HUB-01 through HUB-04:
  *   HUB-01: Mentor identity section (h1 visible, responsive viewport)
- *   HUB-02: Course cards (PHP + Terraform playgrounds, external links)
+ *   HUB-02: Course cards (PHP, Terraform and Python playgrounds, external links)
+ *   HUB-05: Carrossel acessível com os banners dos cursos
  *   HUB-03: Social icon links (4 networks, aria-label per link)
  *   HUB-04: Open Graph hub-og.png (verified via Layout.test.ts and seo-meta.test.ts)
  *
@@ -40,9 +41,9 @@ test.describe("Hub load", () => {
     }
   });
 
-  test("2 course cards are present", async ({ page }) => {
+  test("3 course cards are present", async ({ page }) => {
     await page.goto("./");
-    await expect(page.locator(".course-card")).toHaveCount(2);
+    await expect(page.locator(".course-card")).toHaveCount(3);
   });
 
   test("active course card is visible", async ({ page }) => {
@@ -62,21 +63,22 @@ test.describe("Hub load", () => {
     await expect(bio).toContainText("Systems Architect · 2× MVP Microsoft · Docker Captain");
   });
 
-  test("course links point to the PHP and Terraform playgrounds", async ({ page }) => {
+  test("course links point to the PHP, Terraform and Python playgrounds", async ({ page }) => {
     await page.goto("./");
     const courseLinks = page.locator(".course-card.active .course-link");
-    await expect(courseLinks).toHaveCount(2); // PHP + Terraform ambos active
+    await expect(courseLinks).toHaveCount(3); // PHP, Terraform e Python, todos active
     const hrefs = await courseLinks.evaluateAll(links => links.map(l => l.getAttribute("href")));
     expect(hrefs).toEqual([
       "https://sertaoseracloud.github.io/php-playground/",
       "https://sertaoseracloud.github.io/terraform-playground/",
+      "https://sertaoseracloud.github.io/python-playground/",
     ]);
   });
 
   test("external course links open in a new tab with noopener noreferrer", async ({ page }) => {
     await page.goto("./");
     const courseLinks = page.locator(".course-card.active .course-link");
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 3; i++) {
       await expect(courseLinks.nth(i)).toHaveAttribute("target", "_blank");
       await expect(courseLinks.nth(i)).toHaveAttribute("rel", "noopener noreferrer");
     }
@@ -90,6 +92,53 @@ test.describe("Hub load", () => {
       const rel = await socialLinks.nth(i).getAttribute("rel");
       expect(rel).toContain("noopener");
     }
+  });
+});
+
+test.describe("Hub carrossel", () => {
+  const SITES = [
+    "https://sertaoseracloud.github.io/php-playground/",
+    "https://sertaoseracloud.github.io/terraform-playground/",
+    "https://sertaoseracloud.github.io/python-playground/",
+  ];
+
+  test("tem um slide por curso, com banner, texto alternativo e link", async ({ page }) => {
+    await page.goto("./");
+    const carrossel = page.getByRole("region", { name: "Banners dos cursos" });
+    await expect(carrossel).toHaveAttribute("aria-roledescription", "carrossel");
+    const slides = carrossel.locator("[data-slide]");
+    await expect(slides).toHaveCount(3);
+    for (let i = 0; i < 3; i++) {
+      await expect(slides.nth(i)).toHaveAttribute("aria-label", new RegExp(`^${i + 1} de 3: Diverge`));
+      await expect(slides.nth(i).locator("a")).toHaveAttribute("href", SITES[i]);
+      const alt = await slides.nth(i).locator("img").getAttribute("alt");
+      expect(alt?.length).toBeGreaterThan(40);
+    }
+  });
+
+  test("botões, pontos e setas do teclado trocam o banner (sem rotação automática)", async ({ page }) => {
+    await page.goto("./");
+    const pontos = page.locator(".carrossel-ponto");
+    await expect(pontos.nth(0)).toHaveAttribute("aria-current", "true");
+
+    await page.getByRole("button", { name: "Próximo banner" }).click();
+    await expect(pontos.nth(1)).toHaveAttribute("aria-current", "true");
+    await expect(page.locator("[data-anuncio]")).toHaveText("2 de 3: DivergeTerraform");
+
+    await page.getByRole("button", { name: "Banner anterior" }).click();
+    await page.getByRole("button", { name: "Banner anterior" }).click();
+    await expect(pontos.nth(2)).toHaveAttribute("aria-current", "true"); // volta do primeiro para o último
+
+    const primeiro = page.getByRole("button", { name: "Mostrar banner 1: DivergePHP" });
+    await primeiro.click();
+    await expect(pontos.nth(0)).toHaveAttribute("aria-current", "true");
+    await primeiro.focus(); // o Safari não foca botões no clique
+    await page.keyboard.press("ArrowRight");
+    await expect(pontos.nth(1)).toHaveAttribute("aria-current", "true");
+
+    // Sem rotação automática: depois de um tempo, continua no mesmo banner.
+    await page.waitForTimeout(1500);
+    await expect(pontos.nth(1)).toHaveAttribute("aria-current", "true");
   });
 });
 

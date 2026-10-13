@@ -5,11 +5,12 @@ import claudio2 from "../assets/claudio2.png";
 import { socialLinks } from "../data/social-links";
 import { courses } from "../data/courses";
 import SocialIcon from "../components/ui/SocialIcon.astro";
+import CourseCarousel from "../components/ui/CourseCarousel.astro";
 ---
 
 <Layout
   title="Cláudio Rapôso — O Sertão será Cloud"
-  description="Cursos gratuitos no navegador: DivergePHP e DivergeTerraform. Acesse os cursos e redes do mentor."
+  description="Cursos gratuitos e acessíveis no navegador: DivergePHP, DivergeTerraform e DivergePython. Acesse os cursos e redes do mentor."
   url="https://mentoria.sertaoseracloud.com/"
   ogImage="/hub-og.png"
 >
@@ -51,6 +52,7 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
 
       <section class="hub-courses" aria-label="Cursos disponíveis">
         <h2>Cursos</h2>
+        <CourseCarousel courses={courses} />
         <div class="course-list">
           {courses.map((course) => (
             <div class={`course-card ${course.status}`} data-status={course.status}>
@@ -96,8 +98,9 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
 </Layout>
 
 <style>
+  /* O perfil fica estreito; os cursos (carrossel e cards) usam a largura toda. */
   .hub-container {
-    max-width: 480px;
+    max-width: 992px;
     margin: 0 auto;
     padding: 48px 32px;
     position: relative;
@@ -106,6 +109,8 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
 
   /* ── Profile section ── */
   .hub-profile {
+    max-width: 416px;
+    margin-inline: auto;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -171,7 +176,8 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
   .hub-divider {
     border: none;
     border-top: 1px solid var(--hairline-strong);
-    margin: 24px 0;
+    max-width: 416px;
+    margin: 24px auto;
   }
 
   /* ── Courses section ── */
@@ -191,9 +197,18 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
   }
 
   .course-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    gap: 24px;
+  }
+
+  .course-card {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+  }
+
+  .course-actions {
+    margin-top: auto;
   }
 
   .course-card {

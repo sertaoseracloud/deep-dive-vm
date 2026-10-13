@@ -6,17 +6,17 @@ Site estático em [Astro](https://astro.build) com o hub de cursos e as landing 
 
 | Rota | Conteúdo |
 | --- | --- |
-| `/` | Hub: perfil do mentor, redes e cursos gratuitos (DivergePHP e DivergeTerraform, com link para dar star no GitHub) |
+| `/` | Hub: perfil do mentor, redes e cursos gratuitos (DivergePHP, DivergeTerraform e DivergePython), com carrossel de banners e link para dar star no GitHub |
 | `/deep-dive-vm/` | LP do Deep Dive Azure VM |
 | `/deep-dive-python-neurodivergentes/` | LP do Deep Dive Python para Neurodivergentes |
 | `/deep-dive-ec2/` | Página "em breve" do Deep Dive EC2 |
 | `/acessibilidade/` | Declaração de acessibilidade |
 
-Os cursos do hub vêm de [`src/data/courses.ts`](src/data/courses.ts). Para criar uma LP nova, siga o [HOWTO](HOWTO-new-landing-page.md).
+Os cursos do hub vêm de [`src/data/courses.ts`](src/data/courses.ts). O banner de cada curso (1584×396, em [`src/assets/banners/`](src/assets/banners/)) aparece no carrossel do hub ([`CourseCarousel.astro`](src/components/ui/CourseCarousel.astro)): sem rotação automática, com botões, pontos, setas do teclado e arraste, e o Astro gera as versões WebP em 640, 960 e 1584 px. Para criar uma LP nova, siga o [HOWTO](HOWTO-new-landing-page.md).
 
 ## Acessibilidade
 
-O objetivo é WCAG 2.2 AA, com o mesmo padrão dos playgrounds DivergePHP e DivergeTerraform:
+O objetivo é WCAG 2.2 AA, com o mesmo padrão dos playgrounds DivergePHP, DivergeTerraform e DivergePython:
 
 - **Painel ♿** em todas as páginas ([`AccessibilityPanel.astro`](src/components/ui/AccessibilityPanel.astro)): perfis rápidos, temas (padrão, claro, alto contraste, suave), tamanho do texto de 87,5% a 175%, fonte Atkinson Hyperlegible, espaçamento, linhas curtas, links sublinhados, reduzir animações e Libras com o VLibras (carregado só quando ligado).
 - A escolha é salva no navegador e reaplicada por um script inline no `<head>`, antes da primeira pintura. Sem escolha salva, o site segue o sistema (`prefers-color-scheme`, `prefers-contrast`, `forced-colors` e `prefers-reduced-motion`).
