@@ -118,7 +118,7 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
     height: 128px;
     border-radius: 50%;
     border: 2px solid var(--nucleo-eletrico);
-    box-shadow: 0 0 16px rgba(0, 255, 255, 0.3);
+    box-shadow: 0 0 16px rgb(var(--rgb-ciano) / 0.3);
     object-fit: cover;
   }
 
@@ -164,7 +164,7 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
 
   .social-icon-link:hover {
     color: var(--nucleo-eletrico);
-    filter: drop-shadow(0 0 6px rgba(0, 255, 255, 0.6));
+    filter: drop-shadow(0 0 6px rgb(var(--rgb-ciano) / 0.6));
   }
 
   /* ── Divider ── */
@@ -197,7 +197,7 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
   }
 
   .course-card {
-    background: rgba(27, 41, 60, 0.6);
+    background: rgb(var(--rgb-cartao) / 0.6);
     border: 1px solid var(--hairline);
     border-radius: 4px;
     padding: 24px;
@@ -206,7 +206,7 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
 
   .course-card.active:hover {
     border-color: var(--hairline-strong);
-    background: rgba(27, 41, 60, 0.85);
+    background: rgb(var(--rgb-cartao) / 0.85);
     transform: translateY(-2px);
   }
 

@@ -259,13 +259,13 @@ const {
         background:
             radial-gradient(
                 ellipse 50% 30% at 50% 0%,
-                rgba(0, 255, 255, 0.1),
+                rgb(var(--rgb-ciano) / 0.1),
                 transparent 70%
             ),
             linear-gradient(
                 180deg,
-                rgba(10, 15, 30, 0.7),
-                rgba(27, 41, 60, 0.55)
+                rgb(var(--rgb-fundo) / 0.7),
+                rgb(var(--rgb-cartao) / 0.55)
             );
         border-top: 1px solid var(--hairline-strong);
         border-bottom: 1px solid var(--hairline-strong);
@@ -299,7 +299,7 @@ const {
 
     .price-grid .price-card.featured {
         border-color: var(--hairline-strong);
-        box-shadow: var(--shadow-card), 0 0 60px rgba(0, 255, 255, 0.15);
+        box-shadow: var(--shadow-card), 0 0 60px rgb(var(--rgb-ciano) / 0.15);
     }
 
     .price-grid .price-body {
@@ -344,20 +344,20 @@ const {
         max-width: 640px;
         margin: 0 auto;
         border: 1px solid var(--hairline-strong);
-        background: rgba(10, 15, 30, 0.85);
+        background: rgb(var(--rgb-fundo) / 0.85);
         border-radius: 2px;
         overflow: hidden;
         position: relative;
         box-shadow:
             var(--shadow-card),
-            0 0 60px rgba(0, 255, 255, 0.15);
+            0 0 60px rgb(var(--rgb-ciano) / 0.15);
         transition: transform 0.15s var(--ease-micro), box-shadow 0.15s var(--ease-micro);
     }
 
     .price-card:hover {
         will-change: transform;
         transform: translateY(-6px) scale(1.01);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--nucleo-eletrico);
+        box-shadow: 0 20px 40px rgb(var(--rgb-sombra) / 0.4), 0 0 0 1px var(--nucleo-eletrico);
     }
 
     .price-card:focus-within {
@@ -381,7 +381,7 @@ const {
         background: linear-gradient(
             90deg,
             var(--chama-primaria),
-            var(--nucleo-eletrico) 80%
+            var(--nucleo-profundo) 80%
         );
         color: #fff;
         text-align: center;
@@ -459,7 +459,7 @@ const {
         color: var(--texto-principal);
         line-height: 0.9;
         letter-spacing: -0.01em;
-        text-shadow: 0 0 24px rgba(0, 255, 255, 0.25);
+        text-shadow: 0 0 24px rgb(var(--rgb-ciano) / 0.25);
     }
     .price-display .cents {
         font-size: 1.75rem;
@@ -502,7 +502,7 @@ const {
         color: var(--nucleo-eletrico);
         flex-shrink: 0;
         margin-top: 2px;
-        filter: drop-shadow(0 0 4px rgba(0, 255, 255, 0.5));
+        filter: drop-shadow(0 0 4px rgb(var(--rgb-ciano) / 0.5));
     }
 
     .price-includes li b {
@@ -543,7 +543,7 @@ const {
         grid-template-columns: 90px 1fr;
         gap: 24px;
         align-items: center;
-        background: rgba(10, 15, 30, 0.5);
+        background: rgb(var(--rgb-fundo) / 0.5);
     }
 
     @media (max-width: 560px) {
@@ -569,7 +569,7 @@ const {
         color: var(--nucleo-eletrico);
         font-family: var(--font-display);
         box-shadow: var(--glow-cyan);
-        background: rgba(0, 255, 255, 0.05);
+        background: rgb(var(--rgb-ciano) / 0.05);
     }
 
     .guarantee-seal .big {

@@ -29,10 +29,19 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 	<head>
 		<meta charset="utf-8" />
 		<meta name="theme-color" content={COR_DA_BARRA.padrao} />
-		<!-- Reaplica a escolha do painel ♿ antes da primeira pintura (sem piscar o tema). -->
-		<script is:inline define:vars={{ chave: CHAVE_APLICADO }}>
+		<!-- Reaplica a escolha do painel ♿ antes da primeira pintura (sem piscar o tema).
+		     Sem escolha salva, segue o sistema: contraste alto/cores forçadas ou modo claro. -->
+		<script is:inline define:vars={{ chave: CHAVE_APLICADO, cores: COR_DA_BARRA }}>
 			try {
-				var a = JSON.parse(localStorage.getItem(chave));
+				var a = null;
+				try { a = JSON.parse(localStorage.getItem(chave)); } catch (e) {}
+				if (!a && window.matchMedia) {
+					var m = function (q) { return matchMedia(q).matches; };
+					var tema = m("(prefers-contrast: more)") || m("(forced-colors: active)")
+						? "alto-contraste"
+						: m("(prefers-color-scheme: light)") ? "claro" : null;
+					if (tema) a = { tema: tema, escala: "1", classes: [], cor: cores[tema] };
+				}
 				if (a) {
 					var r = document.documentElement;
 					r.setAttribute("data-tema", a.tema);
@@ -186,9 +195,28 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 		--alerta: #ffb547;
 
 		/* Variável crítica para a renderização da grade */
-		--grid-line: rgba(0, 255, 255, 0.05);
-		--hairline: rgba(209, 217, 230, 0.12);
-		--hairline-strong: rgba(0, 255, 255, 0.32);
+		--grid-line: rgb(var(--rgb-ciano) / 0.05);
+		--hairline: rgb(var(--rgb-texto) / 0.12);
+		--hairline-strong: rgb(var(--rgb-ciano) / 0.32);
+
+		--fundo-rodape: rgb(0 0 0 / 0.4);
+
+		/* Ciano escuro: fundo de faixas com texto branco (contraste >= 4.5:1). */
+		--nucleo-profundo: #007a85;
+		--perigo-texto: rgb(255 140 140 / 0.8);
+
+		/* Canais RGB das cores com transparência dos componentes:
+		   rgb(var(--rgb-ciano) / 0.3). Cada tema redefine os canais. */
+		--rgb-ciano: 0 255 255;
+		--rgb-fundo: 10 15 30;
+		--rgb-cartao: 27 41 60;
+		--rgb-texto: 209 217 230;
+		--rgb-sombra: 0 0 0;
+		--rgb-claro: 255 255 255;
+		--rgb-sucesso: 0 229 168;
+		--rgb-cobalto: 26 58 200;
+		--rgb-ceu: 0 180 255;
+		--rgb-perigo: 255 90 90;
 
 		/* Easing tokens — ANIM-03 */
 		--ease-entrance: cubic-bezier(0.25, 1, 0.5, 1);
@@ -211,24 +239,10 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 		--sucesso: #3dff9e;
 		--alerta: #ffc04d;
 		--grid-line: transparent;
-		--hairline: rgba(255, 255, 255, 0.7);
+		--hairline: rgb(var(--rgb-claro) / 0.7);
 		--hairline-strong: #ffff00;
-	}
-
-	@media (prefers-contrast: more) {
-		:root:not([data-tema]) {
-			--chama-primaria: #0033cc;
-			--chama-hover: #0040ff;
-			--nucleo-eletrico: #ffff00;
-			--abismo-profundo: #000000;
-			--sub-nivel: #000000;
-			--texto-principal: #ffffff;
-			--texto-secundario: #ffffff;
-			--texto-terciario: #f0f0f0;
-			--grid-line: transparent;
-			--hairline: rgba(255, 255, 255, 0.7);
-			--hairline-strong: #ffff00;
-		}
+		--nucleo-profundo: #002b99;
+		--rgb-ciano: 255 255 0;
 	}
 
 	:root[data-tema="suave"] {
@@ -243,23 +257,61 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 		--sucesso: #8fcfb3;
 		--alerta: #dcbb80;
 		--grid-line: transparent;
-		--hairline: rgba(220, 225, 235, 0.16);
-		--hairline-strong: rgba(140, 199, 199, 0.45);
+		--hairline: rgb(var(--rgb-texto) / 0.16);
+		--hairline-strong: rgb(var(--rgb-ciano) / 0.45);
+		--nucleo-profundo: #2f6b6b;
+		--rgb-ciano: 140 199 199;
+		--rgb-fundo: 28 33 40;
+		--rgb-cartao: 37 43 52;
+	}
+
+	:root[data-tema="claro"] {
+		--chama-primaria: #1a3ac8;
+		--chama-hover: #2548e0;
+		--nucleo-eletrico: #00636b;
+		--abismo-profundo: #f5f7fb;
+		--sub-nivel: #ffffff;
+		--neutro-escuro: #e8ecf3;
+		--texto-principal: #0b1220;
+		--texto-secundario: #2c3a52;
+		--texto-terciario: #4a5873;
+		--sucesso: #00684b;
+		--alerta: #8a5300;
+		--grid-line: rgb(var(--rgb-ciano) / 0.06);
+		--hairline: rgb(11 18 32 / 0.14);
+		--hairline-strong: rgb(var(--rgb-ciano) / 0.45);
+		--nucleo-profundo: #00636b;
+		--perigo-texto: #a31b1b;
+		--fundo-rodape: #e8ecf3;
+		--rgb-ciano: 0 99 107;
+		--rgb-fundo: 245 247 251;
+		--rgb-cartao: 255 255 255;
+		--rgb-texto: 44 58 82;
+		--rgb-sombra: 15 23 42;
+		--rgb-claro: 11 18 32;
+		--rgb-sucesso: 0 104 75;
+		--rgb-cobalto: 26 58 200;
+		--rgb-ceu: 0 120 200;
+		--rgb-perigo: 200 30 30;
+		color-scheme: light;
 	}
 
 	/* Sem brilho, gradiente nem grade nos temas de alto contraste e suave. */
 	:root[data-tema="alto-contraste"] .ambient,
-	:root[data-tema="suave"] .ambient {
+	:root[data-tema="suave"] .ambient,
+	:root[data-tema="claro"] .ambient {
 		background: var(--abismo-profundo);
 	}
 
 	:root[data-tema="alto-contraste"] .hero::before,
-	:root[data-tema="suave"] .hero::before {
+	:root[data-tema="suave"] .hero::before,
+	:root[data-tema="claro"] .hero::before {
 		display: none;
 	}
 
 	:root[data-tema="alto-contraste"] *,
-	:root[data-tema="suave"] * {
+	:root[data-tema="suave"] *,
+	:root[data-tema="claro"] * {
 		text-shadow: none !important;
 	}
 
@@ -390,12 +442,12 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 		background:
 			radial-gradient(
 				ellipse 60% 45% at 18% 12%,
-				rgba(0, 180, 255, 0.18),
+				rgb(var(--rgb-ceu) / 0.18),
 				transparent 60%
 			),
 			radial-gradient(
 				ellipse 70% 55% at 82% 100%,
-				rgba(26, 58, 200, 0.22),
+				rgb(var(--rgb-cobalto) / 0.22),
 				transparent 65%
 			),
 			var(--abismo-profundo);

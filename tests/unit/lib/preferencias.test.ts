@@ -87,6 +87,13 @@ describe("preferenciasDoSistema", () => {
     ).toMatchObject({ reduzirMovimento: true, tema: "alto-contraste" });
   });
 
+  it("modo claro do sistema escolhe o tema Claro; contraste alto tem prioridade", () => {
+    expect(preferenciasDoSistema(sistema(["(prefers-color-scheme: light)"])).tema).toBe("claro");
+    expect(
+      preferenciasDoSistema(sistema(["(prefers-color-scheme: light)", "(prefers-contrast: more)"])).tema
+    ).toBe("alto-contraste");
+  });
+
   it("cores forçadas (Alto contraste do Windows) também ligam o alto contraste", () => {
     expect(preferenciasDoSistema(sistema(["(forced-colors: active)"])).tema).toBe("alto-contraste");
   });

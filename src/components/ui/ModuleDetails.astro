@@ -37,7 +37,7 @@ const { num, title, subtitle, hours, isOpen = false, tracks } = Astro.props;
     .module {
         border: 1px solid var(--hairline);
         border-radius: 2px;
-        background: rgba(27, 41, 60, 0.3);
+        background: rgb(var(--rgb-cartao) / 0.3);
         overflow: hidden;
         transition: border-color 0.25s;
         margin-top: 12px;
@@ -45,7 +45,7 @@ const { num, title, subtitle, hours, isOpen = false, tracks } = Astro.props;
 
     .module[open] {
         border-color: var(--hairline-strong);
-        background: rgba(27, 41, 60, 0.55);
+        background: rgb(var(--rgb-cartao) / 0.55);
     }
 
     .module summary {
@@ -63,7 +63,7 @@ const { num, title, subtitle, hours, isOpen = false, tracks } = Astro.props;
     }
 
     .module summary:hover {
-        background: rgba(0, 255, 255, 0.03);
+        background: rgb(var(--rgb-ciano) / 0.03);
     }
 
     .module-num {
@@ -71,7 +71,7 @@ const { num, title, subtitle, hours, isOpen = false, tracks } = Astro.props;
         font-size: 0.75rem;
         letter-spacing: 0.18em;
         color: var(--nucleo-eletrico);
-        background: rgba(0, 255, 255, 0.06);
+        background: rgb(var(--rgb-ciano) / 0.06);
         border: 1px solid var(--hairline-strong);
         padding: 6px 10px;
     }
@@ -117,7 +117,7 @@ const { num, title, subtitle, hours, isOpen = false, tracks } = Astro.props;
 
     .module[open] .module-toggle {
         transform: rotate(45deg);
-        background: rgba(0, 255, 255, 0.08);
+        background: rgb(var(--rgb-ciano) / 0.08);
     }
 
     .module-body {
@@ -137,7 +137,7 @@ const { num, title, subtitle, hours, isOpen = false, tracks } = Astro.props;
     .module-tracks :global(.track) {
         border: 1px solid var(--hairline);
         padding: 16px;
-        background: rgba(10, 15, 30, 0.6);
+        background: rgb(var(--rgb-fundo) / 0.6);
         display: flex;
         flex-direction: column;
         gap: 8px;
@@ -169,8 +169,8 @@ const { num, title, subtitle, hours, isOpen = false, tracks } = Astro.props;
     .module-tracks :global(.track p code) {
         font-family: var(--font-mono);
         font-size: 0.75rem;
-        color: #9fffff;
-        background: rgba(0, 255, 255, 0.05);
+        color: var(--nucleo-eletrico);
+        background: rgb(var(--rgb-ciano) / 0.05);
         padding: 1px 5px;
         border-radius: 2px;
     }

@@ -28,7 +28,7 @@ import { TEMAS, GRUPOS, PERFIS } from "../../lib/preferencias";
 	<div class="a11y-corpo" tabindex="0">
 		<p class="a11y-ajuda">
 			As mudanças valem na hora e ficam salvas neste navegador. Sem escolha salva,
-			o site segue o seu sistema (contraste alto e menos movimento).
+			o site segue o seu sistema (modo claro, contraste alto e menos movimento).
 		</p>
 
 		<section aria-labelledby="a11y-perfis-titulo">
@@ -238,7 +238,7 @@ import { TEMAS, GRUPOS, PERFIS } from "../../lib/preferencias";
 	}
 
 	.a11y-dialogo::backdrop {
-		background: rgba(0, 0, 0, 0.7);
+		background: rgb(var(--rgb-sombra) / 0.7);
 	}
 
 	.a11y-cabecalho {
@@ -370,6 +370,10 @@ import { TEMAS, GRUPOS, PERFIS } from "../../lib/preferencias";
 
 	.a11y-amostra[data-amostra="padrao"] {
 		background: linear-gradient(135deg, #0a0f1e 50%, #00ffff 50%);
+	}
+
+	.a11y-amostra[data-amostra="claro"] {
+		background: linear-gradient(135deg, #f5f7fb 50%, #00636b 50%);
 	}
 
 	.a11y-amostra[data-amostra="alto-contraste"] {

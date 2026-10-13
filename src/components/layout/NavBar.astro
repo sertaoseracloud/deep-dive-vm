@@ -60,15 +60,15 @@ const { courseSubtitle = "Deep Dive" } = Astro.props;
     position: sticky;
     top: 0;
     z-index: 40;
-    background: rgba(10, 15, 30, 0.85);
+    background: rgb(var(--rgb-fundo) / 0.85);
     backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--hairline);
     transition: background 0.2s var(--ease-micro), box-shadow 0.2s var(--ease-micro);
   }
 
   .nav[data-scrolled="true"] {
-    background: rgba(10, 15, 30, 0.97);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+    background: rgb(var(--rgb-fundo) / 0.97);
+    box-shadow: 0 4px 24px rgb(var(--rgb-sombra) / 0.45);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -103,7 +103,7 @@ const { courseSubtitle = "Deep Dive" } = Astro.props;
   .brand .star-mark {
     width: 28px;
     height: 28px;
-    filter: drop-shadow(0 0 10px rgba(0, 255, 255, 0.7));
+    filter: drop-shadow(0 0 10px rgb(var(--rgb-ciano) / 0.7));
   }
 
   .brand .name {

@@ -111,7 +111,7 @@ const { eyebrow, titleHtml, isFor, isNot } = Astro.props;
 
     .for-who .card {
         border: 1px solid var(--hairline);
-        background: rgba(10, 15, 30, 0.5);
+        background: rgb(var(--rgb-fundo) / 0.5);
         padding: 32px 32px 36px;
         border-radius: 2px;
         position: relative;
@@ -121,16 +121,16 @@ const { eyebrow, titleHtml, isFor, isNot } = Astro.props;
     }
 
     .for-who .card.is-for {
-        border-color: rgba(0, 229, 168, 0.3);
+        border-color: rgb(var(--rgb-sucesso) / 0.3);
         background: linear-gradient(
             180deg,
-            rgba(0, 229, 168, 0.04),
-            rgba(10, 15, 30, 0.5)
+            rgb(var(--rgb-sucesso) / 0.04),
+            rgb(var(--rgb-fundo) / 0.5)
         );
     }
 
     .for-who .card.is-not {
-        border-color: rgba(209, 217, 230, 0.15);
+        border-color: rgb(var(--rgb-texto) / 0.15);
     }
 
     .for-who h3 {

@@ -16,7 +16,8 @@ const { content } = Astro.props;
     position: relative;
     z-index: 50;
     /* Gradiente animado utilizando as cores da identidade visual */
-    background: linear-gradient(90deg, #1a3ac8, #00b8b8 50%, #1a3ac8);
+    /* Pontas escuras o bastante para o texto branco (contraste >= 4.5:1). */
+    background: linear-gradient(90deg, var(--chama-primaria), var(--nucleo-profundo) 50%, var(--chama-primaria));
     background-size: 200% 100%;
     animation: shimmer 8s linear infinite;
     color: #fff;

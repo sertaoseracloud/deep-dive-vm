@@ -50,7 +50,7 @@ const classList = [
     cursor: pointer;
     box-shadow:
       var(--glow-cobalt),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      inset 0 1px 0 rgb(var(--rgb-claro) / 0.1);
     text-align: left;
     text-decoration: none;
     width: fit-content;
@@ -78,8 +78,8 @@ const classList = [
   .btn.primary:hover {
     background: var(--chama-hover);
     box-shadow:
-      0 0 36px rgba(0, 255, 255, 0.6),
-      inset 0 0 0 1px rgba(0, 255, 255, 0.5);
+      0 0 36px rgb(var(--rgb-ciano) / 0.6),
+      inset 0 0 0 1px rgb(var(--rgb-ciano) / 0.5);
     filter: brightness(1.1);
   }
 
@@ -103,8 +103,8 @@ const classList = [
   }
 
   .btn.solid-core:hover {
-    background: #5cffff;
-    box-shadow: 0 0 48px rgba(0, 255, 255, 0.9);
+    background: color-mix(in srgb, var(--nucleo-eletrico) 80%, white);
+    box-shadow: 0 0 48px rgb(var(--rgb-ciano) / 0.9);
   }
 
   /* Variante Ghost */
@@ -116,8 +116,8 @@ const classList = [
   }
 
   .btn.ghost:hover {
-    background: rgba(0, 255, 255, 0.06);
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    background: rgb(var(--rgb-ciano) / 0.06);
+    box-shadow: 0 0 20px rgb(var(--rgb-ciano) / 0.3);
     filter: brightness(1.15);
   }
 

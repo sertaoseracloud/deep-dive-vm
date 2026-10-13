@@ -61,7 +61,7 @@ const { eyebrow, idx, titleHtml, lede, center = false } = Astro.props;
     .eyebrow .idx {
         border: 1px solid var(--hairline-strong);
         padding: 3px 8px;
-        background: rgba(0, 255, 255, 0.06);
+        background: rgb(var(--rgb-ciano) / 0.06);
         font-size: 0.75rem;
     }
 
@@ -80,7 +80,7 @@ const { eyebrow, idx, titleHtml, lede, center = false } = Astro.props;
     h2.section-title :global(.flame) {
         color: var(--nucleo-eletrico);
         font-style: italic;
-        text-shadow: 0 0 24px rgba(0, 255, 255, 0.45);
+        text-shadow: 0 0 24px rgb(var(--rgb-ciano) / 0.45);
     }
 
     .section-lede {

@@ -42,8 +42,8 @@ const { eyebrow, titleHtml, lede, cards } = Astro.props;
         background: linear-gradient(
             180deg,
             transparent,
-            rgba(10, 15, 30, 0.6) 30%,
-            rgba(10, 15, 30, 0.6) 70%,
+            rgb(var(--rgb-fundo) / 0.6) 30%,
+            rgb(var(--rgb-fundo) / 0.6) 70%,
             transparent
         );
     }
@@ -62,7 +62,7 @@ const { eyebrow, titleHtml, lede, cards } = Astro.props;
 
     .pain-card {
         border: 1px solid var(--hairline);
-        background: rgba(27, 41, 60, 0.35);
+        background: rgb(var(--rgb-cartao) / 0.35);
         padding: 28px;
         display: flex;
         flex-direction: column;
@@ -82,7 +82,7 @@ const { eyebrow, titleHtml, lede, cards } = Astro.props;
         background: linear-gradient(
             180deg,
             transparent,
-            rgba(255, 90, 90, 0.5),
+            rgb(var(--rgb-perigo) / 0.5),
             transparent
         );
     }
@@ -91,7 +91,7 @@ const { eyebrow, titleHtml, lede, cards } = Astro.props;
         font-family: var(--font-mono);
         font-size: 0.75rem;
         letter-spacing: 0.2em;
-        color: rgba(255, 140, 140, 0.8);
+        color: var(--perigo-texto);
     }
 
     .pain-card h3 {

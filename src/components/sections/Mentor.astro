@@ -111,13 +111,13 @@ const { primary, guest } = Astro.props;
         background:
             radial-gradient(
                 ellipse 50% 50% at 80% 50%,
-                rgba(0, 255, 255, 0.1),
+                rgb(var(--rgb-ciano) / 0.1),
                 transparent 60%
             ),
             linear-gradient(
                 180deg,
-                rgba(10, 15, 30, 0.6),
-                rgba(27, 41, 60, 0.4)
+                rgb(var(--rgb-fundo) / 0.6),
+                rgb(var(--rgb-cartao) / 0.4)
             );
         border-top: 1px solid var(--hairline);
         border-bottom: 1px solid var(--hairline);
@@ -169,7 +169,7 @@ const { primary, guest } = Astro.props;
     .mentor-divider .label {
         padding: 6px 14px;
         border: 1px solid var(--hairline-strong);
-        background: rgba(0, 255, 255, 0.06);
+        background: rgb(var(--rgb-ciano) / 0.06);
     }
 
     .mentor-portrait {
@@ -200,7 +200,7 @@ const { primary, guest } = Astro.props;
         height: 24px;
         border-color: var(--nucleo-eletrico);
         border-style: solid;
-        filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.7));
+        filter: drop-shadow(0 0 8px rgb(var(--rgb-ciano) / 0.7));
     }
 
     .brackets span:nth-child(1) {
@@ -261,7 +261,7 @@ const { primary, guest } = Astro.props;
     }
 
     .credential {
-        background: rgba(10, 15, 30, 0.7);
+        background: rgb(var(--rgb-fundo) / 0.7);
         padding: 18px 20px;
     }
 

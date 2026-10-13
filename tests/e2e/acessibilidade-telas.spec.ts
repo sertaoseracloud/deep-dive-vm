@@ -16,7 +16,7 @@ const PAGINAS = [
   { nome: "declaração de acessibilidade", url: "./acessibilidade/" },
 ];
 
-const TEMAS = ["padrao", "alto-contraste", "suave"] as const;
+const TEMAS = ["padrao", "claro", "alto-contraste", "suave"] as const;
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 /** Grava a escolha do painel antes de abrir a página, como faria uma visita anterior. */
@@ -219,6 +219,28 @@ test.describe("painel ♿ Acessibilidade", () => {
     await page.emulateMedia({ contrast: "more" } as Parameters<Page["emulateMedia"]>[0]);
     await page.goto("./");
     await expect(page.locator("html")).toHaveAttribute("data-tema", "alto-contraste");
+  });
+
+  test("sem escolha salva, o modo claro do sistema aplica o tema Claro antes da pintura", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.goto("./deep-dive-vm/", { waitUntil: "commit" });
+    const temaNoInicio = await page.evaluate(
+      () =>
+        new Promise<string | null>((ok) => {
+          const ler = () => ok(document.documentElement.getAttribute("data-tema"));
+          if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ler, { once: true });
+          else ler();
+        })
+    );
+    expect(temaNoInicio).toBe("claro");
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#f5f7fb");
+  });
+
+  test("com escolha salva, o painel vence o sistema", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await comPreferencias(page, { tema: "padrao" });
+    await page.goto("./");
+    await expect(page.locator("html")).toHaveAttribute("data-tema", "padrao");
   });
 
   test("restaurar padrão apaga a escolha salva", async ({ page }) => {

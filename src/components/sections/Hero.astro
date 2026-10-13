@@ -144,7 +144,7 @@ const {
         height: 700px;
         background: radial-gradient(
             circle at 50% 50%,
-            rgba(0, 255, 255, 0.25),
+            rgb(var(--rgb-ciano) / 0.25),
             transparent 60%
         );
         filter: blur(12px);
@@ -195,7 +195,7 @@ const {
     .eyebrow .idx {
         border: 1px solid var(--hairline-strong);
         padding: 3px 8px;
-        background: rgba(0, 255, 255, 0.06);
+        background: rgb(var(--rgb-ciano) / 0.06);
         font-size: 0.75rem;
     }
 
@@ -213,13 +213,13 @@ const {
         color: var(--nucleo-eletrico);
         font-style: italic;
         text-shadow:
-            0 0 32px rgba(0, 255, 255, 0.6),
-            0 0 80px rgba(0, 255, 255, 0.25);
+            0 0 32px rgb(var(--rgb-ciano) / 0.6),
+            0 0 80px rgb(var(--rgb-ciano) / 0.25);
     }
 
     .hero-title :global(.crossed) {
         text-decoration: line-through;
-        text-decoration-color: rgba(255, 90, 90, 0.7);
+        text-decoration-color: rgb(var(--rgb-perigo) / 0.7);
         color: var(--texto-terciario);
         font-style: normal;
     }
@@ -259,7 +259,7 @@ const {
         flex-shrink: 0;
         color: var(--nucleo-eletrico);
         margin-top: 2px;
-        filter: drop-shadow(0 0 6px rgba(0, 255, 255, 0.6));
+        filter: drop-shadow(0 0 6px rgb(var(--rgb-ciano) / 0.6));
     }
 
     .hero-cta-row {
@@ -320,15 +320,15 @@ const {
         background:
             linear-gradient(
                 180deg,
-                rgba(10, 15, 30, 0) 50%,
-                rgba(10, 15, 30, 0.8) 100%
+                rgb(var(--rgb-fundo) / 0) 50%,
+                rgb(var(--rgb-fundo) / 0.8) 100%
             ),
             repeating-linear-gradient(
                 to bottom,
                 transparent 0,
                 transparent 3px,
-                rgba(0, 0, 0, 0.18) 3px,
-                rgba(0, 0, 0, 0.18) 4px
+                rgb(var(--rgb-sombra) / 0.18) 3px,
+                rgb(var(--rgb-sombra) / 0.18) 4px
             );
         pointer-events: none;
         z-index: 2;
@@ -347,7 +347,7 @@ const {
         height: 24px;
         border-color: var(--nucleo-eletrico);
         border-style: solid;
-        filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.7));
+        filter: drop-shadow(0 0 8px rgb(var(--rgb-ciano) / 0.7));
     }
 
     .brackets span:nth-child(1) {
@@ -385,7 +385,7 @@ const {
         font-family: var(--font-display);
         font-weight: 600;
         font-size: 1rem;
-        color: #fff;
+        color: var(--texto-principal);
     }
 
     .portrait-tag .badges {
@@ -403,7 +403,7 @@ const {
         letter-spacing: 0.18em;
         text-transform: uppercase;
         padding: 4px 8px;
-        background: rgba(0, 255, 255, 0.08);
+        background: rgb(var(--rgb-ciano) / 0.08);
         border: 1px solid var(--hairline-strong);
         color: var(--nucleo-eletrico);
     }
@@ -420,7 +420,7 @@ const {
     }
 
     .portrait-stat {
-        background: rgba(10, 15, 30, 0.78);
+        background: rgb(var(--rgb-fundo) / 0.78);
         border: 1px solid var(--hairline);
         backdrop-filter: blur(8px);
         padding: 8px 12px;

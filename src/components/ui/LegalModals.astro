@@ -87,7 +87,7 @@
     /* <dialog> nativo: showModal() prende o foco, Esc fecha e o resto da
        página fica inerte para leitores de tela. */
     .modal-content {
-        background: rgba(10, 15, 30, 0.95);
+        background: rgb(var(--rgb-fundo) / 0.95);
         color: var(--texto-secundario);
         border: 1px solid var(--hairline-strong);
         width: calc(100% - 40px);
@@ -96,7 +96,7 @@
         padding: 0;
         flex-direction: column;
         border-radius: 2px;
-        box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+        box-shadow: 0 0 50px rgb(var(--rgb-sombra) / 0.8);
     }
 
     .modal-content[open] {
@@ -104,7 +104,7 @@
     }
 
     .modal-content::backdrop {
-        background: rgba(10, 15, 30, 0.9);
+        background: rgb(var(--rgb-fundo) / 0.9);
         backdrop-filter: blur(8px);
     }
 

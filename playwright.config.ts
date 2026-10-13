@@ -10,6 +10,10 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:4321/",
     trace: "on-first-retry",
+    // Sem escolha salva o site segue o sistema; o Playwright emula modo claro por
+    // padrão. Os testes partem do tema padrão (escuro); os de tema claro emulam
+    // "light" explicitamente.
+    colorScheme: "dark",
   },
   projects: [
     {

@@ -70,7 +70,7 @@ const { eyebrow, titleHtml, lede, steps } = Astro.props;
     }
 
     .method-cell {
-        background: rgba(10, 15, 30, 0.85);
+        background: rgb(var(--rgb-fundo) / 0.85);
         padding: 28px 26px 32px;
         display: flex;
         flex-direction: column;
@@ -81,7 +81,7 @@ const { eyebrow, titleHtml, lede, steps } = Astro.props;
     }
 
     .method-cell:hover {
-        background: rgba(0, 255, 255, 0.04);
+        background: rgb(var(--rgb-ciano) / 0.04);
     }
 
     .method-cell .icon {
@@ -92,8 +92,8 @@ const { eyebrow, titleHtml, lede, steps } = Astro.props;
         justify-content: center;
         color: var(--nucleo-eletrico);
         border: 1px solid var(--hairline-strong);
-        background: rgba(0, 255, 255, 0.06);
-        filter: drop-shadow(0 0 10px rgba(0, 255, 255, 0.25));
+        background: rgb(var(--rgb-ciano) / 0.06);
+        filter: drop-shadow(0 0 10px rgb(var(--rgb-ciano) / 0.25));
     }
 
     .method-cell .label {

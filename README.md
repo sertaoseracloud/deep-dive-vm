@@ -18,10 +18,11 @@ Os cursos do hub vêm de [`src/data/courses.ts`](src/data/courses.ts). Para cria
 
 O objetivo é WCAG 2.2 AA, com o mesmo padrão dos playgrounds DivergePHP e DivergeTerraform:
 
-- **Painel ♿** em todas as páginas ([`AccessibilityPanel.astro`](src/components/ui/AccessibilityPanel.astro)): perfis rápidos, temas (padrão, alto contraste, suave), tamanho do texto de 87,5% a 175%, fonte Atkinson Hyperlegible, espaçamento, linhas curtas, links sublinhados, reduzir animações e Libras com o VLibras (carregado só quando ligado).
-- A escolha é salva no navegador e reaplicada por um script inline no `<head>`, antes da primeira pintura. Sem escolha salva, o site segue o sistema (`prefers-contrast`, `forced-colors` e `prefers-reduced-motion`).
+- **Painel ♿** em todas as páginas ([`AccessibilityPanel.astro`](src/components/ui/AccessibilityPanel.astro)): perfis rápidos, temas (padrão, claro, alto contraste, suave), tamanho do texto de 87,5% a 175%, fonte Atkinson Hyperlegible, espaçamento, linhas curtas, links sublinhados, reduzir animações e Libras com o VLibras (carregado só quando ligado).
+- A escolha é salva no navegador e reaplicada por um script inline no `<head>`, antes da primeira pintura. Sem escolha salva, o site segue o sistema (`prefers-color-scheme`, `prefers-contrast`, `forced-colors` e `prefers-reduced-motion`).
 - As fontes são hospedadas no próprio site pela API de fontes do Astro, com fallbacks de métricas ajustadas (CLS 0 e nenhuma requisição ao Google no navegador).
 - Todas as fontes estão em `rem`, com mínimo de 0,75rem (12 px).
+- Cores com transparência usam canais RGB por tema: `rgb(var(--rgb-ciano) / 0.3)`. Não use cores fixas em componentes; use os tokens do `Layout.astro`.
 
 ## Comandos
 

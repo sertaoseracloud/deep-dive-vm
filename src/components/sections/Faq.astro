@@ -42,7 +42,7 @@ const { eyebrow, titleHtml, items } = Astro.props;
 
     .faq details {
         border: 1px solid var(--hairline);
-        background: rgba(10, 15, 30, 0.4);
+        background: rgb(var(--rgb-fundo) / 0.4);
         border-radius: 2px;
         transition:
             border-color 0.2s,
@@ -55,7 +55,7 @@ const { eyebrow, titleHtml, items } = Astro.props;
 
     .faq details[open] {
         border-color: var(--hairline-strong);
-        background: rgba(27, 41, 60, 0.55);
+        background: rgb(var(--rgb-cartao) / 0.55);
     }
 
     .faq summary {
@@ -95,7 +95,7 @@ const { eyebrow, titleHtml, items } = Astro.props;
 
     .faq details[open] summary .plus {
         transform: rotate(45deg);
-        background: rgba(0, 255, 255, 0.08);
+        background: rgb(var(--rgb-ciano) / 0.08);
     }
 
     .faq .ans {

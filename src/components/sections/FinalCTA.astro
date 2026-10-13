@@ -41,7 +41,7 @@ const { eyebrow, headlineHtml, ctaHref, ctaText } = Astro.props;
 
 <style>
     .final-cta {
-        background: radial-gradient(ellipse 60% 40% at 50% 50%, rgba(0, 255, 255, 0.06), transparent 70%);
+        background: radial-gradient(ellipse 60% 40% at 50% 50%, rgb(var(--rgb-ciano) / 0.06), transparent 70%);
         border-top: 1px solid var(--hairline-strong);
     }
 
@@ -72,7 +72,7 @@ const { eyebrow, headlineHtml, ctaHref, ctaText } = Astro.props;
     :global(.final-cta h2.final-cta-headline .flame) {
         color: var(--nucleo-eletrico);
         font-style: italic;
-        text-shadow: 0 0 32px rgba(0, 255, 255, 0.6);
+        text-shadow: 0 0 32px rgb(var(--rgb-ciano) / 0.6);
     }
 
     .final-cta-actions {

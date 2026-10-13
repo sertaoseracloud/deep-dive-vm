@@ -5,14 +5,15 @@
 //
 // Para não piscar o tema errado no carregamento, o painel grava também o
 // resultado já calculado (CHAVE_APLICADO); um script inline no <head> só o
-// reaplica, sem lógica. Sem escolha salva, o CSS segue o sistema operacional
-// (prefers-contrast, prefers-reduced-motion e forced-colors).
+// reaplica. Sem escolha salva, esse script segue o sistema operacional
+// (contraste alto, cores forçadas e modo claro), como preferenciasDoSistema.
 
 export const CHAVE_PREFERENCIAS = "a11y:preferencias";
 export const CHAVE_APLICADO = "a11y:aplicado";
 
 export const TEMAS = {
   padrao: "Padrão (escuro)",
+  claro: "Claro",
   "alto-contraste": "Alto contraste",
   suave: "Suave (cores calmas, sem brilho)",
 } as const;
@@ -94,6 +95,7 @@ export const PERFIS: Record<string, Perfil> = {
 /** Cor da barra do navegador (meta theme-color) em cada tema. */
 export const COR_DA_BARRA: Record<Tema, string> = {
   padrao: "#0a0f1e",
+  claro: "#f5f7fb",
   "alto-contraste": "#000000",
   suave: "#1c2128",
 };
@@ -127,7 +129,7 @@ export function normalizarPreferencias(salvas: unknown): Preferencias {
 
 /**
  * Ponto de partida para quem ainda não escolheu nada: respeita "reduzir
- * movimento" e "aumentar contraste" (ou cores forçadas) do sistema operacional.
+ * movimento", "aumentar contraste" (ou cores forçadas) e o modo claro do sistema.
  */
 export function preferenciasDoSistema(
   consultar: (q: string) => boolean = (q) => window.matchMedia?.(q).matches ?? false
@@ -135,6 +137,7 @@ export function preferenciasDoSistema(
   const p = { ...PADRAO };
   if (consultar("(prefers-reduced-motion: reduce)")) p.reduzirMovimento = true;
   if (consultar("(prefers-contrast: more)") || consultar("(forced-colors: active)")) p.tema = "alto-contraste";
+  else if (consultar("(prefers-color-scheme: light)")) p.tema = "claro";
   return p;
 }
 

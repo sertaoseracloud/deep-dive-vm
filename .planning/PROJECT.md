@@ -71,7 +71,6 @@ Provably high-quality multi-LP platform — every push is validated by 115 tests
 ## Tech Debt
 
 - WhatsApp social link desabilitado — aguarda número E.164 real (configura em `src/data/social-links.ts`)
-- Cores fixas (rgba/hex) em ~150 pontos dos componentes impedem um tema claro; os temas do painel trocam só os tokens
 
 ### Resolvidos na v1.4 (2026-10-13)
 
@@ -84,6 +83,13 @@ Provably high-quality multi-LP platform — every push is validated by 115 tests
 - 71 vulnerabilidades no `npm audit` → 0 altas/críticas em produção (Astro 7, vitest 5, sharp 0.35)
 - `.lighthouseci/` versionado na `main`; README do template; `impeccable` sem versão fixa; script `capture:baselines` apontando para arquivo inexistente
 
+### Resolvidos na v1.5 (2026-10-13)
+
+- Cores fixas nos componentes → tokens de canal RGB por tema; novo tema Claro (segue `prefers-color-scheme`)
+- Texto branco sobre degradê ciano (barra de urgência, faixa de preço) abaixo de 4.5:1 → `--nucleo-profundo`
+- CVEs altas do `@lhci/cli` → `overrides`; `npm audit` volta a cobrir dev
+- Gitlinks órfãos de `.claude/worktrees` (exit 128 no checkout); actions em Node 24
+
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
@@ -95,4 +101,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Current State
 
 ---
-*Last updated: 2026-10-13 — v1.4 shipped*
+*Last updated: 2026-10-13 — v1.5 shipped*

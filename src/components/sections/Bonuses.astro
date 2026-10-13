@@ -48,8 +48,8 @@ const { eyebrow, titleHtml, lede, bonuses } = Astro.props;
     .bonuses {
         background: linear-gradient(
             180deg,
-            rgba(10, 15, 30, 0),
-            rgba(27, 41, 60, 0.45) 40%
+            rgb(var(--rgb-fundo) / 0),
+            rgb(var(--rgb-cartao) / 0.45) 40%
         );
     }
 
@@ -67,7 +67,7 @@ const { eyebrow, titleHtml, lede, bonuses } = Astro.props;
 
     .bonus-card {
         border: 1px solid var(--hairline);
-        background: rgba(10, 15, 30, 0.55);
+        background: rgb(var(--rgb-fundo) / 0.55);
         padding: 28px;
         display: flex;
         flex-direction: column;
@@ -87,7 +87,7 @@ const { eyebrow, titleHtml, lede, bonuses } = Astro.props;
         height: 80px;
         background: radial-gradient(
             circle at 100% 0%,
-            rgba(0, 255, 255, 0.15),
+            rgb(var(--rgb-ciano) / 0.15),
             transparent 70%
         );
         pointer-events: none;
@@ -98,8 +98,8 @@ const { eyebrow, titleHtml, lede, bonuses } = Astro.props;
         border-color: var(--hairline-strong);
         background: linear-gradient(
             180deg,
-            rgba(0, 255, 255, 0.05),
-            rgba(10, 15, 30, 0.55)
+            rgb(var(--rgb-ciano) / 0.05),
+            rgb(var(--rgb-fundo) / 0.55)
         );
     }
 
