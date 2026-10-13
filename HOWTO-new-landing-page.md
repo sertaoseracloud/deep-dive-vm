@@ -194,7 +194,7 @@ After pushing to `main`:
    Expected: `HTTP/2 200`
 
 **No changes needed to:**
-- `.lhcirc.json` or `.lighthouserc.json` — these audit `/deep-dive-vm/` explicitly; new coming-soon
+- `.lighthouserc.json` — these audit `/deep-dive-vm/` explicitly; new coming-soon
   pages are out of scope for Lighthouse audits until they have real content.
 - `astro.config.mjs` — sitemap auto-discovers all routes; no filter additions needed.
 - `.github/workflows/` — CI auto-discovers `tests/e2e/[slug]-coming-soon.spec.ts` via glob.

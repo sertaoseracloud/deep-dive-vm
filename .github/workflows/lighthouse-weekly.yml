@@ -31,7 +31,7 @@ jobs:
           if git show-ref --verify --quiet refs/remotes/origin/lhci-results; then
             git checkout lhci-results
           fi
-          git add .lighthouseci/
+          git add -f .lighthouseci/
           git diff --staged --quiet || git commit -m "chore: update lhci weekly results [skip ci]"
           git push origin lhci-results
       - uses: actions/upload-artifact@v4

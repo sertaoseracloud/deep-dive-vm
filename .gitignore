@@ -32,3 +32,6 @@ coverage/
 # Playwright report
 playwright-report/
 test-results/
+
+# Resultados do Lighthouse CI: vivem no branch lhci-results (workflows usam git add -f)
+.lighthouseci/
