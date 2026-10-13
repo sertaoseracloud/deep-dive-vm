@@ -2,7 +2,9 @@
 // Unit tests for all five motion-utils exports, including renderHook coverage for useMotionEnabled.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook } from "@testing-library/react";
+import React from "react";
+import { renderToString } from "react-dom/server";
+import { renderHook, act } from "@testing-library/react";
 import {
   MOTION_STORAGE_KEY,
   useMotionEnabled,
@@ -107,5 +109,107 @@ describe("useMotionEnabled()", () => {
     localStorage.setItem(MOTION_STORAGE_KEY, "123");
     const { result } = renderHook(() => useMotionEnabled());
     expect(result.current[0]).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Robustez: storage indisponível, valores corrompidos e sincronização entre abas
+// ---------------------------------------------------------------------------
+describe("useMotionEnabled() — persistência e sincronização entre abas", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(useReducedMotion).mockReturnValue(false);
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  const dispatchStorage = (key: string | null, newValue: string | null) =>
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key, newValue }));
+    });
+
+  it("usa o padrão true quando o valor salvo não é JSON válido", () => {
+    localStorage.setItem(MOTION_STORAGE_KEY, "{corrompido");
+    const { result } = renderHook(() => useMotionEnabled());
+    expect(result.current[0]).toBe(true);
+  });
+
+  it("setter atualiza o estado e persiste no localStorage", () => {
+    const { result } = renderHook(() => useMotionEnabled());
+    act(() => result.current[1](false));
+    expect(result.current[0]).toBe(false);
+    expect(localStorage.getItem(MOTION_STORAGE_KEY)).toBe("false");
+  });
+
+  it("aplica o valor booleano gravado por outra aba", () => {
+    const { result } = renderHook(() => useMotionEnabled());
+    dispatchStorage(MOTION_STORAGE_KEY, "false");
+    expect(result.current[0]).toBe(false);
+  });
+
+  it("ignora eventos de outras chaves, remoção da chave e valores inválidos", () => {
+    const { result } = renderHook(() => useMotionEnabled());
+    dispatchStorage("outraChave", "false");
+    dispatchStorage(MOTION_STORAGE_KEY, null);
+    dispatchStorage(MOTION_STORAGE_KEY, "{corrompido");
+    dispatchStorage(MOTION_STORAGE_KEY, "123");
+    expect(result.current[0]).toBe(true);
+  });
+
+  it("remove o listener de storage ao desmontar", () => {
+    const spy = vi.spyOn(window, "removeEventListener");
+    const { unmount } = renderHook(() => useMotionEnabled());
+    unmount();
+    expect(spy).toHaveBeenCalledWith("storage", expect.any(Function));
+  });
+});
+
+describe("setMotionEnabled() — storage bloqueado", () => {
+  it("não lança erro quando o localStorage recusa a escrita", () => {
+    vi.stubGlobal("localStorage", {
+      setItem: () => {
+        throw new Error("QuotaExceededError");
+      },
+    });
+    expect(() => setMotionEnabled(true)).not.toThrow();
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("applyFallback() — prefers-reduced-motion", () => {
+  it("não aplica transição quando o sistema pede menos movimento", () => {
+    const spy = vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true } as MediaQueryList);
+    const el = document.createElement("div");
+    applyFallback(el, { color: "blue" });
+    expect(el.style.transition).toBe("");
+    expect(el.style.color).toBe("blue");
+    spy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SSR: sem window (renderização no servidor do Astro)
+// ---------------------------------------------------------------------------
+describe("SSR (window indefinido)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("isMotionSupported() retorna false e applyFallback() não toca no elemento", () => {
+    const el = document.createElement("div");
+    vi.stubGlobal("window", undefined);
+    expect(isMotionSupported()).toBe(false);
+    applyFallback(el, { color: "red" });
+    vi.unstubAllGlobals();
+    expect(el.style.color).toBe("");
+  });
+
+  it("useMotionEnabled() renderiza desligado no servidor", () => {
+    vi.mocked(useReducedMotion).mockReturnValue(false);
+    const Probe = () => React.createElement("span", null, String(useMotionEnabled()[0]));
+    vi.stubGlobal("window", undefined);
+    const html = renderToString(React.createElement(Probe));
+    vi.unstubAllGlobals();
+    expect(html).toContain("false");
   });
 });

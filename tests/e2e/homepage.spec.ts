@@ -108,7 +108,9 @@ test.describe("Responsive viewports", () => {
 
 test.describe("Hamburger menu interactions", () => {
   test("hamburger toggle: aria-expanded muda de 'false' para 'true' e volta para 'false'", async ({ page }) => {
-    await page.goto("./");
+    // O hambúrguer só existe no layout mobile das LPs (o hub não tem navbar).
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("./deep-dive-vm/");
 
     const hamburger = page.locator("#hamburger-btn");
 
@@ -127,7 +129,7 @@ test.describe("Hamburger menu interactions", () => {
 
 test.describe("Price card CSS hover properties", () => {
   test("price-card existe e tem will-change='transform' no CSS", async ({ page }) => {
-    await page.goto("./#investimento");
+    await page.goto("./deep-dive-vm/#investimento");
 
     const priceCard = page.locator(".price-card").first();
     await expect(priceCard).toBeVisible();

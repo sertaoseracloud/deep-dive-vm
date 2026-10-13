@@ -103,4 +103,20 @@ describe("MobileMenuMotion (CustomEvent-driven, sem prop isOpen)", () => {
     // Additional check: component is no longer in document
     expect(document.querySelector("nav")).toBeNull();
   });
+
+  it("Escape com o menu aberto pede o fechamento via evento 'set-menu'", async () => {
+    render(React.createElement(MobileMenuMotion, {}));
+    const received: Array<{ open: boolean }> = [];
+    const onSetMenu = (e: Event) => received.push((e as CustomEvent).detail);
+    window.addEventListener("set-menu", onSetMenu);
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent("toggle-menu"));
+    });
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+
+    window.removeEventListener("set-menu", onSetMenu);
+    expect(received).toEqual([{ open: false }]);
+  });
 });

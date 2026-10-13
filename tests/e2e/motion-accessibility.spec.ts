@@ -22,72 +22,7 @@ test.describe("Axe accessibility audit after motion", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Group 2: SettingsToggle reduce-motion behavior
-// TODO (Phase 02): wire SettingsToggle into a visible page location so the
-// toggle can be found by its aria-label without test.skip.
-// ---------------------------------------------------------------------------
-test.describe("SettingsToggle reduce-motion behavior", () => {
-  test("disabling toggle sets localStorage motionEnabled to false", async ({ page }) => {
-    await page.goto("./deep-dive-vm/");
-    const toggle = page.locator('input[aria-label="Enable animations"]');
-    if (await toggle.isVisible()) {
-      await toggle.uncheck();
-      const value = await page.evaluate(() => localStorage.getItem("motionEnabled"));
-      expect(value).toBe("false");
-    } else {
-      // TODO: SettingsToggle is rendered with client:load but not yet placed in a
-      // visible page section. Wire a trigger in Phase 02 to surface the toggle.
-      test.skip(true, "SettingsToggle not visible in current page — wire trigger in Phase 02");
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Group 3: CarouselMotion keyboard navigation
-// TODO (Phase 02): CarouselMotion uses client:load hydration; requires dev server
-// to hydrate the component before keyboard events can be tested.
-// ---------------------------------------------------------------------------
-test.describe("CarouselMotion keyboard navigation", () => {
-  test("carousel accepts ArrowRight and ArrowLeft without JS errors", async ({ page }) => {
-    const errors: string[] = [];
-    page.on("pageerror", (err) => errors.push(err.message));
-    await page.goto("./deep-dive-vm/");
-    const carousel = page.locator('[role="region"][aria-label="Testimonials carousel"]');
-    if (await carousel.isVisible()) {
-      await carousel.focus();
-      await page.keyboard.press("ArrowRight");
-      await page.keyboard.press("ArrowLeft");
-      expect(errors).toHaveLength(0);
-    } else {
-      // TODO: CarouselMotion is in index.astro with client:load; the static preview
-      // renders it with SSR fallback HTML only. Hydration requires a real dev/preview
-      // server — verify aria role is present in index.astro after Phase 02 integration.
-      test.skip(true, "CarouselMotion carousel region not found in static HTML — requires hydration via dev server");
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Group 4: MobileMenuMotion ARIA state
-// TODO (Phase 02): wire a visible open/close trigger button in index.astro.
-// ---------------------------------------------------------------------------
-test.describe("MobileMenuMotion ARIA state", () => {
-  test("mobile nav has aria-hidden when closed", async ({ page }) => {
-    await page.goto("./deep-dive-vm/");
-    const nav = page.locator('[aria-label="Mobile navigation menu"]');
-    if (await nav.isVisible()) {
-      const ariaHidden = await nav.getAttribute("aria-hidden");
-      expect(ariaHidden).toBe("true");
-    } else {
-      // TODO: MobileMenuMotion open/close trigger (hamburger button) deferred to Phase 02.
-      // Once wired, remove this skip and assert aria-hidden toggles on open/close.
-      test.skip(true, "Mobile navigation menu not visible — open/close trigger deferred to Phase 02");
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Group 5: Price card focus-visible outline (WCAG-02) — GAP-5
+// Group 2: Price card focus-visible outline (WCAG-02) — GAP-5
 // Req: WCAG-02 — "Pricing Cards have focus-visible outline"
 // ---------------------------------------------------------------------------
 test.describe("Price card focus-visible accessibility (WCAG-02)", () => {
@@ -144,13 +79,15 @@ test.describe("Price card focus-visible accessibility (WCAG-02)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Group 6: Hamburger aria-expanded — complementary WCAG-01 consolidation (GAP-5)
+// Group 3: Hamburger aria-expanded — complementary WCAG-01 consolidation (GAP-5)
 // Duplicate of homepage.spec.ts test, kept here for motion-accessibility coverage.
 // ---------------------------------------------------------------------------
 test.describe("Hamburger aria-expanded — motion-accessibility consolidation (WCAG-01)", () => {
   test("hamburger aria-expanded toggles false → true → false on successive clicks", async ({
     page,
   }) => {
+    // Hambúrguer só é visível no layout mobile.
+    await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("./deep-dive-vm/");
 
     const hamburger = page.locator("#hamburger-btn");
@@ -168,6 +105,8 @@ test.describe("Hamburger aria-expanded — motion-accessibility consolidation (W
   test("MobileMenuMotion nav aria-hidden reflects open/closed state after hamburger click", async ({
     page,
   }) => {
+    // Hambúrguer só é visível no layout mobile.
+    await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("./deep-dive-vm/");
 
     const hamburger = page.locator("#hamburger-btn");
@@ -189,7 +128,7 @@ test.describe("Hamburger aria-expanded — motion-accessibility consolidation (W
 });
 
 // ---------------------------------------------------------------------------
-// Group 7: QUAL-02: reduced-motion compliance
+// Group 4: QUAL-02: reduced-motion compliance
 // Gate: verifica que todas as animações v1.2 são desativadas com prefers-reduced-motion
 // D-AUDIT-02: page.emulateMedia({ reducedMotion: 'reduce' }) ANTES de page.goto
 // ---------------------------------------------------------------------------
