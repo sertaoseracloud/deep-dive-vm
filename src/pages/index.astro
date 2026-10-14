@@ -6,15 +6,32 @@ import { socialLinks } from "../data/social-links";
 import { courses } from "../data/courses";
 import SocialIcon from "../components/ui/SocialIcon.astro";
 import BannerCarousel from "../components/ui/BannerCarousel.astro";
-import { upcomingEvents } from "../data/events";
+import { upcomingEvents, type Event } from "../data/events";
 
 const courseSlides = courses
   .filter((c) => c.status === "active" && c.banner)
   .map((c) => ({ title: c.title, url: c.url, banner: c.banner! }));
+const cursosAtivos = courses.filter((c) => c.status === "active").length;
 const eventos = upcomingEvents();
 const eventSlides = eventos.flatMap((e) =>
   e.links.filter((l) => l.banner).map((l) => ({ title: `${e.title}: ${l.label}`, url: l.url, banner: l.banner! }))
 );
+
+// Eventos agrupados por mês ("novembro de 2026"), na ordem de upcomingEvents().
+const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const MESES_CURTOS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const porMes = new Map<string, Event[]>();
+for (const e of eventos) {
+  const chave = e.dates[0].slice(0, 7);
+  porMes.set(chave, [...(porMes.get(chave) ?? []), e]);
+}
+const nomeDoMes = (chave: string) => `${MESES[Number(chave.slice(5, 7)) - 1]} de ${chave.slice(0, 4)}`;
+const dia = (data: string) => Number(data.slice(8, 10));
+const mesCurto = (data: string) => MESES_CURTOS[Number(data.slice(5, 7)) - 1];
+const temCfp = (e: Event) => e.links.some((l) => l.label === "Call for papers");
+const textoDoBotao = (label: string) => (label === "Call for papers" ? "Enviar palestra" : "Inscrever-se");
+const preposicao = (label: string) => (label === "Call for papers" ? "para a" : "na");
+const ano = new Date().getFullYear();
 ---
 
 <Layout
@@ -33,10 +50,10 @@ const eventSlides = eventos.flatMap((e) =>
 >
   <a href="#conteudo-principal" class="skip-link">Pular para o conteúdo</a>
 
-  <main id="conteudo-principal" tabindex="-1" aria-label="Hub de cursos e redes sociais">
+  <main id="conteudo-principal" tabindex="-1" aria-label="Hub de cursos e eventos">
     <div class="hub-container">
 
-      <section class="hub-profile" aria-label="Perfil do mentor">
+      <header class="hub-profile">
         <Image
           src={claudio2}
           alt="Cláudio Filipe Lima Raposo — mentor"
@@ -45,50 +62,62 @@ const eventSlides = eventos.flatMap((e) =>
           class="mentor-photo"
           loading="eager"
         />
-        <h1>Cláudio Filipe Lima Raposo</h1>
-        <p class="bio">Systems Architect · 2× MVP Microsoft · Docker Captain</p>
-
-        <ul class="social-links" aria-label="Redes sociais">
-          {socialLinks.map((link) => (
-            <li>
-              <a
-                href={link.url}
-                aria-label={`${link.ariaLabel} (abre em nova aba)`}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="social-icon-link"
-              >
-                <SocialIcon name={link.icon} />
-              </a>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <hr class="hub-divider" aria-hidden="true" />
+        <div class="perfil-texto">
+          <h1>Cláudio Filipe Lima Raposo</h1>
+          <p class="bio">Systems Architect · 2× MVP Microsoft · Docker Captain</p>
+          <p class="tagline">Cursos gratuitos e acessíveis no navegador e a agenda de eventos da comunidade.</p>
+          <div class="perfil-rodape">
+            <ul class="atalhos" aria-label="Atalhos">
+              <li><a href="#cursos" data-ir-aba="cursos">{cursosAtivos} cursos gratuitos</a></li>
+              {eventos.length > 0 && <li><a href="#eventos" data-ir-aba="eventos">{eventos.length} próximos eventos</a></li>}
+            </ul>
+            <ul class="social-links" aria-label="Redes sociais">
+              {socialLinks.map((link) => (
+                <li>
+                  <a
+                    href={link.url}
+                    aria-label={`${link.ariaLabel} (abre em nova aba)`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="social-icon-link"
+                  >
+                    <SocialIcon name={link.icon} />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </header>
 
       <!-- Abas Cursos | Eventos. Sem JavaScript as duas seções aparecem uma embaixo da outra. -->
       <div class="hub-abas" role="tablist" aria-label="Cursos e eventos" data-abas hidden>
-        <button type="button" role="tab" id="aba-cursos" aria-controls="painel-cursos" aria-selected="true" data-aba="cursos">Cursos</button>
+        <button type="button" role="tab" id="aba-cursos" aria-controls="painel-cursos" aria-selected="true" data-aba="cursos">
+          Cursos<span class="aba-contador" aria-hidden="true">{cursosAtivos}</span>
+        </button>
         <button type="button" role="tab" id="aba-eventos" aria-controls="painel-eventos" aria-selected="false" tabindex="-1" data-aba="eventos">
-          Eventos{eventos.length > 0 && <span class="aba-contador" aria-hidden="true">{eventos.length}</span>}
+          Eventos{eventos.length > 0 && <span class="aba-contador" aria-hidden="true" data-contador-eventos>{eventos.length}</span>}
         </button>
       </div>
 
-      <section class="hub-courses hub-painel" id="painel-cursos" aria-labelledby="titulo-cursos" data-painel="cursos">
+      <section class="hub-painel" id="painel-cursos" aria-labelledby="titulo-cursos" data-painel="cursos">
         <h2 id="titulo-cursos">Cursos</h2>
+        <p class="painel-intro">Do zero ao certificado, direto no navegador: sem instalar nada, sem cadastro e com recursos para pessoas cegas, surdas e neurodivergentes.</p>
         <BannerCarousel label="Banners dos cursos" slides={courseSlides} />
         <div class="course-list">
           {courses.map((course) => (
             <div class={`course-card ${course.status}`} data-status={course.status}>
               <div class="course-header">
                 <h3 class="course-title">{course.title}</h3>
-                <span class={`badge badge-${course.status}`}>
-                  {course.status === 'active' ? 'ATIVO' : 'EM BREVE'}
-                </span>
+                {course.status === "coming-soon" && <span class="badge badge-coming-soon">EM BREVE</span>}
               </div>
+              <ul class="chips" aria-label="Destaques">
+                {course.exercises && <li class="chip chip-forte">{course.exercises} exercícios</li>}
+                <li class="chip">Grátis</li>
+                <li class="chip">Certificado</li>
+              </ul>
               <p class="course-description">{course.description}</p>
-              {course.status === 'active' && (
+              {course.status === "active" && (
                 <div class="course-actions">
                   {course.external ? (
                     <a href={course.url} class="course-link" target="_blank" rel="noopener noreferrer">
@@ -100,7 +129,7 @@ const eventSlides = eventos.flatMap((e) =>
                     </a>
                   )}
                   {course.repo && (
-                    <a href={course.repo} class="course-star" target="_blank" rel="noopener noreferrer">
+                    <a href={course.repo} class="link-texto" target="_blank" rel="noopener noreferrer">
                       <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
                         <path fill="currentColor" d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z" />
                       </svg>
@@ -114,38 +143,55 @@ const eventSlides = eventos.flatMap((e) =>
         </div>
       </section>
 
-      <section class="hub-courses hub-painel" id="painel-eventos" aria-labelledby="titulo-eventos" data-painel="eventos">
+      <section class="hub-painel" id="painel-eventos" aria-labelledby="titulo-eventos" data-painel="eventos">
         <h2 id="titulo-eventos">Eventos</h2>
         {eventos.length === 0 ? (
-          <p class="course-description">Nenhum evento agendado no momento. Volte em breve!</p>
+          <p class="painel-intro">Nenhum evento agendado no momento. Volte em breve!</p>
         ) : (
           <>
+            <p class="painel-intro">Agenda da MVP Conference, com links oficiais de inscrição e de call for papers. Todas as edições regionais são gratuitas.</p>
             <BannerCarousel label="Banners dos eventos" slides={eventSlides} />
-            <div class="course-list">
-              {eventos.map((evento) => (
-                <article class="course-card active event-card" aria-labelledby={evento.id}>
-                  <div class="course-header">
-                    <h3 class="course-title" id={evento.id}>{evento.title}</h3>
-                    <span class="badge badge-active">{evento.format.toUpperCase()}</span>
-                  </div>
-                  <dl class="event-meta">
-                    <div><dt>Quando</dt><dd><time datetime={evento.dates[0]}>{evento.when}</time></dd></div>
-                    <div><dt>Onde</dt><dd>{evento.where}</dd></div>
-                  </dl>
-                  <p class="course-description">{evento.description}</p>
-                  <div class="course-actions">
-                    {evento.links.map((link, i) => (
-                      <a href={link.url} class={i === 0 ? "course-link" : "course-star"} target="_blank" rel="noopener noreferrer">
-                        {link.label}<span aria-hidden="true"> →</span><span class="sr-only"> da {evento.title} (abre em nova aba)</span>
-                      </a>
-                    ))}
-                    <a href={evento.site} class="course-star" target="_blank" rel="noopener noreferrer">
-                      Site do evento<span class="sr-only"> {evento.title} (abre em nova aba)</span>
-                    </a>
-                  </div>
-                </article>
-              ))}
-            </div>
+            {[...porMes].map(([chave, lista]) => (
+              <section class="mes" aria-labelledby={`mes-${chave}`} data-mes>
+                <h3 class="mes-titulo" id={`mes-${chave}`}>{nomeDoMes(chave)}</h3>
+                <div class="course-list">
+                  {lista.map((evento) => (
+                    <article class="course-card active event-card" aria-labelledby={evento.id} data-inicio={evento.dates[0]} data-fim={evento.dates.at(-1)}>
+                      <div class="event-topo">
+                        <p class="event-data" aria-hidden="true">
+                          <span class="event-dia">{dia(evento.dates[0])}{evento.dates.length > 1 && `–${dia(evento.dates.at(-1)!)}`}</span>
+                          <span class="event-mes">{mesCurto(evento.dates[0])}</span>
+                        </p>
+                        <div>
+                          <h4 class="course-title" id={evento.id}>{evento.title}</h4>
+                          <p class="event-quando">
+                            <time datetime={evento.dates[0]}>{evento.when}</time>
+                            <span class="event-faltam" data-faltam></span>
+                          </p>
+                        </div>
+                      </div>
+                      <ul class="chips" aria-label="Destaques">
+                        <li class="chip">{evento.format}</li>
+                        {evento.free ? <li class="chip chip-forte">Gratuito</li> : <li class="chip">Renda para ONGs</li>}
+                        {temCfp(evento) && <li class="chip chip-alerta">Call for papers aberto</li>}
+                      </ul>
+                      <p class="event-onde"><span class="sr-only">Local: </span>{evento.where}</p>
+                      <p class="course-description">{evento.description}</p>
+                      <div class="course-actions">
+                        {evento.links.map((link, i) => (
+                          <a href={link.url} class={i === 0 ? "course-link" : "course-star"} target="_blank" rel="noopener noreferrer">
+                            {textoDoBotao(link.label)}<span aria-hidden="true"> →</span><span class="sr-only"> {preposicao(link.label)} {evento.title} (abre em nova aba)</span>
+                          </a>
+                        ))}
+                        <a href={evento.site} class="link-texto" target="_blank" rel="noopener noreferrer">
+                          Site do evento<span aria-hidden="true"> ↗</span><span class="sr-only"> {evento.title} (abre em nova aba)</span>
+                        </a>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ))}
           </>
         )}
       </section>
@@ -154,7 +200,13 @@ const eventSlides = eventos.flatMap((e) =>
   </main>
 
   <footer class="hub-footer">
-    <a href="/acessibilidade/">Acessibilidade</a>
+    <nav aria-label="Rodapé">
+      <ul>
+        <li><a href="/acessibilidade/">Declaração de acessibilidade</a></li>
+        <li><a href="https://github.com/sertaoseracloud" target="_blank" rel="noopener noreferrer">GitHub<span class="sr-only"> (abre em nova aba)</span></a></li>
+      </ul>
+    </nav>
+    <p>© {ano} O Sertão será Cloud · Feito com acessibilidade para todas as pessoas.</p>
   </footer>
 </Layout>
 
@@ -201,34 +253,79 @@ const eventSlides = eventos.flatMap((e) =>
       abas[destino].focus();
     });
 
+    // Atalhos do perfil ("3 cursos gratuitos", "6 próximos eventos"): abrem a aba e levam o foco até ela.
+    document.querySelectorAll<HTMLAnchorElement>("[data-ir-aba]").forEach((link) => {
+      link.addEventListener("click", (e) => {
+        const i = abas.findIndex((a) => a.dataset.aba === link.dataset.irAba);
+        if (i < 0) return;
+        e.preventDefault();
+        abas[i].click();
+        abas[i].focus();
+        lista.scrollIntoView({ block: "start" });
+      });
+    });
+
     const daUrl = () => Math.max(0, abas.findIndex((a) => `#${a.dataset.aba}` === location.hash));
     selecionar(daUrl());
     window.addEventListener("hashchange", () => selecionar(daUrl()));
   }
+
+  // Eventos: "em 12 dias", "amanhã", "é hoje". Os que já acabaram somem mesmo
+  // antes da próxima publicação do site (a lista é montada no build).
+  const hoje = new Date();
+  const hojeIso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+  const dias = (iso: string) => Math.round((Date.parse(`${iso}T00:00:00`) - Date.parse(`${hojeIso}T00:00:00`)) / 86_400_000);
+  document.querySelectorAll<HTMLElement>(".event-card").forEach((card) => {
+    const inicio = card.dataset.inicio!;
+    const fim = card.dataset.fim!;
+    if (fim < hojeIso) {
+      card.remove();
+      return;
+    }
+    const faltam = dias(inicio);
+    const texto =
+      inicio <= hojeIso ? "acontece hoje"
+      : faltam === 1 ? "é amanhã"
+      : faltam <= 60 ? `faltam ${faltam} dias`
+      : "";
+    const alvo = card.querySelector<HTMLElement>("[data-faltam]");
+    if (alvo && texto) alvo.textContent = ` · ${texto}`;
+  });
+  document.querySelectorAll<HTMLElement>("[data-mes]").forEach((mes) => {
+    if (!mes.querySelector(".event-card")) mes.remove();
+  });
+  const contador = document.querySelector<HTMLElement>("[data-contador-eventos]");
+  if (contador) contador.textContent = String(document.querySelectorAll(".event-card").length);
 </script>
 
 <style>
-  /* O perfil fica estreito; os cursos (carrossel e cards) usam a largura toda. */
   .hub-container {
     max-width: 992px;
     margin: 0 auto;
-    padding: 48px 32px;
+    padding: 48px 32px 32px;
     position: relative;
     z-index: 1;
   }
 
-  /* ── Profile section ── */
+  /* ── Perfil: em coluna no celular, em linha a partir de 720 px ── */
   .hub-profile {
-    max-width: 416px;
-    margin-inline: auto;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 16px;
     text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .perfil-texto {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
   }
 
   .mentor-photo {
+    flex: none;
     width: 128px;
     height: 128px;
     border-radius: 50%;
@@ -249,19 +346,87 @@ const eventSlides = eventos.flatMap((e) =>
   .bio {
     font-family: var(--font-body);
     font-size: 1rem;
-    font-weight: 400;
     line-height: 1.5;
-    color: var(--texto-secundario);
+    color: var(--nucleo-eletrico);
     margin: 0;
   }
 
-  /* ── Social links ── */
+  .tagline {
+    font-family: var(--font-body);
+    font-size: 1.0625rem;
+    line-height: 1.5;
+    color: var(--texto-secundario);
+    margin: 0;
+    max-width: 52ch;
+  }
+
+  .perfil-rodape {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px 16px;
+    margin-top: 4px;
+  }
+
+  .atalhos {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .atalhos a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline-strong);
+    background: rgb(var(--rgb-cartao) / 0.6);
+    color: var(--texto-principal);
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .atalhos a:hover {
+    border-color: var(--nucleo-eletrico);
+    color: var(--nucleo-eletrico);
+  }
+
+  @media (min-width: 720px) {
+    .hub-profile {
+      flex-direction: row;
+      align-items: center;
+      gap: 32px;
+      text-align: left;
+    }
+
+    .mentor-photo {
+      width: 144px;
+      height: 144px;
+    }
+
+    h1 {
+      font-size: 2.25rem;
+    }
+
+    .perfil-rodape,
+    .atalhos {
+      justify-content: flex-start;
+    }
+  }
+
+  /* ── Redes sociais ── */
   .social-links {
     display: flex;
-    flex-direction: row;
-    gap: 16px;
-    justify-content: center;
-    margin: 8px 0 0;
+    gap: 4px;
+    margin: 0;
     padding: 0;
     list-style: none;
   }
@@ -270,7 +435,8 @@ const eventSlides = eventos.flatMap((e) =>
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 10px;
+    min-width: 44px;
+    min-height: 44px;
     color: var(--texto-terciario);
     text-decoration: none;
     transition: color 0.2s ease, filter 0.2s ease;
@@ -282,30 +448,6 @@ const eventSlides = eventos.flatMap((e) =>
     filter: drop-shadow(0 0 6px rgb(var(--rgb-ciano) / 0.6));
   }
 
-  /* ── Divider ── */
-  .hub-divider {
-    border: none;
-    border-top: 1px solid var(--hairline-strong);
-    max-width: 416px;
-    margin: 24px auto;
-  }
-
-  /* ── Courses section ── */
-  .hub-courses {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .hub-courses h2 {
-    font-family: var(--font-body);
-    font-size: 1.25rem;
-    font-weight: 600;
-    line-height: 1.2;
-    color: var(--texto-principal);
-    margin: 0 0 8px 0;
-  }
-
   /* ── Abas ── */
   .hub-abas {
     display: flex;
@@ -313,6 +455,7 @@ const eventSlides = eventos.flatMap((e) =>
     gap: 0 8px;
     border-bottom: 1px solid var(--hairline-strong);
     margin-bottom: 24px;
+    scroll-margin-top: 16px;
   }
 
   .hub-abas[hidden] {
@@ -323,7 +466,7 @@ const eventSlides = eventos.flatMap((e) =>
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    min-height: 44px;
+    min-height: 48px;
     padding: 0 16px;
     border: 0;
     border-bottom: 3px solid transparent;
@@ -349,11 +492,23 @@ const eventSlides = eventos.flatMap((e) =>
     min-width: 22px;
     padding: 0 6px;
     border-radius: 999px;
-    background: var(--chama-primaria);
-    color: #ffffff;
+    background: rgb(var(--rgb-texto) / 0.16);
+    color: var(--texto-principal);
     font-size: 0.75rem;
     line-height: 22px;
     text-align: center;
+  }
+
+  [aria-selected="true"] .aba-contador {
+    background: var(--chama-primaria);
+    color: #ffffff;
+  }
+
+  /* ── Painéis ── */
+  .hub-painel {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
   }
 
   .hub-painel + .hub-painel {
@@ -368,29 +523,45 @@ const eventSlides = eventos.flatMap((e) =>
     outline-offset: 8px;
   }
 
-  .event-meta {
-    display: grid;
-    gap: 4px;
-    margin: 0 0 12px;
+  .hub-painel h2 {
     font-family: var(--font-body);
-    font-size: 0.9375rem;
+    font-size: 1.25rem;
+    font-weight: 600;
     color: var(--texto-principal);
-  }
-
-  .event-meta div {
-    display: flex;
-    gap: 8px;
-  }
-
-  .event-meta dt {
-    min-width: 64px;
-    color: var(--texto-terciario);
-  }
-
-  .event-meta dd {
     margin: 0;
   }
 
+  .painel-intro {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--texto-secundario);
+    margin: 0;
+    max-width: 70ch;
+  }
+
+  .mes {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Eventos têm mais texto (data, local, três ações): duas colunas no máximo. */
+  .mes .course-list {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
+  }
+
+  .mes-titulo {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--texto-terciario);
+    margin: 8px 0 0;
+  }
+
+  /* ── Cards ── */
   .course-list {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
@@ -400,16 +571,10 @@ const eventSlides = eventos.flatMap((e) =>
   .course-card {
     display: flex;
     flex-direction: column;
-  }
-
-  .course-actions {
-    margin-top: auto;
-  }
-
-  .course-card {
+    gap: 12px;
     background: rgb(var(--rgb-cartao) / 0.6);
     border: 1px solid var(--hairline);
-    border-radius: 4px;
+    border-radius: 8px;
     padding: 24px;
     transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
   }
@@ -434,7 +599,6 @@ const eventSlides = eventos.flatMap((e) =>
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 12px;
     flex-wrap: wrap;
   }
 
@@ -452,7 +616,6 @@ const eventSlides = eventos.flatMap((e) =>
   .badge {
     font-family: var(--font-mono);
     font-size: 0.75rem;
-    font-weight: 400;
     text-transform: uppercase;
     letter-spacing: 0.18em;
     padding: 2px 8px;
@@ -460,45 +623,134 @@ const eventSlides = eventos.flatMap((e) =>
     white-space: nowrap;
   }
 
-  .badge-active {
-    color: var(--sucesso);
-    border: 1px solid var(--sucesso);
-  }
-
   .badge-coming-soon {
     color: var(--alerta);
     border: 1px solid var(--alerta);
   }
 
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .chip {
+    padding: 2px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline);
+    color: var(--texto-secundario);
+    font-family: var(--font-body);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+
+  .chip-forte {
+    border-color: var(--sucesso);
+    color: var(--sucesso);
+  }
+
+  .chip-alerta {
+    border-color: var(--alerta);
+    color: var(--alerta);
+  }
+
   .course-description {
     font-family: var(--font-body);
     font-size: 1rem;
-    font-weight: 400;
     line-height: 1.5;
     color: var(--texto-secundario);
-    margin: 0 0 16px 0;
+    margin: 0;
   }
 
+  /* Data em destaque, como uma folhinha de calendário */
+  .event-topo {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .event-data {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 64px;
+    padding: 8px 6px;
+    margin: 0;
+    border-radius: 8px;
+    border: 1px solid var(--hairline-strong);
+    background: rgb(var(--rgb-ciano) / 0.08);
+    line-height: 1;
+  }
+
+  .event-dia {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--texto-principal);
+  }
+
+  .event-mes {
+    margin-top: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--nucleo-eletrico);
+  }
+
+  .event-quando {
+    margin: 4px 0 0;
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    color: var(--texto-secundario);
+  }
+
+  .event-faltam {
+    color: var(--nucleo-eletrico);
+    font-weight: 600;
+  }
+
+  .event-onde {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--texto-principal);
+  }
+
+  /* ── Ações ── */
   .course-actions {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 12px;
+    gap: 8px 12px;
+    margin-top: auto;
+    padding-top: 4px;
   }
 
   /* Alvos de toque de 44px (WCAG 2.5.5) */
   .course-link,
-  .course-star {
+  .course-star,
+  .link-texto {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     min-height: 44px;
-    padding: 0 16px;
-    border-radius: 4px;
     font-family: var(--font-body);
     font-size: 0.875rem;
     font-weight: 600;
     text-decoration: none;
+  }
+
+  .course-link,
+  .course-star {
+    padding: 0 16px;
+    border-radius: 4px;
   }
 
   .course-link {
@@ -515,21 +767,51 @@ const eventSlides = eventos.flatMap((e) =>
     color: var(--texto-principal);
   }
 
-  .course-star svg {
-    color: var(--alerta);
-  }
-
   .course-star:hover {
     border-color: var(--nucleo-eletrico);
     color: var(--nucleo-eletrico);
   }
 
+  .link-texto {
+    padding: 0 4px;
+    color: var(--texto-secundario);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .link-texto svg {
+    color: var(--alerta);
+  }
+
+  .link-texto:hover {
+    color: var(--nucleo-eletrico);
+  }
+
+  /* ── Rodapé (o espaço embaixo deixa o botão ♿ sem cobrir os links) ── */
   .hub-footer {
     position: relative;
     z-index: 1;
+    max-width: 992px;
+    margin: 32px auto 0;
+    padding: 24px 32px 96px;
+    border-top: 1px solid var(--hairline);
     display: flex;
-    justify-content: center;
-    padding: 0 16px 80px;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    color: var(--texto-terciario);
+  }
+
+  .hub-footer ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
   .hub-footer a {
@@ -543,7 +825,11 @@ const eventSlides = eventos.flatMap((e) =>
     color: var(--nucleo-eletrico);
   }
 
-  /* ── Responsive: mobile ── */
+  .hub-footer p {
+    margin: 0;
+  }
+
+  /* ── Celular ── */
   @media (max-width: 480px) {
     .mentor-photo {
       width: 96px;
@@ -551,26 +837,27 @@ const eventSlides = eventos.flatMap((e) =>
     }
 
     .hub-container {
-      padding: 48px 16px;
+      padding: 32px 16px 16px;
     }
 
     .course-card {
       padding: 16px;
     }
+
+    .hub-footer {
+      padding: 16px 16px 96px;
+    }
   }
 
-  /* ── Reduced motion ── */
+  /* ── Menos movimento ── */
   @media (prefers-reduced-motion: reduce) {
-    .social-icon-link {
+    .social-icon-link,
+    .course-card {
       transition: none;
     }
 
     .social-icon-link:hover {
       filter: none;
-    }
-
-    .course-card {
-      transition: none;
     }
 
     .course-card.active:hover {

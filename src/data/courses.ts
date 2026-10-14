@@ -14,6 +14,8 @@ export interface Course {
   external?: boolean;
   /** Repositório público no GitHub: o card mostra "Dar uma star". */
   repo?: string;
+  /** Total de exercícios corrigidos na hora (aparece como destaque no card). */
+  exercises?: number;
   /** Banner 1584×396 do carrossel do hub, com o texto alternativo. */
   banner?: { src: ImageMetadata; alt: string };
 }
@@ -21,7 +23,8 @@ export interface Course {
 export const courses: Course[] = [
   {
     title: 'DivergePHP',
-    description: 'Aprenda PHP do zero, grátis e no navegador: 73 exercícios de HTML, W3.CSS, PHP e PDO corrigidos na hora, com certificados.',
+    description: 'Aprenda PHP do zero no navegador: HTML, W3.CSS, PHP e banco de dados com PDO, com correção na hora.',
+    exercises: 73,
     url: 'https://sertaoseracloud.github.io/php-playground/',
     status: 'active',
     external: true,
@@ -33,7 +36,8 @@ export const courses: Course[] = [
   },
   {
     title: 'DivergeTerraform',
-    description: 'Aprenda Terraform do zero, grátis e sem conta na nuvem: 200 exercícios de HCL, AWS e Azure corrigidos na hora, com certificados.',
+    description: 'Aprenda Terraform do zero com HCL, AWS e Azure num simulador próprio: sem conta na nuvem e sem custo.',
+    exercises: 200,
     url: 'https://sertaoseracloud.github.io/terraform-playground/',
     status: 'active',
     external: true,
@@ -45,7 +49,8 @@ export const courses: Course[] = [
   },
   {
     title: 'DivergePython',
-    description: 'Aprenda Python do zero, grátis e no navegador: 115 exercícios de Python básico, dados e paralelismo de verdade corrigidos na hora, com certificados. Novos módulos até o PySpark.',
+    description: 'Aprenda Python do zero no navegador: básico, dados e paralelismo de verdade. Novos módulos até o PySpark.',
+    exercises: 115,
     url: 'https://sertaoseracloud.github.io/python-playground/',
     status: 'active',
     external: true,

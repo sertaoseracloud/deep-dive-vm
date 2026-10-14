@@ -29,6 +29,8 @@ export interface Event {
   when: string;
   where: string;
   format: 'Presencial' | 'On-line' | 'Híbrido';
+  /** Inscrição gratuita (todas as regionais da MVPConf são). */
+  free: boolean;
   site: string;
   links: EventLink[];
 }
@@ -75,11 +77,12 @@ function regional(r: {
   return {
     id: `mvpconf-regional-${r.id}`,
     title: `MVP Conf Regional ${r.cidade}`,
-    description: `${r.lema} Meetup da MVP Conference com palestras práticas e networking. Inscrição e participação gratuitas, com certificado.`,
+    description: `${r.lema} Meetup da MVP Conference com palestras práticas, networking e certificado de participação.`,
     dates: [r.data],
     when: r.when,
     where: `${r.local} · ${r.endereco}`,
     format: 'Presencial',
+    free: true,
     site,
     links,
   };
@@ -158,6 +161,7 @@ export const events: Event[] = [
     when: '22 e 23 de outubro de 2027',
     where: 'UNIP Vergueiro · Rua Vergueiro, 1211 · São Paulo, SP',
     format: 'Presencial',
+    free: false,
     site: 'https://mvpconf.com.br/conf/br/2027',
     links: [
       {

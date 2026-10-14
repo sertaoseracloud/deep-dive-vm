@@ -164,7 +164,7 @@ test.describe("Hub abas", () => {
     expect(await cards.count()).toBeGreaterThanOrEqual(1);
     expect(await painel.locator("[data-slide]").count()).toBeGreaterThanOrEqual(2);
     // Do mais próximo para o mais distante: a MVPConf 2027 é o último card.
-    await expect(cards.last().locator("h3")).toHaveText("MVPConf 2027");
+    await expect(cards.last().locator("h4")).toHaveText("MVPConf 2027");
 
     // Carrossel de eventos: com mais de 5 banners, um contador no lugar dos pontos.
     const slides = await painel.locator("[data-slide]").count();
@@ -172,11 +172,11 @@ test.describe("Hub abas", () => {
       await painel.getByRole("button", { name: "Próximo banner" }).click();
       await expect(painel.locator("[data-contador]")).toHaveText(`2 de ${slides}`);
     }
-    await expect(painel.getByRole("link", { name: /Inscrição da MVPConf 2027/ })).toHaveAttribute(
+    await expect(painel.getByRole("link", { name: /Inscrever-se na MVPConf 2027/ })).toHaveAttribute(
       "href",
       "https://mvpconf.com.br/conf/br/2027/register"
     );
-    await expect(painel.getByRole("link", { name: /Call for papers da MVPConf 2027/ })).toHaveAttribute(
+    await expect(painel.getByRole("link", { name: /Enviar palestra para a MVPConf 2027/ })).toHaveAttribute(
       "href",
       "https://mvpconf.com.br/conf/br/2027#contato"
     );
@@ -202,6 +202,53 @@ test.describe("Hub abas", () => {
     await page.goto("./#eventos");
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag22aa"]).analyze();
     expect(results.violations.filter((v) => v.impact === "critical" || v.impact === "serious")).toEqual([]);
+  });
+});
+
+test.describe("Hub UX", () => {
+  test("atalhos do perfil abrem a aba certa e levam o foco até ela", async ({ page }) => {
+    await page.goto("./");
+    await page.getByRole("link", { name: /próximos eventos/ }).click();
+    const eventos = page.getByRole("tab", { name: /Eventos/ });
+    await expect(eventos).toHaveAttribute("aria-selected", "true");
+    await expect(eventos).toBeFocused();
+    await page.getByRole("link", { name: /cursos gratuitos/ }).click();
+    await expect(page.getByRole("tab", { name: "Cursos" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("cards de evento mostram data em destaque, destaques e quanto falta", async ({ page }) => {
+    // Relógio fixo perto da MVPConf 2027 (os eventos anteriores somem sozinhos).
+    await page.clock.setFixedTime(new Date("2027-10-01T10:00:00"));
+    await page.goto("./#eventos");
+    const card = page.locator(".event-card").filter({ hasText: "MVPConf 2027" });
+    await expect(card.locator(".event-data")).toContainText("22–23");
+    await expect(card.locator(".chip")).toHaveText(["Presencial", "Renda para ONGs", "Call for papers aberto"]);
+    await expect(card.locator("[data-faltam]")).toHaveText(" · faltam 21 dias");
+    await expect(page.locator(".mes-titulo")).toHaveText(["outubro de 2027"]);
+  });
+
+  test("regionais aparecem como gratuitas", async ({ page }) => {
+    await page.goto("./#eventos");
+    const regionais = page.locator(".event-card").filter({ hasText: "MVP Conf Regional" });
+    for (const card of await regionais.all()) {
+      await expect(card.locator(".chip").filter({ hasText: "Gratuito" })).toBeVisible();
+    }
+  });
+
+  test("eventos que já acabaram somem e o contador da aba acompanha", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-20T10:00:00"));
+    await page.goto("./#eventos");
+    const titulos = await page.locator(".event-card h4").allTextContents();
+    expect(titulos).not.toContain("MVP Conf Regional Manaus"); // 12/11
+    expect(titulos).toContain("MVPConf 2027");
+    await expect(page.locator("[data-contador-eventos]")).toHaveText(String(titulos.length));
+  });
+
+  test("sem buracos: o carrossel começa logo abaixo das abas", async ({ page }) => {
+    await page.goto("./");
+    const abas = await page.locator(".hub-abas").boundingBox();
+    const carrossel = await page.getByRole("region", { name: "Banners dos cursos" }).boundingBox();
+    expect(carrossel!.y - (abas!.y + abas!.height)).toBeLessThan(160);
   });
 });
 

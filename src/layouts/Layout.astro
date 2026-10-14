@@ -280,11 +280,6 @@ const resolvedDescription = description ?? "Cursos gratuitos e acessíveis e eve
 		background: var(--abismo-profundo);
 	}
 
-	:root[data-tema="alto-contraste"] .hero::before,
-	:root[data-tema="suave"] .hero::before,
-	:root[data-tema="claro"] .hero::before {
-		display: none;
-	}
 
 	:root[data-tema="alto-contraste"] *,
 	:root[data-tema="suave"] *,
@@ -406,30 +401,4 @@ const resolvedDescription = description ?? "Cursos gratuitos e acessíveis e eve
 		);
 	}
 
-	.container {
-		max-width: 1240px;
-		margin: 0 auto;
-		padding: 0 32px;
-	}
-
-	@media (max-width: 480px) {
-		.container {
-			padding: 0 16px;
-		}
-	}
-	/* ————————————————————————————————
-     Section primitives (Fiel ao original)
-  ———————————————————————————————— */
-	section {
-		position: relative;
-		z-index: 1;
-		padding: 96px 0;
-		background: transparent; /* Garante a visibilidade do fundo ambient */
-	}
-
-	@media (max-width: 720px) {
-		section {
-			padding: 64px 0;
-		}
-	}
 </style>

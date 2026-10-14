@@ -9,6 +9,7 @@ const evento = (title: string, dates: string[]): Event => ({
   when: "",
   where: "",
   format: "Presencial",
+  free: true,
   site: "https://exemplo.com",
   links: [],
 });
@@ -43,7 +44,7 @@ describe("eventos", () => {
       expect(e.links[0]).toMatchObject({ label: "Inscrição", url: `${e.site}/register` });
       expect(e.site).toMatch(/^https:\/\/mvpconf\.com\.br\/regional\//);
       expect(e.links.every((l) => l.banner && l.banner.alt.includes(e.when))).toBe(true);
-      expect(e.description).toContain("gratuitas");
+      expect(e.free).toBe(true);
     }
     expect(regionais.filter((e) => e.links.some((l) => l.label === "Call for papers")).map((e) => e.id)).toEqual([
       "mvpconf-regional-florianopolis",
