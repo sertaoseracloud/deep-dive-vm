@@ -43,7 +43,14 @@ const ano = new Date().getFullYear();
     "@context": "https://schema.org",
     "@type": "Person",
     name: "Cláudio Filipe Lima Rapôso",
-    jobTitle: "Systems Architect",
+    jobTitle: "Lead Software Architecture & DevRel",
+    worksFor: [
+      { "@type": "Organization", name: "NTT DATA Europe & Latam" },
+      { "@type": "EducationalOrganization", name: "UniSENAI Santa Catarina" },
+    ],
+    award: ["Microsoft MVP", "Docker Captain", "AWS Golden Jacket"],
+    knowsAbout: ["Arquitetura de software", "AWS", "Microsoft Azure", "Kubernetes", "Docker", "Terraform", "DevSecOps", "IA, LLMs e RAG"],
+    knowsLanguage: ["pt-BR", "en", "es"],
     url: "https://mentoria.sertaoseracloud.com/",
     sameAs: socialLinks.map((s) => s.url),
   }}
@@ -56,16 +63,20 @@ const ano = new Date().getFullYear();
       <header class="hub-profile">
         <Image
           src={claudio2}
-          alt="Cláudio Filipe Lima Raposo — mentor"
+          alt="Cláudio Filipe Lima Rapôso"
           width={128}
           height={128}
           class="mentor-photo"
           loading="eager"
         />
         <div class="perfil-texto">
-          <h1>Cláudio Filipe Lima Raposo</h1>
-          <p class="bio">Systems Architect · 2× MVP Microsoft · Docker Captain</p>
-          <p class="tagline">Cursos gratuitos e acessíveis no navegador e a agenda de eventos da comunidade.</p>
+          <h1>Cláudio Filipe Lima Rapôso</h1>
+          <p class="bio">Arquiteto de Soluções · Microsoft MVP · Docker Captain · AWS Golden Jacket</p>
+          <p class="tagline">
+            Lead Software Architecture &amp; DevRel na NTT DATA e professor no UniSENAI SC. Mais de 10 anos em
+            arquitetura de software e cloud (AWS e Azure) e mais de 1.000 pessoas mentoradas. Aqui ficam meus
+            cursos gratuitos e acessíveis e a agenda de eventos da comunidade.
+          </p>
           <div class="perfil-rodape">
             <ul class="atalhos" aria-label="Atalhos">
               <li><a href="#cursos" data-ir-aba="cursos">{cursosAtivos} cursos gratuitos</a></li>
@@ -357,7 +368,7 @@ const ano = new Date().getFullYear();
     line-height: 1.5;
     color: var(--texto-secundario);
     margin: 0;
-    max-width: 52ch;
+    max-width: 62ch;
   }
 
   .perfil-rodape {

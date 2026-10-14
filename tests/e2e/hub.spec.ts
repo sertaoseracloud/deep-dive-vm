@@ -61,7 +61,8 @@ test.describe("Hub load", () => {
     await page.goto("./");
     const bio = page.locator(".bio");
     await expect(bio).toBeVisible();
-    await expect(bio).toContainText("Systems Architect · 2× MVP Microsoft · Docker Captain");
+    await expect(bio).toContainText("Arquiteto de Soluções · Microsoft MVP · Docker Captain · AWS Golden Jacket");
+    await expect(page.locator("h1")).toHaveText("Cláudio Filipe Lima Rapôso");
   });
 
   test("course links point to the PHP, Terraform and Python playgrounds", async ({ page }) => {

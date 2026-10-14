@@ -1,6 +1,11 @@
 # O Sertão será Cloud — mentoria.sertaoseracloud.com
 
-Hub do Cláudio Filipe Lima Rapôso (Systems Architect, 2× Microsoft MVP, Docker Captain) com cursos gratuitos e eventos da comunidade.
+Hub do Cláudio Filipe Lima Rapôso, Arquiteto de Soluções e Staff Software Engineer (Microsoft MVP, Docker Captain e AWS Golden Jacket), com cursos gratuitos e eventos da comunidade.
+
+## Sobre
+- Lead Software Architecture & DevRel na NTT DATA Europe & Latam e Especialista de Ensino em Big Data, Analytics e IA no UniSENAI Santa Catarina.
+- Mais de 10 anos em arquitetura de software, sistemas distribuídos e cloud (AWS e Microsoft Azure); mais de 1.000 profissionais e estudantes mentorados.
+- Certificações: AWS Solutions Architect (Professional e Associate), Microsoft Certified: Solutions Architect Expert e Microsoft Certified Trainer.
 
 ## Páginas
 - / : perfil, redes sociais e abas "Cursos" e "Eventos" (/#eventos)
