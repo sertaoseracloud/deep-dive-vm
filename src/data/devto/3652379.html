@@ -1,15 +1,15 @@
 <p>Managing long-lived credentials in a multicloud environment is a primary source of architectural fragility and security debt. When an application hosted on Microsoft Azure needs to access a private Amazon Web Services resource, such as an S3 bucket or a DynamoDB table, engineering teams often resort to creating IAM users with static access keys. These keys are frequently hardcoded, inadequately rotated, or leaked through insecure CI/CD pipelines, leading to unauthorized data egress and compromised compliance postures (Humble &amp; Farley, 2010). The definitive solution to this vulnerability is Workload Identity Federation using OpenID Connect (OIDC). By establishing a trust relationship between the Azure Active Directory (now Microsoft Entra ID) and the AWS Identity and Access Management (IAM) control plane, we eliminate the need for static secrets entirely. This article details the engineering process of implementing a secretless, short-lived credential exchange mechanism that leverages the native identity of the Azure workload to assume granular roles within AWS.</p>
 
-<h3 id="prerequisites">Prerequisites
-</h3>
+<h2 id="prerequisites">Prerequisites
+</h2>
 
 <p>Implementing this federation requires Terraform version 1.7.0 or higher to manage cross-provider identity resources. You must have administrative access to an Azure Subscription and an AWS Account. The implementation utilizes the AWS provider (version 5.40.0+) and the AzureRM provider (version 3.90.0+). For the application-side logic, Python 3.12 is required along with the <code>boto3</code> and <code>azure-identity</code> libraries. You should also possess a working knowledge of the JWT (JSON Web Token) structure and the OIDC protocol flow. Ensure that your Azure resources are assigned a System-Assigned or User-Assigned Managed Identity, as this provides the initial cryptographic proof of identity needed for the federation process.</p>
 
-<h3 id="stepbystep">Step-by-Step
-</h3>
+<h2 id="stepbystep">Step-by-Step
+</h2>
 
-<h4 id="step-1-establishing-the-oidc-trust-anchor-in-aws">Step 1: Establishing the OIDC Trust Anchor in AWS
-</h4>
+<h3 id="step-1-establishing-the-oidc-trust-anchor-in-aws">Step 1: Establishing the OIDC Trust Anchor in AWS
+</h3>
 
 <p>The first architectural requirement is to configure AWS to recognize Azure as a valid identity provider. We accomplish this by creating an IAM OIDC Provider that points to the unique issuer URL of the Azure tenant. This configuration allows the AWS Security Token Service (STS) to validate tokens signed by Microsoft. We use Terraform to automate this setup, specifying the client ID (the audience) that the Azure tokens will contain. By narrowing the audience to a specific application ID in Azure, we ensure that only tokens intended for this federation are accepted. This step is a critical implementation of the Least Privilege principle at the infrastructure level, as it prevents any arbitrary Azure token from being used as a baseline for identity in the AWS environment (Wardley, 2016).<br>
 </p>
@@ -60,8 +60,8 @@
 
 <p>This configuration creates a secure gateway for Azure identities. How do we ensure that a specific Azure Managed Identity is mapped to this AWS role while preventing other services in the same Azure tenant from assuming the same permissions?</p>
 
-<h4 id="step-2-implementing-attributebased-access-control-abac-mapping">Step 2: Implementing Attribute-Based Access Control (ABAC) Mapping
-</h4>
+<h3 id="step-2-implementing-attributebased-access-control-abac-mapping">Step 2: Implementing Attribute-Based Access Control (ABAC) Mapping
+</h3>
 
 <p>We address the risk of lateral movement by implementing Attribute-Based Access Control (ABAC) within the trust policy. Instead of a broad trust relationship with the entire Azure tenant, we refine the <code>Condition</code> block in the AWS IAM role to validate specific claims within the Azure JWT, such as the <code>sub</code> (subject) or custom roles. In our Python logic, we utilize the <code>azure-identity</code> library to acquire an access token for the specified audience. This token is then passed to the AWS STS <code>assume_role_with_web_identity</code> method. By enforcing a match between the <code>sub</code> claim (which contains the Azure Object ID) and the IAM policy, we guarantee that only the authorized microservice can assume the role. This pattern adheres to Hexagonal Architecture by treating the identity exchange as an external adapter, keeping the core domain logic clean of authentication mechanics.<br>
 </p>
@@ -115,8 +115,8 @@
 
 <p>This identity exchange provides the necessary credentials for cross-cloud operations. However, if the Azure workload needs to perform frequent operations, how do we optimize the token exchange to avoid hitting AWS STS rate limits or introducing unnecessary latency?</p>
 
-<h4 id="step-3-optimizing-credential-caching-and-refresh-cycles">Step 3: Optimizing Credential Caching and Refresh Cycles
-</h4>
+<h3 id="step-3-optimizing-credential-caching-and-refresh-cycles">Step 3: Optimizing Credential Caching and Refresh Cycles
+</h3>
 
 <p>High-performance architectures must minimize the overhead of the identity federation process by implementing an intelligent credential caching layer. Since the AWS STS credentials have a defined expiration period (typically one hour), requesting a new token for every individual API call is inefficient and introduces a single point of failure. We implement a wrapper that caches the <code>boto3.Session</code> object and only triggers a refresh when the current credentials are within a five-minute grace period of expiring. This strategy ensures that the application always has a valid session ready for use. By integrating this into the Hexagonal Architecture as a singleton adapter, we provide the domain services with a seamless interface to AWS resources while maintaining the security benefits of short-lived tokens and strictly avoiding local storage of secrets.<br>
 </p>
@@ -163,8 +163,8 @@
 
 <p>The credential lifecycle management ensures reliable access across cloud providers. What architectural safeguards are required to maintain security when an Azure Managed Identity is decommissioned but its associated AWS IAM role remains active?</p>
 
-<h3 id="common-troubleshooting">Common Troubleshooting
-</h3>
+<h2 id="common-troubleshooting">Common Troubleshooting
+</h2>
 
 <p>A frequent issue when configuring OIDC federation is a <code>Signature Verification Failed</code> error during the AWS STS call. This typically occurs because the OIDC thumbprint in the AWS OIDC Provider resource is outdated. Microsoft rotates its root CA certificates periodically. Ensure your Terraform configuration uses a dynamic thumbprint retrieval mechanism or includes the current root thumbprint for the Microsoft identity platform to prevent service disruption during rotation events.</p>
 
@@ -172,13 +172,13 @@
 
 <p>Finally, verify that the Azure Managed Identity has the <code>Sign-in</code> permission for the specific application registration. Without the correct service principal permissions in Azure, the <code>get_token</code> call will return a <code>403 Forbidden</code> error before the request even reaches the AWS boundary. Use the Azure CLI to validate the token content manually during the initial debugging phase to ensure all required claims are present.</p>
 
-<h3 id="conclusion">Conclusion
-</h3>
+<h2 id="conclusion">Conclusion
+</h2>
 
 <p>Implementing OIDC Workload Identity Federation is the most robust method for securing service-to-service communication between AWS and Azure. By eliminating static keys and leveraging short-lived, cryptographically verified tokens, you significantly reduce the risk of credential compromise. The use of Hexagonal adapters and intelligent caching ensures that this security posture does not come at the cost of performance or code maintainability. As a next step, consider implementing AWS IAM Access Analyzer to continuously monitor the federation trust policies, ensuring that your multicloud identity perimeter remains hardened against unauthorized changes or overly permissive configurations.</p>
 
-<h3 id="references">References
-</h3>
+<h2 id="references">References
+</h2>
 
 <p>Humble, J., &amp; Farley, D. (2010). <em>Continuous delivery: Reliable software releases through build, test, and deployment automation</em>. Pearson Education.</p>
 

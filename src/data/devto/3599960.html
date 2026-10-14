@@ -1,10 +1,10 @@
-<h4 id="introduction">Introduction
-</h4>
+<h3 id="introduction">Introduction
+</h3>
 
 <p>Distributed cellular architectures often suffer from observability fragmentation, where critical telemetry is trapped within isolated cloud silos. When an incident occurs in a cross-cloud cell, engineers frequently lose precious time toggling between disparate consoles, manually correlating timestamps, and attempting to reconstruct a unified trace of a failing transaction. This lack of a single pane of glass agitates the troubleshooting process, leading to increased Mean Time to Repair (MTTR) and hidden systemic failures that go undetected across cloud boundaries. The definitive architectural solution involves centralizing telemetry using AWS CloudWatch Cross-Account Observability and Azure Monitor with cross-resource queries. This strategy allows you to aggregate logs, metrics, and traces from multiple cells into a central monitoring account or workspace, providing a holistic view of the system's health while maintaining the strict operational isolation of the underlying compute cells.</p>
 
-<h4 id="prerequisites">Prerequisites
-</h4>
+<h3 id="prerequisites">Prerequisites
+</h3>
 
 <ul>
 <li>  Terraform v1.6.0+ with configurations for AWS and Azure monitoring providers.</li>
@@ -14,11 +14,11 @@
 <li>  Familiarity with KQL (Kusto Query Language) for complex telemetry analysis in Azure.</li>
 </ul>
 
-<h4 id="stepbystep">Step-by-Step
-</h4>
-
-<h3 id="establishing-telemetry-sinks-and-crossaccount-links">Establishing Telemetry Sinks and Cross-Account Links
+<h3 id="stepbystep">Step-by-Step
 </h3>
+
+<h2 id="establishing-telemetry-sinks-and-crossaccount-links">Establishing Telemetry Sinks and Cross-Account Links
+</h2>
 
 <p>The first requirement for cellular observability is the creation of a centralized telemetry sink that can receive data from isolated source accounts or subscriptions. In AWS, you configure a Monitoring Account to act as a sink for CloudWatch metrics and logs from multiple source accounts. In Azure, you leverage Log Analytics Workspaces as the central repository for logs and metrics across different resource groups or subscriptions. This centralized sink must be strictly decoupled from the cellular compute environments to ensure that a failure in a specific cell does not compromise the observability data required to diagnose that failure.<br>
 </p>
@@ -59,8 +59,8 @@
 
 <p>Once the sinks are established, how do you securely link the source cells to the central monitoring account without granting broad, over-privileged access to the underlying data?</p>
 
-<h3 id="configuring-source-links-and-resource-propagation">Configuring Source Links and Resource Propagation
-</h3>
+<h2 id="configuring-source-links-and-resource-propagation">Configuring Source Links and Resource Propagation
+</h2>
 
 <p>With the central sink ready, you must configure each application cell to stream its telemetry data to the monitoring account. In AWS, this is achieved via a CloudWatch Observability Access Manager (OAM) Link, which defines exactly which resource types are shared. In Azure, you use Diagnostic Settings to point resource telemetry toward the central Log Analytics Workspace. This selective propagation ensures that the central monitoring team has visibility into the health of the cell (the "what") without necessarily having access to the raw data stored within the cell (the "how"), preserving data sovereignty and security boundaries.<br>
 </p>
@@ -96,8 +96,8 @@
 
 <p>The telemetry data is now flowing into a centralized location. How do you construct a unified query that correlates an error log in an Azure cell with a latency spike in an AWS cell when they are triggered by the same global transaction ID?</p>
 
-<h3 id="unified-crosscloud-querying-and-correlation">Unified Cross-Cloud Querying and Correlation
-</h3>
+<h2 id="unified-crosscloud-querying-and-correlation">Unified Cross-Cloud Querying and Correlation
+</h2>
 
 <p>Correlation across clouds relies on the standardized propagation of Trace Context (TraceID) and the ability to perform cross-resource queries. In Azure, you use KQL to query across multiple workspaces or subscriptions simultaneously. In AWS, the CloudWatch console automatically aggregates metrics and logs from all linked accounts. To achieve a truly unified view, you must implement a Python script that pulls metrics from both providers using their respective SDKs and normalizes them into a consistent format for analysis. This script acts as the integration layer, allowing you to see a complete timeline of an event as it traverses the cellular fabric.<br>
 </p>
@@ -147,8 +147,8 @@
 
 <p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fykux5dpt3nfhbc4p52rz.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fykux5dpt3nfhbc4p52rz.png" alt="Solution Diagram" loading="lazy" width="800" height="338"></a></p>
 
-<h4 id="common-troubleshooting">Common Troubleshooting
-</h4>
+<h3 id="common-troubleshooting">Common Troubleshooting
+</h3>
 
 <ol>
 <li> <strong>Metric Namespace Collisions:</strong> When aggregating metrics from multiple cells, identical namespace names (e.g., <code>Production/Payments</code>) make it impossible to distinguish the source.
@@ -171,13 +171,13 @@
 </li>
 </ol>
 
-<h4 id="conclusion">Conclusion
-</h4>
+<h3 id="conclusion">Conclusion
+</h3>
 
 <p>Cellular observability transforms isolated streams of data into a cohesive narrative of system behavior. By implementing AWS CloudWatch Cross-Account Observability and Azure Monitor centralized logging, you gain the visibility necessary to manage complex, multi-cloud architectures. This centralized approach preserves the autonomy of individual cells while providing the high-level oversight required for global incident response. As a next step, you should explore the implementation of Synthetic Canaries that run from multiple geographic locations, simulating user traffic to validate that both the application logic and the observability pipelines are functioning correctly across all cloud boundaries.</p>
 
-<h4 id="references">References
-</h4>
+<h3 id="references">References
+</h3>
 
 <p>Amazon Web Services. (2023). <em>CloudWatch cross-account observability</em>. AWS User Guide. <a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html" target="_blank" rel="noopener noreferrer">https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-Unified-Cross-Account.html</a></p>
 

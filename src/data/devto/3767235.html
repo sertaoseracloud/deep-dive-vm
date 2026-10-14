@@ -1,15 +1,15 @@
 <p>Distributed systems utilizing asynchronous messaging often consolidate their event routing through a singular, regional message broker. When this centralized infrastructure degrades, the entire choreography of the microservices ecosystem halts. Critical domain events, such as payment confirmations or inventory deductions, become trapped in volatile memory or are dropped entirely, leading to irreversible data corruption across bounded contexts. Engineering teams can construct an infallible, highly available messaging topology by implementing a federated multicloud event backbone. Bridging Amazon EventBridge with Azure Service Bus creates an active-active event mesh that transcends vendor specific outages. This architecture guarantees strict at-least-once delivery across cloud boundaries, ensuring that high-throughput enterprise platforms maintain absolute data consistency and operational continuity even during catastrophic regional failures.</p>
 
-<h3 id="prerequisites">Prerequisites
-</h3>
+<h2 id="prerequisites">Prerequisites
+</h2>
 
 <p>Constructing a multicloud event mesh requires advanced knowledge of Domain-Driven Design principles, specifically domain events and the Outbox pattern. The deployment relies strictly on Infrastructure as Code to manage cross-provider state. Ensure the local environment is configured with Terraform version 1.7.0 or newer, utilizing the HashiCorp AWS Provider version 5.40.0 and the AzureRM Provider version 3.90.0. The core routing logic and consumer adapters require Python 3.12. Dependencies include <code>boto3</code> version 1.34.0 for AWS data plane interactions and <code>azure-servicebus</code> version 7.11.0 for cross-boundary ingestion. Administrative access to configure Azure Active Directory (Azure AD) App Registrations for OAuth2 client credentials is mandatory.</p>
 
-<h3 id="stepbystep-implementation">Step-by-Step Implementation
-</h3>
+<h2 id="stepbystep-implementation">Step-by-Step Implementation
+</h2>
 
-<h3 id="establishing-the-crosscloud-routing-topology">Establishing the Cross-Cloud Routing Topology
-</h3>
+<h2 id="establishing-the-crosscloud-routing-topology">Establishing the Cross-Cloud Routing Topology
+</h2>
 
 <p>We architect the external routing layer by configuring Amazon EventBridge to forward domain events directly into an Azure Service Bus queue via an API Destination. The architectural justification for this direct integration is the elimination of intermediate compute layers. Relying on an AWS Lambda function purely to poll EventBridge and push HTTP requests to Azure introduces unnecessary latency, increases cost, and creates an additional point of failure. EventBridge API Destinations handle the HTTP egress natively, managing the OAuth2 client credentials grant flow with Azure AD securely under the hood. By configuring an AWS CloudWatch Event Connection to fetch access tokens from the Microsoft identity platform, EventBridge guarantees secure, encrypted payload delivery to the Azure Service Bus namespace. This ensures that the AWS event bus remains entirely decoupled from the Azure consumer logic, establishing a clean boundary between the cloud environments.<br>
 </p>
@@ -87,8 +87,8 @@
 
 <p>If the routing layer is highly available, how do we prevent the system from dropping events immediately at the source when the primary database commits successfully but the subsequent network call to EventBridge times out?</p>
 
-<h3 id="guaranteeing-delivery-via-transactional-outbox">Guaranteeing Delivery via Transactional Outbox
-</h3>
+<h2 id="guaranteeing-delivery-via-transactional-outbox">Guaranteeing Delivery via Transactional Outbox
+</h2>
 
 <p>We prevent immediate data loss during source network timeouts by implementing the Transactional Outbox pattern within our Python domain logic on AWS. The core architectural reasoning addresses the fundamental distributed systems flaw known as the dual write problem. Attempting to update a database record and publish an event to EventBridge in two distinct operations cannot be guaranteed atomically. If the database commit succeeds but the EventBridge <code>PutEvents</code> API call fails due to a transient network partition, the system state mutates silently, and downstream Azure consumers never receive the notification. By utilizing Amazon DynamoDB, we bundle the business state mutation and the domain event payload into a single atomic transaction. We write the event directly into an <code>Outbox</code> table. A background process, typically a DynamoDB Stream triggering a Lambda function, asynchronously polls this table and guarantees delivery to EventBridge. This decouples the synchronous user request from the asynchronous multicloud delivery mechanism, providing robust fault tolerance.<br>
 </p>
@@ -163,8 +163,8 @@
 
 <p>If the Outbox publisher safely retries failed network calls to guarantee delivery, how does the Azure consumer distinguish between a legitimate state transition and a duplicated network payload arriving hours later?</p>
 
-<h3 id="enforcing-crossboundary-idempotency">Enforcing Cross-Boundary Idempotency
-</h3>
+<h2 id="enforcing-crossboundary-idempotency">Enforcing Cross-Boundary Idempotency
+</h2>
 
 <p>The Azure consumer distinguishes between unique state transitions and duplicated payloads by enforcing strict idempotency controls at the ingress adapter layer. Because the multicloud topology relies on at-least-once delivery semantics, duplicate events are not an anomaly; they are a mathematical certainty. The architectural necessity here is preventing these duplicates from triggering secondary side effects, such as processing a financial transaction twice. The Azure worker executing the Python Service Bus client must extract the deterministic <code>event_id</code> generated by the AWS source. Before processing the business logic, the consumer queries a highly performant distributed cache, such as Azure Cache for Redis, using the <code>event_id</code> as the key. If the key exists, the consumer immediately acknowledges and discards the message, treating the execution as a success. If the key does not exist, the consumer processes the payload, commits the database changes, and saves the <code>event_id</code> to the cache in a single atomic transaction, ensuring absolute consistency across the multicloud boundary.<br>
 </p>
@@ -224,20 +224,20 @@
 
 
 
-<h3 id="common-troubleshooting">Common Troubleshooting
-</h3>
+<h2 id="common-troubleshooting">Common Troubleshooting
+</h2>
 
 <p>When deploying EventBridge API Destinations to target Azure resources, HTTP 401 Unauthorized errors are a common failure point. If the EventBridge invocation metrics show failed deliveries, inspect the AWS CloudWatch logs. An <code>invalid_client</code> error indicates that the Azure AD App Registration secret has expired or the client ID within the <code>aws_cloudwatch_event_connection</code> resource is incorrect. Ensure the secret is rotated in both Terraform state and Azure AD simultaneously.</p>
 
 <p>Another critical failure occurs when Azure Service Bus Dead Letter Queues (DLQ) rapidly fill with messages. This typically indicates a Poison Message scenario where the Azure Python consumer encounters an unhandled exception, causing the message lock to expire and returning the message to the queue. After exceeding the <code>MaxDeliveryCount</code> parameter, the broker moves the message to the DLQ. You must implement aggressive error handling in the consumer adapter and monitor the DLQ depth to quickly identify mismatched data schemas between the AWS publisher and the Azure subscriber.</p>
 
-<h3 id="conclusion">Conclusion
-</h3>
+<h2 id="conclusion">Conclusion
+</h2>
 
 <p>Orchestrating a multicloud event mesh using AWS EventBridge and Azure Service Bus establishes a highly resilient foundation for distributed microservices. By combining the Transactional Outbox pattern to prevent source data loss with strict idempotency controls on the consumer edge, engineering teams guarantee systemic data consistency across vast vendor networks. As platform throughput scales, organizations should consider migrating the underlying messaging fabric to Apache Kafka utilizing managed services like Confluent Cloud. This evolution introduces strict event ordering and indefinite stream replayability, allowing complex temporal queries across the entire multicloud domain history.</p>
 
-<h3 id="references">References
-</h3>
+<h2 id="references">References
+</h2>
 
 <p>Fowler, M. (2011). <em>Domain event</em>. Martin Fowler. <a href="https://martinfowler.com/eaaDev/DomainEvent.html" target="_blank" rel="noopener noreferrer">https://martinfowler.com/eaaDev/DomainEvent.html</a></p>
 

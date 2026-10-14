@@ -1,10 +1,10 @@
-<h4 id="introduction">Introduction
-</h4>
+<h3 id="introduction">Introduction
+</h3>
 
 <p>Data gravity often forces architectural compromises that lead to regional lock-in and high-latency cross-cloud synchronization. When building cellular systems, the primary challenge is ensuring that data remains local to the compute cell for performance while remaining globally available for disaster recovery. Traditional active-passive database replication creates a bottleneck where a failure in the primary region halts all write operations across the entire global fabric. Agitating the problem, manual conflict resolution in multi-master setups often leads to data corruption or "last-writer-wins" scenarios that destroy business logic integrity. The definitive architectural solution involves implementing truly multi-region, multi-active state stores using AWS DynamoDB Global Tables and Azure Cosmos DB with multi-region writes. This approach ensures that every cell has a local, writable copy of the data, providing single-digit millisecond latency and deterministic conflict resolution managed by the cloud control plane.</p>
 
-<h4 id="prerequisites">Prerequisites
-</h4>
+<h3 id="prerequisites">Prerequisites
+</h3>
 
 <ul>
 <li>  Terraform v1.6.0+ with providers for AWS and Azure.</li>
@@ -14,11 +14,11 @@
 <li>  Familiarity with CRDTs (Conflict-free Replicated Data Types) and vector clocks for eventual consistency management.</li>
 </ul>
 
-<h4 id="stepbystep">Step-by-Step
-</h4>
-
-<h3 id="provisioning-multiactive-global-state-stores">Provisioning Multi-Active Global State Stores
+<h3 id="stepbystep">Step-by-Step
 </h3>
+
+<h2 id="provisioning-multiactive-global-state-stores">Provisioning Multi-Active Global State Stores
+</h2>
 
 <p>To achieve cellular isolation, each cell must interact with a database endpoint that is physically co-located within the same cloud region. You must provision database resources that support native, hardware-accelerated replication across geographic boundaries. AWS DynamoDB Global Tables automate the creation of identical tables across regions, handling the underlying stream-based replication. In Azure, Cosmos DB allows you to enable multi-region writes, turning every regional replica into a writable endpoint. This configuration eliminates the need for cross-region "home" routing, ensuring that a network partition between AWS and Azure does not stop a local cell from processing transactions.<br>
 </p>
@@ -81,8 +81,8 @@
 
 <p>With writable endpoints available in every region, how do you prevent conflicting updates to the same record from occurring simultaneously in two different cells, and how is the "winner" determined without human intervention?</p>
 
-<h3 id="defining-conflict-resolution-policies-for-distributed-cells">Defining Conflict Resolution Policies for Distributed Cells
-</h3>
+<h2 id="defining-conflict-resolution-policies-for-distributed-cells">Defining Conflict Resolution Policies for Distributed Cells
+</h2>
 
 <p>When two cells update the same partition key at the same time, the system must have a deterministic way to resolve the collision. AWS DynamoDB Global Tables use a "Last Writer Wins" (LWW) strategy based on a hidden timestamp attribute managed by the service. Azure Cosmos DB offers more flexibility, allowing you to define custom conflict resolution policies, such as using a specific numeric property (e.g., a version counter) or a stored procedure to merge changes. You must choose a strategy that aligns with your domain logic; for financial transactions, a version-based check is often superior to a timestamp. This layer of logic ensures that the state across all cells eventually converges to a consistent value without requiring expensive distributed locks.<br>
 </p>
@@ -109,8 +109,8 @@
 
 <p>The system is now replicating state and resolving conflicts. How do you measure the "staleness" of the data in a follower cell to ensure that your application logic does not make critical decisions based on out-of-date information during a replication lag spike?</p>
 
-<h3 id="validating-replication-latency-and-data-staleness">Validating Replication Latency and Data Staleness
-</h3>
+<h2 id="validating-replication-latency-and-data-staleness">Validating Replication Latency and Data Staleness
+</h2>
 
 <p>Observability in a distributed state store requires monitoring the gap between the time a record was written in the source cell and the time it becomes visible in the target cell. Both AWS and Azure provide metrics for replication latency (e.g., <code>ReplicationLatency</code> in DynamoDB and <code>Statelessness</code> in Cosmos DB). You must implement a validation script that periodically writes a "heartbeat" record to one cell and measures the time it takes to appear in all other cells. This data allows your application to dynamically adjust its behavior—for example, switching from "Eventual Consistency" to "Strong Consistency" reads if the replication lag exceeds a predefined threshold.<br>
 </p>
@@ -167,8 +167,8 @@
 
 <p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fjrzefjfe9dq58olihtom.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fjrzefjfe9dq58olihtom.png" alt="Solution Diagram" loading="lazy" width="800" height="399"></a></p>
 
-<h4 id="common-troubleshooting">Common Troubleshooting
-</h4>
+<h3 id="common-troubleshooting">Common Troubleshooting
+</h3>
 
 <ol>
 <li> <strong>Capacity Bottlenecks on Replicas:</strong> If a replica region has lower provisioned throughput than the source region, replication will throttle, leading to massive lag.
@@ -185,13 +185,13 @@
 </li>
 </ol>
 
-<h4 id="conclusion">Conclusion
-</h4>
+<h3 id="conclusion">Conclusion
+</h3>
 
 <p>Multi-active data replication is the engine that drives high-availability cellular architectures. By leveraging AWS DynamoDB Global Tables and Azure Cosmos DB, you remove the "master region" bottleneck and provide every cell with the data it needs to operate autonomously. This design ensures that your system can survive the loss of an entire cloud region while maintaining data integrity. As a next step, you should explore implementing "Cell-Local" caching layers using Redis or Dragonfly to further reduce the load on the global state stores and improve response times for read-heavy workloads.</p>
 
-<h4 id="references">References
-</h4>
+<h3 id="references">References
+</h3>
 
 <p>Amazon Web Services. (2024). <em>Amazon DynamoDB Global Tables: Multi-region replication for DynamoDB</em>. <a href="https://aws.amazon.com/dynamodb/global-tables/" target="_blank" rel="noopener noreferrer">https://aws.amazon.com/dynamodb/global-tables/</a></p>
 

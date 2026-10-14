@@ -1,6 +1,9 @@
 import { getViteConfig } from "astro/config";
+import type { ViteUserConfig } from "vitest/config";
 
-export default getViteConfig({
+// O Astro traz o próprio Vite; as opções do Vitest são conferidas pelo tipo do
+// Vitest e repassadas ao getViteConfig.
+const config: ViteUserConfig = {
   test: {
     globals: true,
     projects: [
@@ -48,4 +51,6 @@ export default getViteConfig({
       },
     },
   },
-});
+};
+
+export default getViteConfig(config as Parameters<typeof getViteConfig>[0]);

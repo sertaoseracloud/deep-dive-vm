@@ -1,15 +1,15 @@
 <p>Distributed architectures spanning Amazon Web Services and Microsoft Azure frequently suffer from observability fragmentation. When a request originates in an AWS-hosted API Gateway, traverses a set of microservices, and triggers a specialized worker in Azure, the visibility chain often breaks at the provider boundary. Engineering teams find themselves navigating isolated dashboards in CloudWatch and Azure Monitor, attempting to manually correlate timestamps and request IDs while the Mean Time To Resolution (MTTR) escalates. This lack of a unified telemetry pipeline conceals latent bottlenecks and makes identifying the root cause of cross-cloud failures nearly impossible. The definitive architectural solution is the implementation of a vendor-agnostic OpenTelemetry (OTel) Collector mesh. By standardizing the collection, processing, and exportation of traces, metrics, and logs using the W3C Trace Context, organizations can achieve a single, high-fidelity view of the entire request lifecycle across heterogeneous cloud environments (Sridharan, 2018).</p>
 
-<h3 id="prerequisites">Prerequisites
-</h3>
+<h2 id="prerequisites">Prerequisites
+</h2>
 
 <p>Implementing this observability framework requires Terraform version 1.8.0 or higher to manage cross-cloud provider configurations. You must utilize the AWS provider (version 5.40+) and the AzureRM provider (version 3.90+). The instrumentation logic requires Python 3.12 with the <code>opentelemetry-api</code>, <code>opentelemetry-sdk</code>, and <code>opentelemetry-exporter-otlp</code> libraries. A deep understanding of distributed tracing concepts, specifically spans, traces, and context propagation, is essential. Furthermore, you must ensure that your network topology allows for outbound traffic to the OpenTelemetry Collector endpoints over gRPC or HTTP/protobuf.</p>
 
-<h3 id="stepbystep">Step-by-Step
-</h3>
+<h2 id="stepbystep">Step-by-Step
+</h2>
 
-<h4 id="provisioning-the-opentelemetry-collector-infrastructure">Provisioning the OpenTelemetry Collector Infrastructure
-</h4>
+<h3 id="provisioning-the-opentelemetry-collector-infrastructure">Provisioning the OpenTelemetry Collector Infrastructure
+</h3>
 
 <p>The initial phase involves deploying the OpenTelemetry Collector as a gateway service in both AWS and Azure. The collector acts as a centralized processing unit that receives telemetry data from local microservices, applies transformations, and exports it to a backend of choice, such as Jaeger, Honeycomb, or Managed Grafana. We utilize Terraform to deploy the collector on AWS Elastic Container Service (ECS) and Azure Container Instances (ACI). By positioning the collector close to the services, we minimize the impact of telemetry export on application latency. The architectural justification for this mesh is the decoupling of instrumentation from the backend destination. This ensures that if the organization decides to switch observability vendors, only the collector configuration needs to be updated, rather than refactoring the code across the entire microservice ecosystem.<br>
 </p>
@@ -72,8 +72,8 @@
 
 <p>This deployment establishes the necessary ingress points for our telemetry data. How do we ensure that a trace initiated in an AWS Lambda function persists its unique identity when it crosses the wire to trigger an Azure Function?</p>
 
-<h4 id="implementing-w3c-trace-context-propagation">Implementing W3C Trace Context Propagation
-</h4>
+<h3 id="implementing-w3c-trace-context-propagation">Implementing W3C Trace Context Propagation
+</h3>
 
 <p>We maintain the continuity of a trace by implementing explicit context propagation using the W3C Trace Context standard. In a multicloud Hexagonal Architecture, the instrumentation layer must inject trace headers into outgoing HTTP requests and extract them from incoming requests. We utilize Python OpenTelemetry SDKs to automate this process. When an AWS-hosted service calls an Azure-hosted endpoint, the SDK injects a <code>traceparent</code> header into the request. The Azure service then extracts this header to ensure that all spans generated within the Azure environment are associated with the original Trace ID. This standardized propagation is the technological glue that prevents trace fragmentation and allows observability tools to reconstruct the full sequence of events across cloud boundaries.<br>
 </p>
@@ -134,8 +134,8 @@
 
 <p>Effective context propagation ensures we have the data, but what mechanism prevents a massive flood of telemetry spans from overwhelming our network and exponentially increasing cloud egress costs?</p>
 
-<h4 id="optimizing-through-headbased-and-tailbased-sampling">Optimizing Through Head-Based and Tail-Based Sampling
-</h4>
+<h3 id="optimizing-through-headbased-and-tailbased-sampling">Optimizing Through Head-Based and Tail-Based Sampling
+</h3>
 
 <p>Managing the volume of telemetry data in a high-throughput multicloud environment is critical to maintaining both performance and cost-efficiency. We address this by implementing sophisticated sampling strategies within the OpenTelemetry Collector. Head-based sampling occurs at the start of a trace, where a decision is made to sample a fixed percentage of requests (e.g., 5% of all traffic). However, to capture the most valuable data, we implement tail-based sampling in the collector mesh. This strategy allows the collector to inspect the entire trace after all spans have arrived before deciding whether to keep it. We configure the collector to prioritize traces that include error statuses or high latency values. This ensures that while we reduce overall data volume, we retain 100% of the traces that indicate system degradation, providing maximum diagnostic utility without the overhead of full tracing.<br>
 </p>
@@ -163,8 +163,8 @@
 
 
 
-<h3 id="common-troubleshooting">Common Troubleshooting
-</h3>
+<h2 id="common-troubleshooting">Common Troubleshooting
+</h2>
 
 <p>A frequent obstacle in cross-cloud tracing is the "Context Gap," where an intermediary load balancer or proxy strips the <code>traceparent</code> header. If your traces appear as separate, disconnected segments in your backend, verify that your AWS Application Load Balancer or Azure Application Gateway is configured to preserve custom headers. In Azure Application Gateway, ensure that the rewrite rules do not accidentally remove non-standard headers.</p>
 
@@ -172,13 +172,13 @@
 
 <p>Finally, verify IAM and Managed Identity permissions. If the OTel Collector fails to export data, check for <code>Access Denied</code> errors in its internal logs. The AWS ECS task role requires permissions to write to X-Ray or CloudWatch if using those exporters, and the Azure Managed Identity must have the <code>Monitoring Metrics Publisher</code> role for Azure-specific backends.</p>
 
-<h3 id="conclusion">Conclusion
-</h3>
+<h2 id="conclusion">Conclusion
+</h2>
 
 <p>Orchestrating observability across AWS and Azure is no longer a luxury but a requirement for modern cloud-native reliability. By deploying a federated OpenTelemetry Collector mesh and enforcing W3C Trace Context propagation, you eliminate the visibility gaps inherent in multicloud deployments. Implementing tail-based sampling further ensures that your observability remains cost-effective while focusing on the high-value traces necessary for debugging. As a next logical step, consider integrating OpenTelemetry Metrics and Logs into this same pipeline to achieve "Three Pillars" correlation, allowing you to pivot from a latent trace directly to the underlying container logs and resource metrics with a single click.</p>
 
-<h3 id="references">References
-</h3>
+<h2 id="references">References
+</h2>
 
 <p>Majors, C., Fong-Jones, L., &amp; Stopford, B. (2022). <em>Observability engineering: Achieving predictability and reliability in complex systems</em>. O'Reilly Media.</p>
 

@@ -3,7 +3,7 @@
     "collect": {
       "staticDistDir": "./dist",
       "numberOfRuns": 3,
-      "url": ["http://localhost/", "http://localhost/acessibilidade/"]
+      "url": ["http://localhost/", "http://localhost/acessibilidade/", "http://localhost/blog/processamento-de-documentos-em-larga-escala-pipeline-de-ocr-assincrono-com-azure-ai-document-5boe/"]
     },
     "assert": {
       "assertions": {

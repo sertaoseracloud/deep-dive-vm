@@ -1,15 +1,15 @@
 <p>Data residency requirements and regional compliance laws such as GDPR or LGPD often force architectures to fragment data across multiple cloud providers and geographic boundaries. When a centralized database becomes a legal or performance bottleneck, engineering teams frequently resort to manual data duplication or brittle synchronization scripts. This fragmentation leads to inconsistent state, increased latency for cross-border users, and a massive expansion of the security attack surface. The definitive solution to this complexity is a Multicloud Data Sharding layer orchestrated through Hexagonal Architecture. By decoupling the domain entity from the underlying storage mechanism, we allow the application to route queries to specific cloud-native databases based on tenant metadata. This approach ensures that a Brazilian housing cooperative's data remains within Azure's South Brazil region while a European counterpart resides in AWS Frankfurt, all while maintaining a single, unified codebase and strictly adhering to data sovereignty mandates.</p>
 
-<h3 id="prerequisites">Prerequisites
-</h3>
+<h2 id="prerequisites">Prerequisites
+</h2>
 
 <p>Building this sharding plane requires Terraform version 1.8.0 or higher to manage cross-cloud provider states effectively. You must have the AWS provider (version 5.45+) and AzureRM provider (version 3.95+) initialized. The application logic requires Python 3.12 using the <code>SQLAlchemy</code> 2.0 library for database abstraction and <code>pydantic</code> for strict data validation. Advanced knowledge of Domain-Driven Design (DDD) is essential to identify the correct sharding keys within your bounded contexts. You will also need active Service Principals for Azure and IAM Roles for AWS with permissions to manage RDS and Azure SQL instances.</p>
 
-<h3 id="stepbystep">Step-by-Step
-</h3>
+<h2 id="stepbystep">Step-by-Step
+</h2>
 
-<h4 id="defining-geographic-sharding-boundaries">Defining Geographic Sharding Boundaries
-</h4>
+<h3 id="defining-geographic-sharding-boundaries">Defining Geographic Sharding Boundaries
+</h3>
 
 <p>The first step in a multicloud sharding strategy involves the physical provisioning of isolated database clusters that serve as regional shards. We use Terraform to define these resources, ensuring that each database is configured with provider-specific best practices such as AWS Aurora for high-performance clusters and Azure SQL Database for serverless flexibility. Architectural integrity is maintained by ensuring that no shard shares a common network or credentials. Each shard must be tagged with a unique identifier that corresponds to a geographic region or a regulatory jurisdiction. This physical isolation prevents "noisy neighbor" effects and ensures that a regional outage in one cloud provider does not cascade into a global failure. We utilize a standardized naming convention to facilitate dynamic discovery during the application runtime.<br>
 </p>
@@ -64,8 +64,8 @@
 
 <p>This infrastructure provides the storage backbone for our distributed data. How does the application decide which cloud to query for a specific tenant without hardcoding environment-specific logic into the core domain?</p>
 
-<h4 id="constructing-hexagonal-storage-adapters">Constructing Hexagonal Storage Adapters
-</h4>
+<h3 id="constructing-hexagonal-storage-adapters">Constructing Hexagonal Storage Adapters
+</h3>
 
 <p>We maintain architectural purity by implementing the Hexagonal Architecture pattern, where the domain logic interacts only with a storage port (an abstract interface). We define a <code>StoragePort</code> protocol in Python that specifies the required data operations, such as saving or retrieving a housing cooperative's records. We then develop specific adapters for AWS and Azure that implement this protocol using cloud-native drivers. The application uses a factory pattern to inject the correct adapter at runtime based on the tenant's regional metadata. This decoupling ensures that the core business logic remains agnostic of the underlying database engine or cloud provider. If a specific region requires a migration from AWS to Azure, only the adapter configuration changes while the core domain remains untouched, preserving the stability of the business rules.<br>
 </p>
@@ -124,8 +124,8 @@
 
 <p>The use of ports and adapters ensures that the domain logic is protected from infrastructure churn. If a shard becomes unavailable due to a provider-wide outage, how does the system maintain partial availability for other regions while attempting a recovery?</p>
 
-<h4 id="implementing-resilient-shard-resolution">Implementing Resilient Shard Resolution
-</h4>
+<h3 id="implementing-resilient-shard-resolution">Implementing Resilient Shard Resolution
+</h3>
 
 <p>Resilience in a sharded multicloud environment depends on a robust shard resolution mechanism that utilizes a globally distributed metadata store. We implement a <code>ShardResolver</code> that queries a lightweight mapping table, often stored in a highly available global service such as AWS DynamoDB Global Tables or Azure Cosmos DB. This resolver identifies the target cloud, the specific region, and the connection credentials for a given cooperative ID. To ensure high performance, these mappings are cached in memory using a TTL-based strategy. When a request enters the system, the resolver determines the correct shard and provides the corresponding adapter to the domain service. This architecture supports partial failure; if the AWS Frankfurt shard is offline, only the European tenants are affected while Brazilian tenants on Azure continue to operate without degradation. This granular isolation is the primary benefit of the cellular sharding pattern.<br>
 </p>
@@ -170,8 +170,8 @@
 
 <p>This resolution logic ensures that traffic is always directed to the legally and geographically correct shard. How can we optimize the cross-shard reporting process when executives require a global view of data that is physically segregated across two different cloud providers?</p>
 
-<h3 id="common-troubleshooting">Common Troubleshooting
-</h3>
+<h2 id="common-troubleshooting">Common Troubleshooting
+</h2>
 
 <p>A frequent issue in multicloud sharding is the exhaustion of connection pools in the application layer. Since each shard requires a distinct connection pool, an application pod connecting to fifty shards may consume an excessive amount of memory and file descriptors. To solve this, implement a dynamic pool recycler that closes idle connections to infrequently accessed shards or utilize a database proxy such as AWS RDS Proxy or Azure SQL Database Proxy to multiplex connections efficiently.</p>
 
@@ -179,13 +179,13 @@
 
 <p>Lastly, latency spikes can occur if the application is running in AWS but the metadata store is only in Azure. Always implement local caching of shard metadata within the application process and utilize a globally replicated database for the shard map to ensure the resolver always reads from the nearest regional endpoint.</p>
 
-<h3 id="conclusion">Conclusion
-</h3>
+<h2 id="conclusion">Conclusion
+</h2>
 
 <p>Multicloud data sharding through Hexagonal Architecture provides a sophisticated framework for managing data sovereignty and architectural resilience. By isolating storage concerns into specific adapters and utilizing a global resolver, you ensure that your platform can scale across providers without sacrificing domain clarity or compliance. The next advanced step is to implement cross-shard distributed queries using a federated engine like Presto or Trino. This allows for analytical reporting across AWS and Azure shards without moving large volumes of sensitive data, providing a unified view of a geographically dispersed system.</p>
 
-<h3 id="references">References
-</h3>
+<h2 id="references">References
+</h2>
 
 <p>Fowler, M. (2002). <em>Patterns of enterprise application architecture</em>. Addison-Wesley Professional.</p>
 

@@ -39,6 +39,11 @@ jobs:
       - name: Artigos do dev.to (aba Blog)
         run: node scripts/buscar-devto.mjs
       - run: npm run build
+      # Os artigos acabaram de chegar da API: confere SEO (canonical, um h1,
+      # JSON-LD) e as regras do blog antes de publicar. Se falhar, o site
+      # continua com a versão anterior e a execução aparece como falha.
+      - name: Testes do build (SEO e blog)
+        run: npx vitest run tests/seo tests/unit/lib
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

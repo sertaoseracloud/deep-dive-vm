@@ -1,15 +1,15 @@
 <p>State synchronization across distributed multicloud microservices often degenerates into a tangled web of distributed transactions and dual-write anti-patterns. When an Amazon Web Services hosted command service updates a core domain entity, failing to immediately propagate that state change to a Microsoft Azure hosted query projection leaves the system fundamentally inconsistent. This architectural flaw leads to phantom reads, corrupted user experiences, and severe debugging nightmares where distributed traces vanish across cloud provider boundaries. The definitive resolution to this fragility is implementing a multicloud Event Sourcing and Command Query Responsibility Segregation (CQRS) plane. By leveraging AWS EventBridge and Azure Event Grid as a unified enterprise service bus, and structuring the application payload using Hexagonal Architecture, engineering teams decouple state mutation from read projections entirely. This strategy ensures deterministic state reconstruction, guarantees eventual consistency across distinct cloud ecosystems, and enforces strict domain boundaries necessary for massive production scale.</p>
 
-<h3 id="prerequisites">Prerequisites
-</h3>
+<h2 id="prerequisites">Prerequisites
+</h2>
 
 <p>Executing this multicloud event-driven architecture requires Terraform version 1.7.0 or higher. You must configure the AWS provider (version 5.40.0+) and the AzureRM provider (version 3.90.0+). The application routing logic necessitates Python 3.12 utilizing the <code>boto3</code> (1.34+) and <code>azure-cosmos</code> (4.5+) libraries. A rigorous understanding of Domain-Driven Design principles, specifically aggregate roots, domain events, and bounded contexts, is mandatory. Engineers must possess advanced familiarity with AWS EventBridge API Destinations, IAM role assumption mechanisms, and Azure Event Grid custom topics to successfully establish the secure, federated message topology.</p>
 
-<h3 id="stepbystep">Step-by-Step
-</h3>
+<h2 id="stepbystep">Step-by-Step
+</h2>
 
-<h4 id="step-1-provisioning-the-federated-multicloud-event-bus">Step 1: Provisioning the Federated Multicloud Event Bus
-</h4>
+<h3 id="step-1-provisioning-the-federated-multicloud-event-bus">Step 1: Provisioning the Federated Multicloud Event Bus
+</h3>
 
 <p>Establishing a reliable communication channel between isolated cloud providers requires an infrastructure layer that natively handles retries, authentication, and payload routing without introducing intermediary compute nodes. We accomplish this by configuring AWS EventBridge to act as the primary ingress for domain events and utilizing an EventBridge API Destination to securely forward these payloads directly to an Azure Event Grid custom topic. This topology completely eliminates the need for custom Lambda forwarders, thereby reducing operational overhead and cold start latency. We deploy this configuration using Terraform to ensure deterministic infrastructure states. The AWS EventBridge connection resource securely manages the Azure Event Grid Shared Access Signature key, injecting it into the authorization headers dynamically. By binding an EventBridge rule to this API destination, we filter and route only specific bounded context events, preventing unnecessary egress costs and ensuring Azure only receives payloads strictly relevant to its query projections.<br>
 </p>
@@ -71,8 +71,8 @@
 
 <p>This infrastructure efficiently routes raw bytes from AWS to Azure seamlessly. How do we guarantee the structural integrity and semantic meaning of these events as they traverse these distinct architectural boundaries?</p>
 
-<h4 id="step-2-enforcing-domain-event-contracts-via-hexagonal-ports">Step 2: Enforcing Domain Event Contracts via Hexagonal Ports
-</h4>
+<h3 id="step-2-enforcing-domain-event-contracts-via-hexagonal-ports">Step 2: Enforcing Domain Event Contracts via Hexagonal Ports
+</h3>
 
 <p>We guarantee structural integrity by enforcing a strict schema registry and utilizing Hexagonal Architecture to isolate the event publishing mechanism from the core domain logic. In a pure DDD implementation, the core domain must remain blissfully unaware of cloud provider specifics. We achieve this dependency inversion by defining a precise domain event contract using Python dataclasses and establishing an abstract protocol (the port). The infrastructure layer then implements this protocol (the adapter), translating the abstract domain event into a concrete <code>boto3</code> EventBridge payload formatted to the CloudEvents specification. This separation of concerns ensures that if the enterprise decides to migrate the message broker from EventBridge to Apache Kafka, the core domain logic remains untouched. The adapter is strictly responsible for handling AWS specific error handling, retries, and batching constraints, ensuring the command service remains highly cohesive and loosely coupled.<br>
 </p>
@@ -140,8 +140,8 @@
 
 <p>This decoupled publishing mechanism securely delivers payloads to the Azure boundary. What happens when the Azure consumer receives these events out of order due to network latency or Event Grid retry storms?</p>
 
-<h4 id="step-3-idempotent-materialized-view-generation-in-azure">Step 3: Idempotent Materialized View Generation in Azure
-</h4>
+<h3 id="step-3-idempotent-materialized-view-generation-in-azure">Step 3: Idempotent Materialized View Generation in Azure
+</h3>
 
 <p>When the Azure consumer receives events out of order, the system must rely on strict sequence versioning and idempotent projection logic to maintain state integrity. In a distributed multicloud system, chronological sorting is unreliable due to clock drift and asynchronous delivery guarantees. Instead, we implement Optimistic Concurrency Control using Azure Cosmos DB. The read projection handler functions as the consumer, intercepting the payload from Event Grid. It reads the current materialized view from Cosmos DB and compares the incoming event's sequence number against the stored document version. If the incoming event possesses a lower or equal sequence number, it is recognized as a stale or duplicate event and is safely discarded, ensuring idempotency. If the sequence is valid, the handler applies the state mutation and persists the updated document back to Cosmos DB utilizing the <code>_etag</code> property to prevent race conditions during concurrent updates. This pattern ensures that the Azure-hosted query API always serves eventual, yet mathematically correct, state reconstructions regardless of network anomalies.<br>
 </p>
@@ -222,8 +222,8 @@
 
 
 
-<h3 id="common-troubleshooting">Common Troubleshooting
-</h3>
+<h2 id="common-troubleshooting">Common Troubleshooting
+</h2>
 
 <p>When federating EventBridge to Event Grid, engineers frequently encounter <code>401 Unauthorized</code> errors in the AWS CloudWatch logs for the API Destination target. Verify that the Azure Event Grid SAS key injected into the AWS EventBridge connection resource has not expired. The key must be explicitly rotated, and the Terraform workspace applied, before the Azure expiration policy invalidates the token. Furthermore, verify the API connection sets the header key precisely as <code>aeg-sas-key</code>; standard HTTP Authorization headers will be rejected by Azure.</p>
 
@@ -231,13 +231,13 @@
 
 <p>Finally, if events appear to be missing entirely in the Azure Cosmos DB projection, inspect the AWS EventBridge Dead Letter Queue. Azure Event Grid enforces a strict 1MB maximum payload limit per event. If the command service attaches heavy, uncompressed payloads to the domain event, AWS will fail to forward the message and shunt it to the dead letter queue.</p>
 
-<h3 id="conclusion">Conclusion
-</h3>
+<h2 id="conclusion">Conclusion
+</h2>
 
 <p>Implementing a multicloud event sourcing architecture fundamentally transforms brittle synchronous APIs into highly resilient, decoupled systems. By strictly adhering to Hexagonal Architecture and utilizing robust managed buses like EventBridge and Event Grid, we isolate vendor dependencies and guarantee structural integrity across cloud providers. The idempotent projection logic ensures that query models remain eventually consistent despite the inherent chaos of distributed networks. For advanced scaling, integrate OpenTelemetry across both providers to visualize the complete transaction lifecycle, mapping the exact latency from the AWS command entry point to the final Azure materialization.</p>
 
-<h3 id="references">References
-</h3>
+<h2 id="references">References
+</h2>
 
 <p>Evans, E. (2004). <em>Domain-driven design: Tackling complexity in the heart of software</em>. Addison-Wesley Professional.</p>
 

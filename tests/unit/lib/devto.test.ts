@@ -1,10 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   buscarArtigos,
   buscarCorpo,
   dataCurta,
   idiomas,
   limparHtml,
+  nivelarTitulos,
   nomeDoIdioma,
   normalizarArtigo,
   ordenar,
@@ -120,7 +123,7 @@ describe("dev.to: corpo do artigo", () => {
   it("espera e tenta de novo quando a API pede calma (429)", async () => {
     let chamadas = 0;
     const buscar = async () => (++chamadas < 3 ? resposta({}, false, 429) : resposta({ body_html: "<p>ok</p>" }));
-    const esperar = vi.fn(async () => {});
+    const esperar = vi.fn(async (_ms: number) => {});
     expect(await buscarCorpo(comoFetch(buscar), 7, esperar)).toBe("<p>ok</p>");
     expect(esperar.mock.calls.map((c) => c[0])).toEqual([5000, 10000]);
   });
@@ -160,6 +163,19 @@ describe("dev.to: corpo do artigo", () => {
     expect(limpo).toContain('<img loading="lazy" src="a.png" alt="Diagrama">');
     expect(limpo).toContain('<iframe loading="lazy" src="https://www.youtube.com/embed/x">');
     expect(limparHtml(limpo)).toBe(limpo);
+  });
+
+  it("títulos seguem em sequência a partir de h2, sem pular níveis", () => {
+    expect(nivelarTitulos("<h3>A</h3><p>x</p><h5 id='b'>B</h5><h3>C</h3>")).toBe("<h2>A</h2><p>x</p><h3 id='b'>B</h3><h2>C</h2>");
+    expect(nivelarTitulos("<h2>A</h2><h3>B</h3>")).toBe("<h2>A</h2><h3>B</h3>");
+    expect(nivelarTitulos("<p>sem títulos</p>")).toBe("<p>sem títulos</p>");
+    // h1 do texto vira h2 e o resto acompanha
+    expect(limparHtml("<h1>A</h1><h4>B</h4>")).toBe("<h2>A</h2><h3>B</h3>");
+    for (const id of salvos.slice(0, 20).map((a) => a.id)) {
+      const html = readFileSync(join(process.cwd(), "src/data/devto", `${id}.html`), "utf8");
+      const niveis = [...new Set([...html.matchAll(/<h([1-6])\b/g)].map((m) => Number(m[1])))].sort();
+      niveis.forEach((n, i) => expect(n, `artigo ${id}`).toBe(i + 2));
+    }
   });
 
   it("precisa baixar o corpo só dos artigos novos, editados ou sem arquivo", () => {

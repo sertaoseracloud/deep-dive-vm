@@ -1,10 +1,10 @@
-<h4 id="introduction">Introduction
-</h4>
+<h3 id="introduction">Introduction
+</h3>
 
 <p>Credential sprawl in multi-cloud environments represents a catastrophic security risk where static, long-lived access keys act as dormant vulnerabilities waiting to be exploited. When application cells operating in one cloud provider must securely access sensitive state stores or message queues in another, engineers often resort to hardcoded service account keys or insecure environment variables. This practice violates the core tenet of cellular isolation by creating a global identity that, if compromised, allows an attacker to traverse across cloud boundaries and pivot between independent cells. The definitive architectural solution involves leveraging OpenID Connect (OIDC) to establish a trust relationship between AWS and Azure. By implementing AWS IAM Roles Anywhere and Azure Workload Identity, you enable each cell to exchange its native identity token for short-lived, scoped credentials. This strategy eliminates static secrets, enforces the principle of least privilege, and ensures that identity is as isolated and ephemeral as the compute cells it serves.</p>
 
-<h4 id="prerequisites">Prerequisites
-</h4>
+<h3 id="prerequisites">Prerequisites
+</h3>
 
 <ul>
 <li>  Terraform v1.6.0+ with the <code>aws</code> and <code>azurerm</code> providers configured for identity federation.</li>
@@ -14,11 +14,11 @@
 <li>  Advanced understanding of the OIDC (OpenID Connect) flow and JSON Web Token (JWT) structure.</li>
 </ul>
 
-<h4 id="stepbystep">Step-by-Step
-</h4>
-
-<h3 id="establishing-the-trust-anchor-and-profile-in-aws">Establishing the Trust Anchor and Profile in AWS
+<h3 id="stepbystep">Step-by-Step
 </h3>
+
+<h2 id="establishing-the-trust-anchor-and-profile-in-aws">Establishing the Trust Anchor and Profile in AWS
+</h2>
 
 <p>Securing a cellular boundary requires a verifiable trust anchor that AWS can use to validate certificates issued to external workloads. AWS IAM Roles Anywhere extends the capabilities of IAM roles to workloads running outside of AWS, such as an application cell hosted in Azure. You must first create a Trust Anchor, which points to your private CA, and a Profile that defines which roles the external workload is permitted to assume. This decoupling ensures that even if a certificate is valid, the workload can only assume roles that match the specific policy constraints of its designated cell. This configuration transforms identity from a static secret into a cryptographic proof of origin.<br>
 </p>
@@ -68,8 +68,8 @@
 
 <p>With the AWS trust anchor established, how do you verify that an Azure-based cell is actually the entity it claims to be before it attempts to assume the role, especially when certificates might be valid but issued to the wrong service?</p>
 
-<h3 id="configuring-azure-workload-identity-for-federated-trust">Configuring Azure Workload Identity for Federated Trust
-</h3>
+<h2 id="configuring-azure-workload-identity-for-federated-trust">Configuring Azure Workload Identity for Federated Trust
+</h2>
 
 <p>Azure Workload Identity provides a mechanism to assign an identity to a pod or service running in Azure and federate that identity with external providers like AWS. You must create a Managed Identity in Azure and configure a federated identity credential that links the Azure identity to the AWS OIDC provider. This creates a bidirectional trust loop: Azure vouches for the workload's identity via a signed JWT, and AWS validates that JWT against its internal OIDC configuration. By using Azure Workload Identity, you ensure that the application cell never handles raw credentials; instead, it requests a token from the local identity endpoint, which is then presented to AWS for credential exchange.<br>
 </p>
@@ -99,8 +99,8 @@
 
 <p>The trust is now established between the two cloud providers. How do you implement the actual runtime exchange logic within the application code to ensure that the transition from an Azure token to an AWS session is both performant and resilient to network latency?</p>
 
-<h3 id="orchestrating-runtime-credential-exchange">Orchestrating Runtime Credential Exchange
-</h3>
+<h2 id="orchestrating-runtime-credential-exchange">Orchestrating Runtime Credential Exchange
+</h2>
 
 <p>The runtime exchange involves a multi-step handshake where the application retrieves an Azure AD token and exchanges it for AWS temporary security credentials. You must implement a signing process where the Azure Managed Identity signs a request to the AWS IAM Roles Anywhere endpoint. This process uses the <code>boto3</code> SDK in conjunction with the <code>azure-identity</code> library. The application logic must be partition-aware, ensuring it only requests the role associated with its specific cellular boundary. We implement a Python wrapper that handles the certificate-based signing required by AWS Roles Anywhere to obtain a scoped STS (Security Token Service) session.<br>
 </p>
@@ -161,8 +161,8 @@
 
 <p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Frn2q8etw12ftdhtcb45k.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Frn2q8etw12ftdhtcb45k.png" alt="Sequence Diagram" loading="lazy" width="800" height="344"></a></p>
 
-<h3 id="implementing-identity-revocation-and-policy-guardrails">Implementing Identity Revocation and Policy Guardrails
-</h3>
+<h2 id="implementing-identity-revocation-and-policy-guardrails">Implementing Identity Revocation and Policy Guardrails
+</h2>
 
 <p>A robust cellular architecture must include the capability to immediately revoke access for a compromised identity at the policy layer. You achieve this by using AWS IAM Service Control Policies (SCPs) and Azure Conditional Access policies that monitor for "impossible travel" or anomalous credential usage. In AWS, you can attach an inline policy to the Roles Anywhere Profile that denies all actions if a specific session tag indicates the cell is in "quarantine" mode. This allows for fine-grained revocation that targets only the affected cell. This layer of defense-in-depth ensures that even if an attacker manages to obtain a short-lived token, their window of opportunity can be closed programmatically across the entire multi-cloud fabric.<br>
 </p>
@@ -195,8 +195,8 @@
 
 <p>The identity lifecycle is now fully managed and revocable. How do you monitor for the silent failure of certificate renewals in the Azure cell, which could lead to a sudden and widespread loss of access to AWS state stores during a critical production window?</p>
 
-<h4 id="common-troubleshooting">Common Troubleshooting
-</h4>
+<h3 id="common-troubleshooting">Common Troubleshooting
+</h3>
 
 <ol>
 <li> <strong>Clock Skew Mismatches:</strong> If the system time on the Azure host differs from AWS by more than 5 minutes, the STS <code>AssumeRole</code> request will fail with an <code>ExpiredToken</code> or <code>InvalidClientTokenId</code> error.
@@ -219,13 +219,13 @@
 </li>
 </ol>
 
-<h4 id="conclusion">Conclusion
-</h4>
+<h3 id="conclusion">Conclusion
+</h3>
 
 <p>Establishing a federated identity between AWS and Azure is the cornerstone of a secure multi-cloud cellular architecture. By removing static credentials and utilizing OIDC-based exchange via IAM Roles Anywhere and Azure Workload Identity, you ensure that identity is treated as a dynamic, cryptographic asset. This approach significantly reduces the attack surface and aligns with modern Zero Trust principles. As a next step, you should implement automated certificate rotation using HashiCorp Vault or AWS Private CA, ensuring that the cryptographic keys backing your cellular identity are refreshed frequently without manual intervention.</p>
 
-<h4 id="references">References
-</h4>
+<h3 id="references">References
+</h3>
 
 <p>Amazon Web Services. (2022). <em>Extend AWS IAM roles to workloads outside of AWS with IAM Roles Anywhere</em>. AWS Security Blog. <a href="https://aws.amazon.com/blogs/security/extend-aws-iam-roles-to-workloads-outside-of-aws-with-iam-roles-anywhere/" target="_blank" rel="noopener noreferrer">https://aws.amazon.com/blogs/security/extend-aws-iam-roles-to-workloads-outside-of-aws-with-iam-roles-anywhere/</a></p>
 

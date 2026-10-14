@@ -18,6 +18,8 @@ jobs:
           node-version: "22"
           cache: "npm"
       - run: npm ci
+      - name: Checagem de tipos (astro check)
+        run: npm run check
       - name: Unit + Integration tests (coverage gate >= 95%)
         run: npm run test:all
       # Todas as dependências, inclusive as de dev. As CVEs do @lhci/cli

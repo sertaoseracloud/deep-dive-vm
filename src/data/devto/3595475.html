@@ -1,10 +1,10 @@
-<h3 id="1-introduction">1. Introduction
-</h3>
+<h2 id="1-introduction">1. Introduction
+</h2>
 
 <p>Welcome to this comprehensive tutorial on building a Serverless Data Lake Foundation using AWS Glue. By the end of this guide, you will be able to design and implement a robust, automated pipeline that extracts raw data from Amazon S3, transforms it into an optimized analytics-ready format, and makes it available for querying via Amazon Athena. This architectural pattern is highly useful because it completely eliminates the need to manage underlying servers, clusters, or infrastructure, allowing you to focus entirely on your core data logic. Furthermore, it automatically scales out alongside your data volume, ensuring long-term cost-effectiveness since you only pay for the exact compute resources consumed during the active transformation process. Whether you are dealing with daily batch processing operations or aggregating vast amounts of historical data, mastering this foundational architectural pattern is a critical and necessary milestone in modern data engineering.</p>
 
-<h3 id="2-prerequisites">2. Prerequisites
-</h3>
+<h2 id="2-prerequisites">2. Prerequisites
+</h2>
 
 <p>Before starting this step-by-step implementation, ensure you have the following tools and foundational knowledge prepared:</p>
 
@@ -19,11 +19,11 @@
 <strong>IAM Fundamentals:</strong> A foundational understanding of Identity and Access Management principles to allow distinct AWS services to communicate securely.</li>
 </ul>
 
-<h3 id="3-stepbystep">3. Step-by-Step
-</h3>
+<h2 id="3-stepbystep">3. Step-by-Step
+</h2>
 
-<h4 id="step-1-architecting-the-serverless-data-lake-foundation">Step 1: Architecting the Serverless Data Lake Foundation
-</h4>
+<h3 id="step-1-architecting-the-serverless-data-lake-foundation">Step 1: Architecting the Serverless Data Lake Foundation
+</h3>
 
 <p><strong>What to do:</strong> Review the end-to-end data flow and understand the specific roles of each AWS service before provisioning any cloud resources. The architecture requires Amazon S3 for storage, Amazon EventBridge for orchestration, AWS Glue for processing and metadata management, and Amazon Athena for consumption.</p>
 
@@ -31,8 +31,8 @@
 
 <p><strong>Example:</strong> <br>
 <a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F5jot29rybvf2vq8dr4uh.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F5jot29rybvf2vq8dr4uh.png" alt="Solution Diagram" loading="lazy" width="800" height="326"></a></p>
-<h4 id="step-2-configuring-amazon-s3-storage-zones">Step 2: Configuring Amazon S3 Storage Zones
-</h4>
+<h3 id="step-2-configuring-amazon-s3-storage-zones">Step 2: Configuring Amazon S3 Storage Zones
+</h3>
 
 <p><strong>What to do:</strong> Access the Amazon S3 console and create a new S3 bucket with a unique name. Inside this bucket, create two distinct folders (prefixes). Name the first folder <code>raw/</code> to represent the landing zone for your incoming, unprocessed data. Name the second folder <code>curated/</code> to represent the destination for your clean, transformed data.</p>
 
@@ -85,8 +85,8 @@
 
 
 
-<h4 id="step-3-setting-up-iam-permissions">Step 3: Setting Up IAM Permissions
-</h4>
+<h3 id="step-3-setting-up-iam-permissions">Step 3: Setting Up IAM Permissions
+</h3>
 
 <p><strong>What to do:</strong> Navigate to the AWS Identity and Access Management console and create a new Service Role specifically assigned to AWS Glue. Attach the AWS managed policy named <code>AWSGlueServiceRole</code>. Additionally, create and attach an inline policy that explicitly grants <code>s3:GetObject</code> and <code>s3:PutObject</code> permissions targeted strictly at the S3 bucket you created in the previous step.</p>
 
@@ -158,8 +158,8 @@
 
 
 
-<h4 id="step-4-orchestrating-the-pipeline-execution-flow">Step 4: Orchestrating the Pipeline Execution Flow
-</h4>
+<h3 id="step-4-orchestrating-the-pipeline-execution-flow">Step 4: Orchestrating the Pipeline Execution Flow
+</h3>
 
 <p><strong>What to do:</strong> Define the exact sequence of automated events that will trigger and execute your ETL process. Configure an Amazon EventBridge rule that listens for an <code>ObjectCreated</code> event in your S3 <code>raw/</code> prefix. Set the target of this rule to invoke your AWS Glue Job automatically whenever a new file finishes uploading.</p>
 
@@ -169,8 +169,8 @@
 
 <p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F4ofkeynmdsjdzn9kxqes.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F4ofkeynmdsjdzn9kxqes.png" alt="Sequence Diagram" loading="lazy" width="779" height="310"></a></p>
 
-<h4 id="step-5-authoring-the-aws-glue-transformation-job">Step 5: Authoring the AWS Glue Transformation Job
-</h4>
+<h3 id="step-5-authoring-the-aws-glue-transformation-job">Step 5: Authoring the AWS Glue Transformation Job
+</h3>
 
 <p><strong>What to do:</strong> Open the AWS Glue Studio visual editor and create a new Spark ETL job. Configure the source node to read from your S3 <code>raw/</code> path. Add a transformation node to clean the data, such as dropping null values, mapping column names to standard conventions, and casting data types correctly. Finally, configure the target node to write the data back to your S3 <code>curated/</code> path, explicitly selecting Parquet as the output format.</p>
 
@@ -283,22 +283,22 @@
 
 <p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fndzf8ajjlbo5jmp62ee1.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fndzf8ajjlbo5jmp62ee1.png" alt="Glue Nodes" loading="lazy" width="730" height="138"></a></p>
 
-<h4 id="step-6-cataloging-the-data-with-aws-glue-crawlers">Step 6: Cataloging the Data with AWS Glue Crawlers
-</h4>
+<h3 id="step-6-cataloging-the-data-with-aws-glue-crawlers">Step 6: Cataloging the Data with AWS Glue Crawlers
+</h3>
 
 <p><strong>What to do:</strong> Navigate to the Crawlers section within the AWS Glue console. Create a new crawler and configure its target repository to point directly at your <code>curated/</code> S3 folder. Assign the IAM role created in Step 3 to the crawler. Set the crawler to run on a daily schedule or to be triggered immediately after the AWS Glue transformation job completes successfully.</p>
 
 <p><strong>Why do it:</strong> Data sitting in S3 is useless to business analysts without structural context. The Crawler automatically inspects your Parquet files, infers the underlying schema including column names and data types, and registers this structural definition as a logical table within the centralized AWS Glue Data Catalog.</p>
 
-<h4 id="step-7-querying-the-transformed-data-with-amazon-athena">Step 7: Querying the Transformed Data with Amazon Athena
-</h4>
+<h3 id="step-7-querying-the-transformed-data-with-amazon-athena">Step 7: Querying the Transformed Data with Amazon Athena
+</h3>
 
 <p><strong>What to do:</strong> Navigate to the Amazon Athena console. Ensure you have set up an Athena query result location in a separate S3 bucket. Select the database created by your Glue Crawler from the dropdown menu. Write and execute standard SQL queries against your newly cataloged table to analyze the data.</p>
 
 <p><strong>Why do it:</strong> This final step validates the structural integrity of your entire pipeline. Athena uses the metadata schema stored in the Data Catalog to seamlessly execute SQL queries directly against the compressed Parquet files residing in S3. This proves that your serverless architecture is fully operational and ready for business intelligence workloads.</p>
 
-<h3 id="4-common-troubleshooting">4. Common Troubleshooting
-</h3>
+<h2 id="4-common-troubleshooting">4. Common Troubleshooting
+</h2>
 
 <p><strong>Problem 1: Out of Memory Errors in Glue Jobs</strong><br>
 This issue frequently occurs due to data skew, where one worker node attempts to process significantly more data than others, or when attempting to process thousands of excessively small files simultaneously. <br>
@@ -312,7 +312,7 @@ If your curated S3 data utilizes a deeply nested, highly partitioned, or logical
 If the table successfully appears in the Data Catalog but standard <code>SELECT</code> queries return absolutely empty results, the S3 data is highly likely partitioned, but the Data Catalog remains unaware of the new partition directories.<br>
 <strong>Solution:</strong> Execute the <code>MSCK REPAIR TABLE your_table_name;</code> command directly within the Athena query editor. This command scans the S3 path, loads the missing partition metadata into the Data Catalog, and immediately makes the data queryable.</p>
 
-<h3 id="5-conclusion">5. Conclusion
-</h3>
+<h2 id="5-conclusion">5. Conclusion
+</h2>
 
 <p>Congratulations on successfully architecting and understanding the Serverless Data Lake Foundation. You have learned how to decouple storage from compute layers, automate data transformations using event-driven principles, and seamlessly bridge raw information into a highly optimized, queryable state. By mastering these core components, you now possess the foundational engineering skills required to build scalable, enterprise-grade data platforms. As a logical next step, consider exploring AWS Step Functions to orchestrate more complex, multi-job dependencies, or experiment with Apache Iceberg within your AWS Glue jobs to introduce robust transactional capabilities and time-travel querying to your data lake.</p>

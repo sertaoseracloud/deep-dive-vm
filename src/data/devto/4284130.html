@@ -2,16 +2,16 @@
 
 <p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.us-east-2.amazonaws.com%2Fuploads%2Farticles%2Fn5mhi2wsrv28w1ighjbg.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.us-east-2.amazonaws.com%2Fuploads%2Farticles%2Fn5mhi2wsrv28w1ighjbg.png" alt="Diagrama de Solução" loading="lazy" width="800" height="450"></a></p>
 
-<h3 id="prerequisites">Prerequisites
-</h3>
+<h2 id="prerequisites">Prerequisites
+</h2>
 
 <p>Deploying a cross cloud object replication mesh requires advanced knowledge of event driven architectures and federated identity management. The infrastructure provisioning relies strictly on Terraform version 1.7.0 or higher, utilizing the HashiCorp AWS Provider version 5.40.0 and the AzureRM Provider version 3.90.0. The replication compute layer requires Python 3.12, integrating the <code>boto3</code> library version 1.34.0 and the <code>azure-storage-blob</code> library version 12.19.0. Operators must establish an active OpenID Connect (OIDC) trust relationship between the Azure Active Directory tenant and the AWS Identity and Access Management (IAM) environment to authorize secure, passwordless API invocations across the network perimeter.</p>
 
-<h3 id="stepbystep-implementation">Step-by-Step Implementation
-</h3>
+<h2 id="stepbystep-implementation">Step-by-Step Implementation
+</h2>
 
-<h3 id="provisioning-the-sovereign-storage-boundaries">Provisioning the Sovereign Storage Boundaries
-</h3>
+<h2 id="provisioning-the-sovereign-storage-boundaries">Provisioning the Sovereign Storage Boundaries
+</h2>
 
 <p>Establishing the multicloud storage foundation begins by provisioning the isolated storage containers within both cloud environments using Infrastructure as Code. We deploy an Amazon S3 bucket as the primary ingestion point and an Azure Storage Account with a Blob Container as the replication target. The architectural justification for this step is to enforce strict immutability and versioning at the hardware layer. If an application bug corrupts a file in AWS, that corrupted state will replicate to Azure. By enabling object versioning on both the S3 bucket and the Blob Container, we guarantee that destructive mutations do not overwrite the known good state of the data. Furthermore, we apply strict lifecycle policies to transition non current versions to colder storage tiers, optimizing the multicloud expenditure while preserving absolute data durability across the vendor environments.<br>
 </p>
@@ -58,8 +58,8 @@
 
 <p>How do we detect these object state mutations in real time without introducing highly inefficient polling mechanisms that drain compute resources?</p>
 
-<h3 id="architecting-the-eventdriven-capture-mesh">Architecting the Event-Driven Capture Mesh
-</h3>
+<h2 id="architecting-the-eventdriven-capture-mesh">Architecting the Event-Driven Capture Mesh
+</h2>
 
 <p>We detect these state mutations in real time by configuring Amazon S3 Event Notifications to route directly into Amazon EventBridge. Polling an S3 bucket for changes requires listing the entire bucket contents on a schedule, which consumes massive API quotas and introduces unacceptable latency into the replication pipeline. By enabling native EventBridge integration at the bucket level, S3 pushes an <code>ObjectCreated</code> event to the default bus the millisecond a client completes a multipart upload. We codify an EventBridge Rule to filter specifically for these creation events and target an AWS Lambda function. This choreographed pattern completely decouples the data ingestion applications from the replication logic, ensuring that the primary write operations remain highly performant and unaware of the background multicloud synchronization tasks.</p>
 
@@ -103,8 +103,8 @@
 
 <p>How do we securely transport the massive binary payloads associated with these events across the public internet without embedding static Azure access keys within the AWS environment?</p>
 
-<h3 id="executing-crosscloud-streaming-via-federated-compute">Executing Cross-Cloud Streaming via Federated Compute
-</h3>
+<h2 id="executing-crosscloud-streaming-via-federated-compute">Executing Cross-Cloud Streaming via Federated Compute
+</h2>
 
 <p>We securely transport the binary payloads without static credentials by implementing a Python based AWS Lambda function that leverages OpenID Connect (OIDC) federation to dynamically authenticate against Azure Active Directory. Hardcoding Azure Storage connection strings inside AWS Secrets Manager introduces unnecessary rotation overhead and lateral movement risks. The Python Lambda function assumes an AWS IAM role that is cryptographically trusted by an Azure App Registration. It requests a temporary OAuth token from Azure AD and uses it to instantiate the <code>azure-storage-blob</code> client. To handle large objects efficiently without exhausting the Lambda function memory, the code utilizes a streaming transfer pattern. It opens a streaming HTTP response from AWS S3 and passes the raw byte stream directly into the Azure Blob client, pipelining the data across the multicloud boundary with absolute minimal memory overhead.<br>
 </p>
@@ -166,8 +166,8 @@
 
 <p>If the cross cloud network transit experiences a severe partition while the function is streaming a large binary file, how do we guarantee the replication event is not permanently dropped?</p>
 
-<h3 id="guaranteeing-delivery-via-asynchronous-dead-letter-queues">Guaranteeing Delivery via Asynchronous Dead Letter Queues
-</h3>
+<h2 id="guaranteeing-delivery-via-asynchronous-dead-letter-queues">Guaranteeing Delivery via Asynchronous Dead Letter Queues
+</h2>
 
 <p>We guarantee the preservation of replication events during severe network partitions by architecting a robust Dead Letter Queue (DLQ) and automated retry mesh via Amazon SQS. When the Python Lambda function encounters a transient network timeout connecting to the Azure endpoint, it throws an unhandled exception. Because EventBridge triggers the Lambda function asynchronously, the AWS internal poller automatically retries the execution twice. If the Azure network remains unreachable, the event is systematically routed to an Amazon SQS DLQ. We codify a secondary Lambda function to act as a slow consumer on this DLQ, utilizing an exponential backoff algorithm to attempt the cross cloud transfer hours later. This architectural pattern ensures that temporary internet backbone degradation never results in silent multicloud data divergence.<br>
 </p>
@@ -198,20 +198,20 @@
 
 <p>When the automated retry mesh ultimately exhausts its delivery attempts and quarantines the payload, how do platform operators identify the root cause of the network rejection?</p>
 
-<h3 id="common-troubleshooting">Common Troubleshooting
-</h3>
+<h2 id="common-troubleshooting">Common Troubleshooting
+</h2>
 
 <p>Platform operators identify the root cause of network rejections by analyzing specific failure signatures within the execution logs. When configuring cross cloud OIDC federation, authentication failures represent the most common operational barrier. If the AWS Lambda logs display an <code>HTTP 401 Unauthorized</code> exception originating from the <code>azure.identity</code> package, the Azure App Registration likely lacks the correct Role Based Access Control (RBAC) assignments. You must ensure that the specific App Registration utilized by the Python function is explicitly assigned the <code>Storage Blob Data Contributor</code> role scoped directly to the target Azure Storage Container. Assigning generic contributor access at the subscription level does not grant data plane access to read or write binary blobs.</p>
 
 <p>Another severe operational issue occurs when streaming exceptionally large files (greater than 256 Megabytes) from S3 to Azure. The standard <code>upload_blob</code> method will buffer the entire object into the Lambda function's memory space, instantly causing an <code>OutOfMemoryError</code> and terminating the execution. To resolve this, you must refactor the Python implementation to utilize Azure's chunked uploading capabilities via <code>upload_blob(..., max_concurrency=4)</code>. This configuration instructs the Azure SDK to read the S3 stream in discrete, configurable chunks (for example, 4 Megabytes at a time) and upload them concurrently, keeping the Lambda memory footprint entirely flat regardless of the total object size.</p>
 
-<h3 id="conclusion">Conclusion
-</h3>
+<h2 id="conclusion">Conclusion
+</h2>
 
 <p>Automating object replication between Amazon S3 and Azure Blob Storage via event driven architectures provides unparalleled multicloud resilience. By leveraging Amazon EventBridge to eliminate polling, executing Python streams via AWS Lambda, and enforcing strict Dead Letter Queue recovery meshes, engineering teams guarantee that critical files survive catastrophic regional failures. As the platform data volume scales, organizations should consider evaluating managed migration and synchronization services, such as Azure Storage Mover, to handle bulk historical data transfers while maintaining this custom event mesh for low latency, real time mutation mirroring.</p>
 
-<h3 id="references">References
-</h3>
+<h2 id="references">References
+</h2>
 
 <p>Chaganti, S., &amp; Gomez, M. (2023). <em>Cloud security engineering: Patterns and practices for resilient multicloud architectures</em>. O'Reilly Media.</p>
 

@@ -1,12 +1,12 @@
-<h3 id="1-introduction">1. Introduction
-</h3>
+<h2 id="1-introduction">1. Introduction
+</h2>
 
 <p>Scaling cloud-native systems often results in a massive, highly interconnected web of services where a single corrupted payload or regional brownout can trigger a global outage. Cellular Architecture mitigates this by decomposing the system into completely independent, isolated failure domains known as "cells." In this tutorial, you will build a highly resilient event-driven architecture using Microsoft Azure, combining the cellular pattern with an asynchronous workflow (Azure Cosmos DB, Azure Functions, and Azure Service Bus).</p>
 
 <p>Instead of relying on a single monolithic data and compute plane, you will deploy multiple identical infrastructure stamps. A thin edge routing layer will inspect incoming requests and route them to the appropriate cell based on a partition key (such as a <code>TenantId</code>). If a localized infrastructure degradation or a "poison pill" event impacts one cell, the blast radius is strictly contained within that specific boundary, ensuring maximum availability for tenants residing in other cells. This pattern represents the ultimate fault isolation strategy for mission-critical enterprise systems on Azure.</p>
 
-<h3 id="2-prerequisites">2. Prerequisites
-</h3>
+<h2 id="2-prerequisites">2. Prerequisites
+</h2>
 
 <p>To successfully deploy this architecture, your environment must be equipped with the following:</p>
 
@@ -18,11 +18,11 @@
 <li>Familiarity with Domain-Driven Design (DDD) to accurately define the partition keys that will dictate cell placement without creating cross-boundary data dependencies.</li>
 </ul>
 
-<h3 id="3-stepbystep">3. Step-by-Step
-</h3>
+<h2 id="3-stepbystep">3. Step-by-Step
+</h2>
 
-<h4 id="step-1-defining-the-data-plane-cell-module">Step 1: Defining the Data Plane Cell Module
-</h4>
+<h3 id="step-1-defining-the-data-plane-cell-module">Step 1: Defining the Data Plane Cell Module
+</h3>
 
 <p><strong>What to do:</strong> Create a reusable Terraform module that encapsulates the entire event-driven pipeline (Resource Group, Cosmos DB, Service Bus, Storage, and Azure Functions). This module represents a single, mathematically isolated cell.</p>
 
@@ -89,8 +89,8 @@
 
 
 
-<h4 id="step-2-instantiating-the-independent-cells">Step 2: Instantiating the Independent Cells
-</h4>
+<h3 id="step-2-instantiating-the-independent-cells">Step 2: Instantiating the Independent Cells
+</h3>
 
 <p><strong>What to do:</strong> In your root Terraform configuration, instantiate the cell module multiple times to create your physical failure domains.</p>
 
@@ -123,8 +123,8 @@
 
 
 
-<h4 id="step-3-building-the-control-plane-mapping">Step 3: Building the Control Plane Mapping
-</h4>
+<h3 id="step-3-building-the-control-plane-mapping">Step 3: Building the Control Plane Mapping
+</h3>
 
 <p><strong>What to do:</strong> Provision a highly available, globally distributed Cosmos DB account that acts as the Control Plane data store. This database maps your tenant identifiers to their assigned Cell ID.</p>
 
@@ -171,8 +171,8 @@
 
 
 
-<h4 id="step-4-implementing-the-thin-cell-router">Step 4: Implementing the Thin Cell Router
-</h4>
+<h3 id="step-4-implementing-the-thin-cell-router">Step 4: Implementing the Thin Cell Router
+</h3>
 
 <p><strong>What to do:</strong> Deploy an Azure Function App with an HTTP trigger acting as the "Cell Router". This function extracts the <code>TenantId</code> from the incoming HTTP payload, queries the global Cosmos DB mapping table to resolve the destination cell, and then forwards the payload to that specific cell's Cosmos DB.</p>
 
@@ -225,8 +225,8 @@
 
 
 
-<h3 id="4-common-troubleshooting">4. Common Troubleshooting
-</h3>
+<h2 id="4-common-troubleshooting">4. Common Troubleshooting
+</h2>
 
 <ol>
 <li> <strong>Cross-Cell Dependencies:</strong> The most critical anti-pattern in cellular architecture is allowing cells to communicate with each other or share a backend data store. If "Cell Alpha" synchronously queries an API in "Cell Beta", the isolation boundary is compromised. Ensure strict domain boundaries; data required to process an event within a cell must reside entirely within that cell's Cosmos DB.</li>
@@ -234,7 +234,7 @@
 <li> <strong>Poison Pills and Service Bus Dead-Lettering:</strong> If a malformed payload triggers the Cosmos DB Change Feed but crashes the Consumer Azure Function, the message will be returned to the Service Bus Subscription. Because this is a cellular architecture, this poison pill will only degrade the specific cell it entered. To resolve this automatically, the Terraform module is configured with <code>max_delivery_count = 5</code>. Service Bus will automatically move the failing message to the Dead-Letter Queue (DLQ) after 5 attempts, restoring the cell's processing health.</li>
 </ol>
 
-<h3 id="5-conclusion">5. Conclusion
-</h3>
+<h2 id="5-conclusion">5. Conclusion
+</h2>
 
 <p>By embedding an asynchronous event-driven flow within a cellular architecture on Microsoft Azure, you have constructed a system optimized for extreme resilience and strictly controlled blast radiuses. The rigid separation between a global routing control plane and fully isolated data plane cells ensures that infrastructure failures, bad deployments, or tenant-specific traffic spikes remain mathematically contained. Utilizing Terraform modules to stamp out these cells guarantees environmental consistency and facilitates rapid horizontal scaling. As your system matures, consider enhancing the edge routing layer by placing Azure Front Door in front of your Cell Router Functions to provide global load balancing, WAF protection, and seamless traffic shifting during cell migrations or disaster recovery events.</p>

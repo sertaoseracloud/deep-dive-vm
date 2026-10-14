@@ -1,15 +1,15 @@
 <p>Monolithic multi-region architectures inherently rely on vendor specific global control planes. When a catastrophic degradation strikes an underlying identity service or networking fabric within a single cloud provider, all regional partitions fail concurrently. Relying exclusively on Amazon Web Services (AWS) or Microsoft Azure caps the maximum theoretical availability of a platform to the operational integrity of that single vendor. Implementing a federated multicloud cellular architecture resolves this existential risk. By orchestrating isolated Kubernetes partitions across Amazon EKS and Azure AKS utilizing a cross-cloud service mesh, engineering teams construct a routing matrix that survives global vendor outages. This topology isolates fault domains at the hypervisor level, leveraging dynamic BGP routing and proxy based mutual TLS to establish a resilient, vendor agnostic fabric. This guarantees execution continuity for high throughput workloads when single cloud availability zones evaporate.</p>
 
-<h3 id="prerequisites">Prerequisites
-</h3>
+<h2 id="prerequisites">Prerequisites
+</h2>
 
 <p>Deploying a federated multicloud mesh requires deep expertise in advanced networking and container orchestration. The infrastructure state requires Terraform version 1.7.0 or higher, initialized with the <code>hashicorp/aws</code> provider version 5.40.0 and the <code>hashicorp/azurerm</code> provider version 3.90.0. For automating identity plane injection, Python 3.12 is required along with the <code>kubernetes</code> Python client version 29.0.0. The architecture relies on Istio version 1.21.0 or higher configured for multi-primary, multi-network deployments. Administrative access to provision AWS Transit Gateways, Azure Virtual Network Gateways, and BGP Autonomous System Numbers (ASNs) is mandatory.</p>
 
-<h3 id="stepbystep-implementation">Step-by-Step Implementation
-</h3>
+<h2 id="stepbystep-implementation">Step-by-Step Implementation
+</h2>
 
-<h3 id="establishing-the-crosscloud-bgp-backbone">Establishing the Cross-Cloud BGP Backbone
-</h3>
+<h2 id="establishing-the-crosscloud-bgp-backbone">Establishing the Cross-Cloud BGP Backbone
+</h2>
 
 <p>We construct the physical network bridge between the cloud providers by provisioning an IPsec Site-to-Site VPN peering an AWS Transit Gateway directly to an Azure Virtual Network Gateway. The architectural justification for this overlay network is absolute routing determinism. Relying on public internet routing for cross-cloud cellular communication introduces unacceptable latency variance and exposes internal telemetry to external interception. A dedicated IPsec tunnel secured by pre-shared keys ensures encrypted, predictable packet delivery. By enabling dynamic BGP routing over this connection, the network becomes self-healing. If an AWS Availability Zone experiences total network partition, the BGP daemon automatically withdraws the compromised routes. The Azure AKS cells instantly recognize the topology change and redirect traffic to surviving AWS subnets without manual operator intervention.<br>
 </p>
@@ -56,8 +56,8 @@
 
 <p>How do we establish cryptographic trust between microservices operating in AWS EKS and Azure AKS when each vendor utilizes mutually exclusive certificate authorities for their internal managed identities?</p>
 
-<h3 id="federating-identity-via-unified-root-ca">Federating Identity via Unified Root CA
-</h3>
+<h2 id="federating-identity-via-unified-root-ca">Federating Identity via Unified Root CA
+</h2>
 
 <p>We establish cryptographic trust by abstracting the identity plane entirely away from the cloud vendors, deploying a multi-primary Istio Service Mesh anchored by a unified, offline Root Certificate Authority (CA). The absolute architectural necessity here is decoupling zero-trust authentication from IAM and Azure AD. An AWS IAM role cannot natively authenticate against an Azure workload identity. By provisioning a shared Root CA, we generate intermediate certificates specifically for the Istio control planes operating in both EKS and AKS. When the Envoy sidecar proxy in AWS EKS initiates a connection to the Envoy proxy in Azure AKS, both proxies present TLS certificates signed by their respective intermediates. Because both intermediates chain back to the identical offline Root CA, the proxies validate the mutual TLS (mTLS) handshake successfully. This strictly isolates the domain execution from the vendor specific identity silos.<br>
 </p>
@@ -113,8 +113,8 @@
 
 <p>When an EKS cell experiences CPU starvation and begins dropping requests, how does the service mesh autonomously redirect the active request payload to a healthy AKS cell without surfacing the HTTP 503 error to the end user?</p>
 
-<h3 id="locality-load-balancing-and-crosscloud-fallback">Locality Load Balancing and Cross-Cloud Fallback
-</h3>
+<h2 id="locality-load-balancing-and-crosscloud-fallback">Locality Load Balancing and Cross-Cloud Fallback
+</h2>
 
 <p>The mesh autonomously redirects failing requests by utilizing Istio locality load balancing combined with outlier detection circuit breakers. Cellular architecture dictates that network traffic must remain within its origin cell to minimize blast radius and reduce cross-network egress data transfer costs. However, when the primary AWS EKS cell degrades, the mesh must act as a highly responsive failover mechanism. We configure a <code>DestinationRule</code> that defines the Azure AKS deployment as a secondary failover locality. Simultaneously, we configure outlier detection to scan for consecutive HTTP 5xx errors. If an AWS pod begins failing, the local Envoy proxy ejects that specific pod from the load balancing pool. If the entire EKS locality exhausts its healthy endpoints, Envoy transparently reroutes the pending HTTP payload over the BGP IPsec backbone to the healthy Azure AKS locality. The client application experiences a slight latency increase but receives a successful HTTP 200 response, entirely masking the AWS infrastructure failure.<br>
 </p>
@@ -161,20 +161,20 @@
 
 <p>When automated failover successfully masks a cross-cloud reroute, how do platform operators identify the silent degradation of the primary AWS network before the Azure fallback partition reaches total capacity exhaustion?</p>
 
-<h3 id="common-troubleshooting">Common Troubleshooting
-</h3>
+<h2 id="common-troubleshooting">Common Troubleshooting
+</h2>
 
 <p>Platform operators identify silent degradation by monitoring specific proxy telemetry anomalies, though misconfigurations often mask these signals. When establishing the cross-cloud BGP backbone, the AWS Site-to-Site VPN state may remain in <code>Active</code> status rather than transitioning to <code>Established</code>. This specifically indicates a failure in the IKE phase 1 or phase 2 proposal negotiation. Verify that the encryption algorithms and Diffie-Hellman groups configured on the AWS Transit Gateway exactly match the custom IPsec policy applied to the Azure Virtual Network Gateway.</p>
 
 <p>If the BGP backbone is healthy but cross-cloud requests return HTTP 503 <code>Service Unavailable</code> with the <code>URX</code> (Upstream Retry Limit Exceeded) flag in the Istio proxy logs, the mTLS handshake is failing. This frequently occurs when the intermediate CA certificates injected into the <code>istio-system</code> namespace expire or when the SPIFFE IDs of the workloads do not match the expected trust domain. Inspect the Envoy sidecar logs for <code>TLS error: Secret is not supplied by SDS</code> and verify that the <code>cacerts</code> secret was properly read by the Istiod control plane during pod startup.</p>
 
-<h3 id="conclusion">Conclusion
-</h3>
+<h2 id="conclusion">Conclusion
+</h2>
 
 <p>Federating Kubernetes clusters across AWS and Azure utilizing an Istio service mesh delivers an impenetrable execution environment. By bridging EKS and AKS with a dynamic BGP overlay network and enforcing identity through a vendor agnostic Root CA, architectures can seamlessly survive the total loss of a cloud provider's regional control plane. Organizations adopting this advanced cellular model should proceed to implement GitOps methodologies using tools like ArgoCD. This ensures that application deployment states are synchronized instantaneously across the multicloud matrix, preventing configuration drift from compromising the Azure fallback paths during critical failover events.</p>
 
-<h3 id="references">References
-</h3>
+<h2 id="references">References
+</h2>
 
 <p>Garg, S., &amp; Beda, J. (2022). <em>Advanced Kubernetes networking: Routing, security, and multi-cluster patterns</em>. O'Reilly Media.</p>
 

@@ -190,9 +190,20 @@ const lang = artigo.language === "pt" ? undefined : artigo.language;
       conferirLargura();
     };
 
-    desenhar();
-    // Redesenha quando o tema ou a fonte mudam no painel ♿.
-    new MutationObserver(() => desenhar()).observe(document.documentElement, {
+    // A biblioteca é pesada (~1 MB): só é baixada e executada quando um
+    // diagrama chega perto da tela, para não travar a abertura da página.
+    const observador = new IntersectionObserver(
+      (entradas) => {
+        if (!entradas.some((e) => e.isIntersecting)) return;
+        observador.disconnect();
+        desenhar();
+      },
+      { rootMargin: "400px 0px" },
+    );
+    figuras.forEach((f) => observador.observe(f.desenho.parentElement!));
+
+    // Redesenha quando o tema ou a fonte mudam no painel ♿ (se já desenhou).
+    new MutationObserver(() => mermaid && desenhar()).observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["data-tema", "class"],
     });

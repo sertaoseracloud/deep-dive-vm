@@ -1,7 +1,6 @@
 ---
 import { SEO } from "astro-seo";
 import { Font } from "astro:assets";
-import claudio1 from "../assets/claudio1.png";
 import AccessibilityPanel from "../components/ui/AccessibilityPanel.astro";
 import { CHAVE_APLICADO, COR_DA_BARRA } from "../lib/preferencias";
 
@@ -21,7 +20,7 @@ const siteOrigin = "https://mentoria.sertaoseracloud.com";
 // (capa de um artigo no dev.to).
 const ogImageUrl = ogImage
 	? (/^https?:\/\//.test(ogImage) ? ogImage : `${siteOrigin}${ogImage}`)
-	: `${siteOrigin}${claudio1.src}`;
+	: `${siteOrigin}/hub-og.png`;
 const resolvedDescription = description ?? "Cursos gratuitos e acessíveis e eventos da comunidade com Cláudio Rapôso, Microsoft MVP.";
 ---
 

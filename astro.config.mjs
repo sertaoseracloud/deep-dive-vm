@@ -44,6 +44,13 @@ export default defineConfig({
       fallbacks: ['sans-serif'],
     },
   ],
+  vite: {
+    build: {
+      // O Mermaid (~1 MB, só nos artigos com diagrama e carregado sob demanda)
+      // passa do limite padrão de 500 KB; o aviso escondia outros avisos.
+      chunkSizeWarningLimit: 1600,
+    },
+  },
   integrations: [
     // Os artigos do blog (/blog/...) têm canonical no dev.to; o sitemap lista
     // só as páginas canônicas deste site.

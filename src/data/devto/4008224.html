@@ -2,16 +2,16 @@
 
 <p>Cellular Architecture, or bulkheading, partitions the platform into small, completely autonomous, and structurally identical execution units called cells. Each cell manages a bounded subset of the global user base, completely self-contained with its own compute, data engines, and ingestion pipelines. A failure inside an AWS cell containing database corruption or a misconfigured deployment remains strictly isolated to that specific cell, leaving the remaining cells across both AWS and Azure entirely unaffected. This architectural paradigm shifts the operational goal from avoiding failure to limiting the maximum possible blast radius to a predictable, minute fraction of global traffic.</p>
 
-<h3 id="prerequisites">Prerequisites
-</h3>
+<h2 id="prerequisites">Prerequisites
+</h2>
 
 <p>Designing and executing a cross-cloud cellular routing layer requires exceptional proficiency in global traffic management and tenant isolation strategies. The multi-provider infrastructure is codified utilizing Terraform version 1.7.0 or later, incorporating the HashiCorp AWS Provider version 5.40.0 and the AzureRM Provider version 3.90.0. The cell-routing evaluation logic is implemented in Go 1.22, leveraging native cryptographic libraries for deterministic tenant hashing.</p>
 
-<h3 id="stepbystep-implementation">Step-by-Step Implementation
-</h3>
+<h2 id="stepbystep-implementation">Step-by-Step Implementation
+</h2>
 
-<h3 id="designing-the-crosscloud-cellular-mesh">Designing the Cross-Cloud Cellular Mesh
-</h3>
+<h2 id="designing-the-crosscloud-cellular-mesh">Designing the Cross-Cloud Cellular Mesh
+</h2>
 
 <p>The foundational requirement of a cellular system is the absolute elimination of cross-cell dependencies. If Cell 001 residing in AWS EKS must query a database located in Azure's Cell 002 to complete a request, the cell boundaries are breached, reintroducing the cascading failure vectors we aim to eliminate. We establish a symmetric deployment topology where each cell is provisioned with its own isolated data layer, such as Amazon DynamoDB tables or Azure Cosmos DB instances, along with localized application runtimes. A centralized global routing layer sits in front of the infrastructure, tasked with evaluating incoming metadata and mapping the request to the correct cloud provider and localized cell identifier.</p>
 
@@ -48,8 +48,8 @@
 
 <p>Once the physical cells are provisioned deterministically across the cloud vendors, how do we route traffic dynamically without introducing a heavy centralized database that itself represents a single point of failure?</p>
 
-<h3 id="implementing-deterministic-cell-routing-via-rendezvous-hashing">Implementing Deterministic Cell Routing via Rendezvous Hashing
-</h3>
+<h2 id="implementing-deterministic-cell-routing-via-rendezvous-hashing">Implementing Deterministic Cell Routing via Rendezvous Hashing
+</h2>
 
 <p>We circumvent the requirement for an expensive, stateful routing database by utilizing Rendezvous Hashing (Highest Random Weight hashing) within the edge routing layer. If the router had to perform a SQL lookup for every HTTP request to map a tenant ID to a specific cell, the lookup database would become the global bottleneck and primary blast radius threat.</p>
 
@@ -126,8 +126,8 @@
 
 <p>With the edge layer distributing tenants algorithmically, how do we enforce data isolation inside the application layer to block a compromised cell from accessing the storage engines of its neighbors?</p>
 
-<h3 id="enforcing-storage-isolation-via-iam-and-database-policies">Enforcing Storage Isolation via IAM and Database Policies
-</h3>
+<h2 id="enforcing-storage-isolation-via-iam-and-database-policies">Enforcing Storage Isolation via IAM and Database Policies
+</h2>
 
 <p>We secure the boundaries of each cell by employing strict, localized authentication policies that bind the compute layer to the database instance of that specific cell. In a poorly designed multicloud system, any application container can assume generic access credentials capable of modifying tables across the entire fleet.</p>
 
@@ -179,8 +179,8 @@
 
 <p>What operational remediation path must engineers follow when an individual cell suffers total infrastructure degradation due to bad code deployments or corrupted schema migrations?</p>
 
-<h3 id="common-troubleshooting">Common Troubleshooting
-</h3>
+<h2 id="common-troubleshooting">Common Troubleshooting
+</h2>
 
 <p>When an execution cell experiences an internal collapse, operators frequently default to migrating all affected tenants to active cells instantly. This reaction represents a dangerous operational anti-pattern known as a retry storm or a contagion event. If Cell 001 crashed because a specific tenant executed a poison-pill payload (a highly unoptimized, complex query that consumes 100% CPU), moving all tenants of Cell 001 to Cell 002 will cause the poison-pill payload to run in the new cell, instantly crashing Cell 002.</p>
 
@@ -188,15 +188,15 @@
 
 <p>Another recurring complication involves data drift during cross-cloud cell migration. If a cell must be physically relocated from AWS to Azure due to infrastructure degradation, developers often run into schema or constraint mismatches between Amazon DynamoDB and Azure Cosmos DB. To prevent data corruption, engineers must utilize an abstract, database-agnostic data mapper within the application's clean architecture data layer. The application must write data according to a unified schema defined by the core domain, forcing the infrastructure adapters to translate the payloads cleanly into the native data models of the specific cloud provider without altering the core entity invariants.</p>
 
-<h3 id="conclusion">Conclusion
-</h3>
+<h2 id="conclusion">Conclusion
+</h2>
 
 <p>Cellular Architecture provides a predictable mathematical upper bound on the blast radius of operational failures in complex multicloud deployments. By segregating the global tenant base into isolated, self-contained cells distributed across AWS and Azure, platforms eliminate the risk of a single infrastructure bug triggering a global system outage.</p>
 
 <p>As organizational maturity increases, engineering teams should implement automated canary cell deployments. By routing internal synthetic testing traffic or small customer segments through specialized testing cells before rolling out alterations to the wider infrastructure network, architects ensure that unexpected defects are caught within a highly controlled environment, preserving the stability of the global multicloud enterprise.</p>
 
-<h3 id="references">References
-</h3>
+<h2 id="references">References
+</h2>
 
 <p>Mauro, J. (2015). <em>Adopting Cellular Architecture: Chaos engineering and blast radius reduction at scale</em>. Velocity Conference.</p>
 

@@ -1,15 +1,15 @@
 <p>A digitalização de documentos corporativos (faturas, contratos e relatórios) impõe um desafio computacional severo quando realizada de forma síncrona. Tentar extrair texto de arquivos PDF densos utilizando bibliotecas locais dentro de funções sem servidor (serverless) esbarra inevitavelmente nos limites rígidos de tempo de execução (timeouts) e alocação de memória. Simultaneamente, bloquear o cliente aguardando o término do processamento degrada a experiência da aplicação. A implementação de um pipeline de OCR assíncrono fundamentado no Azure AI Document Intelligence, Azure Functions e PostgreSQL resolve essa deficiência estrutural. Ao delegar o escaneamento pesado para o serviço cognitivo gerenciado e estruturar o fluxo de retorno via webhook com persistência otimizada, a arquitetura assegura escalabilidade elástica, tolerância a falhas e rendimento massivo para fluxos de trabalho orientados a documentos em ecossistemas corporativos.</p>
 
-<h3 id="pr%C3%A9requisitos">Pré-requisitos
-</h3>
+<h2 id="pr%C3%A9requisitos">Pré-requisitos
+</h2>
 
 <p>A orquestração desta topologia exige proficiência em processamento de arquivos em nuvem, manipulação de streams binários e modelagem relacional de alta performance. A infraestrutura deve ser provisionada utilizando o Terraform versão 1.7.0 ou superior acoplado ao provedor HashiCorp AzureRM versão 3.90.0 ou superior. A camada computacional utiliza o Python 3.12, integrando o modelo de programação v2 do <code>azure-functions</code>, o SDK oficial <code>azure-ai-documentintelligence</code> e o driver <code>psycopg</code> para persistência relacional assíncrona. Privilégios administrativos na assinatura do Azure são mandatórios para provisionar os recursos cognitivos de inteligência artificial e configurar a string de conexão segura com o PostgreSQL.</p>
 
-<h3 id="passo-a-passo">Passo a Passo
-</h3>
+<h2 id="passo-a-passo">Passo a Passo
+</h2>
 
-<h3 id="provisionamento-da-infraestrutura-cognitiva-e-de-armazenamento">Provisionamento da Infraestrutura Cognitiva e de Armazenamento
-</h3>
+<h2 id="provisionamento-da-infraestrutura-cognitiva-e-de-armazenamento">Provisionamento da Infraestrutura Cognitiva e de Armazenamento
+</h2>
 
 <p>A fundação do pipeline inicia-se com o provisionamento do Azure AI Document Intelligence e do banco de dados relacional PostgreSQL. A justificativa técnica para priorizar o serviço cognitivo gerenciado em detrimento de motores auto-hospedados baseados em Tesseract reside na acurácia e na capacidade de extração estruturada de tabelas e pares chave-valor em múltiplos idiomas. Provisionamos o recurso cognitivo atrelado a uma camada padronizada, enquanto o PostgreSQL gerencia a persistência transacional dos dados estruturados resultantes da extração. Configuramos o Azure Storage Account para atuar como a zona de pouso (Landing Zone) primária, onde os usuários finais depositam os arquivos brutos. O Terraform abaixo consolida essa topologia isolada, garantindo que as chaves de acesso sejam geridas de forma centralizada.<br>
 </p>
@@ -51,8 +51,8 @@
 
 <p>Como acionamos o motor cognitivo assim que um documento é depositado no armazenamento sem bloquear a thread de execução da aplicação principal?</p>
 
-<h3 id="inicia%C3%A7%C3%A3o-ass%C3%ADncrona-via-azure-blob-trigger">Iniciação Assíncrona via Azure Blob Trigger
-</h3>
+<h2 id="inicia%C3%A7%C3%A3o-ass%C3%ADncrona-via-azure-blob-trigger">Iniciação Assíncrona via Azure Blob Trigger
+</h2>
 
 <p>Disparamos o processo de reconhecimento óptico de caracteres de forma puramente assíncrona utilizando um gatilho de Blob Storage (Blob Trigger) acoplado a uma Azure Function. O adaptador de entrada intercepta a criação do arquivo PDF, extrai a URL autenticada do objeto e a submete ao Azure AI Document Intelligence utilizando o método de análise em segundo plano (<code>begin_analyze_document_from_url</code>). O raciocínio arquitetônico vital nesta etapa é o desacoplamento de tempo (Time Decoupling). O serviço cognitivo recebe a tarefa, devolve um identificador de operação imediato (Operation ID) e processa as centenas de páginas do documento nos bastidores da infraestrutura da Microsoft. A função Python conclui sua execução em poucos milissegundos, liberando o container sem estourar o limite de timeout e sem consumir recursos computacionais ociosos enquanto o documento é escaneado.<br>
 </p>
@@ -129,8 +129,8 @@
 
 <p>Uma vez que o Azure AI Document Intelligence conclui a leitura de milhares de linhas de texto, tabelas e metadados, como processamos esse payload estruturado volumoso e o persistimos no PostgreSQL de forma otimizada?</p>
 
-<h3 id="persist%C3%AAncia-relacional-otimizada-com-postgresql">Persistência Relacional Otimizada com PostgreSQL
-</h3>
+<h2 id="persist%C3%AAncia-relacional-otimizada-com-postgresql">Persistência Relacional Otimizada com PostgreSQL
+</h2>
 
 <p>Persistimos o resultado estruturado capturando o payload consolidado através de um endpoint HTTP (Webhook Adapter) e gravando-o no PostgreSQL utilizando comandos parametrizados de alta performance. O modelo relacional exige que dados semi-estruturados extraídos por IA (como pares chave-valor e listas de itens de faturas) sejam mapeados para o tipo de dado nativo <code>JSONB</code> do PostgreSQL. O raciocínio técnico para priorizar o <code>JSONB</code> em detrimento de tabelas normalizadas rígidas é a variabilidade intrínseca de documentos corporativos: cada fatura possui um layout ligeiramente diferente. Armazenar o documento bruto extraído em formato JSONB binário indexado permite consultas analíticas futuras extremamente rápidas através de operadores de contenção do PostgreSQL (<code>@&gt;</code>), sem exigir migrações de esquema constantes para acomodar novas colunas de metadados.<br>
 </p>
@@ -187,20 +187,20 @@
 
 
 
-<h3 id="solu%C3%A7%C3%A3o-de-problemas-comuns">Solução de Problemas Comuns
-</h3>
+<h2 id="solu%C3%A7%C3%A3o-de-problemas-comuns">Solução de Problemas Comuns
+</h2>
 
 <p>Uma adversidade frequente em pipelines de OCR baseados em documentos volumosos é a ocorrência de falhas silenciosas onde o Azure AI Document Intelligence reporta status de erro no processamento das páginas (<code>InvalidRequest</code> ou <code>UnsupportedDocument</code>). Isso ocorre habitualmente quando o arquivo PDF enviado para a zona de pouso está corrompido, protegido por senha ou vetorizado incorretamente como imagem bitmap de baixa resolução sem camadas de texto limpas. O diagnóstico exige a inspeção dos logs gerados pelo objeto <code>AnalyzeResult</code> na função de retorno. Para mitigar esse problema, implemente um adaptador de validação prévia no Blob Trigger que rejeite arquivos com menos de uma página ou aplique normalizações de imagem utilizando bibliotecas de processamento antes de despachar o payload para o serviço cognitivo.</p>
 
 <p>Outro gargalo comum manifesta-se através de erros de esgotamento de conexões no PostgreSQL (<code>Too many clients</code>) durante picos vertiginosos de processamento em lote (Batch OCR). Como as funções serverless do Azure escalam horizontalmente de forma instantânea, centenas de instâncias Python podem tentar abrir conexões TCP simultâneas com o banco de dados relacional, ultrapassando o limite de conexões simultâneas suportado pelo servidor Flexível do PostgreSQL. A solução arquitetônica exige a introdução de um pooler de conexões intermediário, como o PgBouncer, ou a configuração estrita de padrões Singleton e limites de reuso de conexões dentro do adaptador Python, garantindo que o banco de dados preserve sua integridade transacional sob carga extrema.</p>
 
-<h3 id="conclus%C3%A3o">Conclusão
-</h3>
+<h2 id="conclus%C3%A3o">Conclusão
+</h2>
 
 <p>A integração do Azure AI Document Intelligence com Azure Functions e PostgreSQL estabelece uma fundação robusta para a automatização de processos baseados em documentos não estruturados. A separação assíncrona entre a ingestão, o escaneamento cognitivo e a persistência relacional blinda a arquitetura contra os limites restritivos de timeout de nuvem. Esta topologia transforma arquivos estáticos em dados transacionais consultáveis em tempo real. Como evolução natural desta plataforma, as equipes de engenharia podem conectar o payload JSONB persistido no PostgreSQL a motores de busca vetorial para habilitar consultas em linguagem natural baseadas em RAG sobre o histórico completo de faturas e contratos corporativos.</p>
 
-<h3 id="refer%C3%AAncias">Referências
-</h3>
+<h2 id="refer%C3%AAncias">Referências
+</h2>
 
 <p>Esposito, D. (2018). <em>Architecting for scale: How to maintain high availability and manage risk in the cloud</em>. O'Reilly Media.</p>
 

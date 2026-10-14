@@ -1,12 +1,12 @@
 <p>Os padrões de projeto são fundamentais na criação de software bem estruturado e fácil de manter. Entre eles, o <strong>Singleton</strong> e o <strong>Observable</strong> são frequentemente utilizados em cenários que exigem controle de estado global e comunicação entre diferentes partes do sistema. Neste artigo, vamos explorar como esses dois padrões funcionam, quando utilizá-los, suas diferenças e fornecer exemplos práticos de como implementá-los.</p>
 
-<h3 id="o-que-%C3%A9-o-singleton">O que é o Singleton?
-</h3>
+<h2 id="o-que-%C3%A9-o-singleton">O que é o Singleton?
+</h2>
 
 <p>O <strong>Singleton Pattern</strong> é um padrão de design criacional que assegura que uma classe tenha apenas uma instância e fornece um ponto global de acesso a essa instância. Esse padrão é útil quando você precisa de um objeto único em toda a aplicação, como em configurações globais, conexão com banco de dados, ou gerenciamento de logs.</p>
 
-<h4 id="como-funciona-o-singleton">Como Funciona o Singleton?
-</h4>
+<h3 id="como-funciona-o-singleton">Como Funciona o Singleton?
+</h3>
 
 <p>A principal característica do Singleton é que ele restringe a instância da classe a um único objeto, garantindo que todas as requisições de instância retornem o mesmo objeto. Para isso, o padrão normalmente utiliza um método estático que cria a instância apenas quando ela é solicitada pela primeira vez, garantindo a criação única e o uso do objeto em todo o sistema.</p>
 
@@ -16,8 +16,8 @@
 
 <p>O diagrama de sequência do Singleton ilustra o fluxo de interação entre o cliente e a classe Singleton. O processo começa com o cliente chamando o método estático getInstance() para obter a instância do Singleton. Se a instância ainda não foi criada, o Singleton cria uma nova instância e a retorna. Quando o cliente chama novamente o método getInstance(), a mesma instância é retornada, garantindo que exista apenas uma instância do objeto Singleton durante toda a execução do programa.</p>
 
-<h4 id="exemplo-de-uso-singleton-em-typescript">Exemplo de Uso - Singleton em TypeScript
-</h4>
+<h3 id="exemplo-de-uso-singleton-em-typescript">Exemplo de Uso - Singleton em TypeScript
+</h3>
 
 
 
@@ -51,8 +51,8 @@
 
 
 
-<h4 id="quando-usar-o-singleton">Quando Usar o Singleton?
-</h4>
+<h3 id="quando-usar-o-singleton">Quando Usar o Singleton?
+</h3>
 
 <ul>
 <li>
@@ -63,13 +63,13 @@
 <strong>Gerenciamento de recursos</strong>: quando é necessário controlar o acesso a um recurso exclusivo, como um logger ou cache.</li>
 </ul>
 
-<h3 id="o-que-%C3%A9-o-observable">O que é o Observable?
-</h3>
+<h2 id="o-que-%C3%A9-o-observable">O que é o Observable?
+</h2>
 
 <p>O <strong>Observable Pattern</strong> é um padrão de design comportamental que define uma dependência de um-para-muitos entre objetos. Ou seja, quando o estado de um objeto (o "subject") muda, todos os seus dependentes (os "observers") são notificados automaticamente. Este padrão é muito utilizado em sistemas onde eventos e mudanças de estado precisam ser propagados entre diversos componentes, como interfaces gráficas ou sistemas de monitoramento.</p>
 
-<h4 id="como-funciona-o-observable">Como Funciona o Observable?
-</h4>
+<h3 id="como-funciona-o-observable">Como Funciona o Observable?
+</h3>
 
 <p>O padrão Observable permite que objetos "observem" as mudanças de estado de um objeto e reajam a essas mudanças. O padrão se baseia em três componentes principais:</p>
 
@@ -86,8 +86,8 @@
 
 <p>O diagrama de sequência do Observable demonstra como o padrão funciona com múltiplos observadores. O Subject (ou objeto observado) notifica todos os Observers registrados quando ocorre uma mudança de estado. Cada Observer reage à notificação, realizando as ações necessárias com base nas informações recebidas. O processo de notificação é propagado de forma que todos os observadores sejam atualizados simultaneamente, mantendo-os sincronizados com o estado do Subject. Esse padrão é útil quando há múltiplos componentes ou partes do sistema que precisam ser informados sobre mudanças no estado de um objeto.</p>
 
-<h4 id="exemplo-de-uso-observable-em-typescript">Exemplo de Uso - Observable em TypeScript
-</h4>
+<h3 id="exemplo-de-uso-observable-em-typescript">Exemplo de Uso - Observable em TypeScript
+</h3>
 
 
 
@@ -153,8 +153,8 @@
 
 
 
-<h4 id="quando-usar-o-observable">Quando Usar o Observable?
-</h4>
+<h3 id="quando-usar-o-observable">Quando Usar o Observable?
+</h3>
 
 <ul>
 <li>
@@ -165,8 +165,8 @@
 <strong>Modelagem de fluxo de dados reativo</strong>: em sistemas onde há propagação de dados ou eventos entre múltiplos sistemas, como em aplicações baseadas em eventos.</li>
 </ul>
 
-<h3 id="diferen%C3%A7as-entre-singleton-e-observable">Diferenças entre Singleton e Observable
-</h3>
+<h2 id="diferen%C3%A7as-entre-singleton-e-observable">Diferenças entre Singleton e Observable
+</h2>
 
 <p>Embora ambos os padrões sirvam para gerenciar objetos de forma controlada, suas finalidades e comportamentos são bem diferentes:</p>
 
@@ -202,8 +202,8 @@
 </tbody>
 </table></div>
 
-<h3 id="conclus%C3%A3o">Conclusão
-</h3>
+<h2 id="conclus%C3%A3o">Conclusão
+</h2>
 
 <p>Os padrões <strong>Singleton</strong> e <strong>Observable</strong> são fundamentais em diversas situações no desenvolvimento de software. O <strong>Singleton</strong> é ideal quando precisamos garantir uma única instância de uma classe em toda a aplicação, enquanto o <strong>Observable</strong> é útil para notificar e gerenciar interações entre múltiplos objetos com base nas mudanças de estado.</p>
 

@@ -338,6 +338,8 @@ test.describe("Hub blog (dev.to)", () => {
 
     await page.goto(`./blog/${artigo.slug}/`);
     const figura = page.locator("figure.diagrama").first();
+    // O Mermaid só carrega quando o diagrama se aproxima da tela.
+    await figura.scrollIntoViewIfNeeded();
     await expect(figura).toHaveAttribute("aria-label", /^(Fluxograma|Diagrama)/);
     const desenho = figura.locator(".diagrama-desenho svg");
     await expect(desenho).toBeVisible({ timeout: 15000 });
@@ -350,6 +352,10 @@ test.describe("Hub blog (dev.to)", () => {
     await expect(figura.locator("details.diagrama-codigo pre")).toBeHidden();
     await figura.locator("summary").click();
     await expect(figura.locator("details.diagrama-codigo pre")).toBeVisible();
+
+    // Diagrama desenhado também passa no axe (contraste, rótulos, foco).
+    const axe = await new AxeBuilder({ page }).include("figure.diagrama").withTags(["wcag2a", "wcag2aa", "wcag22aa"]).analyze();
+    expect(axe.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
 
     // Troca para o tema claro: o diagrama é redesenhado com o texto escuro do tema.
     const corDoTexto = () => desenho.evaluate((svg) => getComputedStyle(svg.querySelector("text")!).fill);

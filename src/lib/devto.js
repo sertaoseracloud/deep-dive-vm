@@ -105,14 +105,15 @@ export async function buscarCorpo(buscar, id, esperar = (ms) => new Promise((ok)
  * O HTML do dev.to já vem sanitizado; aqui ele é ajustado para o site:
  * - saem os painéis de tela cheia dos blocos de código e os botões dos
  *   cards embutidos (só funcionam no dev.to), scripts e eventos inline;
- * - <h1> do texto vira <h2> (a página já tem o título como <h1>);
+ * - <h1> do texto vira <h2> (a página já tem o título como <h1>) e os
+ *   níveis seguem em sequência a partir dele (nivelarTitulos);
  * - blocos de código e tabelas ganham tabindex="0", para rolar pelo teclado;
  * - imagens e iframes carregam sob demanda.
  * Pode ser aplicada mais de uma vez sem mudar o resultado.
  * @param {string} html
  */
 export function limparHtml(html) {
-  return html
+  const limpo = html
     .replace(/<div class="highlight__panel js-actions-panel">[\s\S]*?<\/div>\s*<\/div>/g, "")
     .replace(/<button\b[\s\S]*?<\/button>/gi, "")
     .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -125,8 +126,21 @@ export function limparHtml(html) {
     .replace(/<(h[2-6])([^>]*)>\s*<a name="([^"]+)" href="#[^"]*">\s*<\/a>\s*/gi, '<$1$2 id="$3">')
     .replace(/<a name="([^"]+)" href="#[^"]*">\s*<\/a>/gi, '<span id="$1"></span>')
     .replace(/<(pre|table)\b(?![^>]*\stabindex=)/gi, '<$1 tabindex="0"')
-    .replace(/<(img|iframe)\b(?![^>]*\sloading=)/gi, '<$1 loading="lazy"')
-    .trim();
+    .replace(/<(img|iframe)\b(?![^>]*\sloading=)/gi, '<$1 loading="lazy"');
+  return nivelarTitulos(limpo).trim();
+}
+
+/**
+ * Os títulos do texto passam a seguir em sequência a partir de <h2> (a página
+ * já tem o <h1>): se o artigo usa só h3 e h5, eles viram h2 e h3. Sem pular
+ * níveis, quem navega por títulos com leitor de tela entende a estrutura.
+ * @param {string} html
+ */
+export function nivelarTitulos(html) {
+  const usados = [...new Set([...html.matchAll(/<h([2-6])\b/gi)].map((m) => Number(m[1])))].sort();
+  const novo = new Map(usados.map((nivel, i) => [nivel, i + 2]));
+  if (usados.every((nivel) => novo.get(nivel) === nivel)) return html;
+  return html.replace(/<(\/?)h([2-6])\b/gi, (_, barra, nivel) => `<${barra}h${novo.get(Number(nivel))}`);
 }
 
 /**

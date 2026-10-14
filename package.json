@@ -1,13 +1,14 @@
 {
   "name": "template-dd",
   "type": "module",
-  "version": "1.12.0",
+  "version": "1.12.1",
   "engines": {
     "node": ">=22.18.0"
   },
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "check": "astro check",
     "preview": "astro preview",
     "astro": "astro",
     "test:visual": "npx playwright test --project=chromium",
@@ -27,6 +28,7 @@
     "sharp": "^0.35.5"
   },
   "devDependencies": {
+    "@astrojs/check": "0.9.10",
     "@axe-core/playwright": "^4.10.1",
     "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.59.1",
@@ -36,6 +38,7 @@
     "impeccable": "4.5.2",
     "lighthouse": "^13.5.0",
     "playwright": "^1.59.1",
+    "typescript": "5.9.3",
     "vitest": "^5.0.4"
   },
   "overrides": {

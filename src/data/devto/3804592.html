@@ -1,15 +1,15 @@
 <p>Monolithic data access layers inherently bind compute execution to a specific cloud provider's proprietary database SDK. When an enterprise application tightly couples its business logic to Amazon Web Services (AWS) DynamoDB using <code>boto3</code>, attempting to failover execution to Microsoft Azure Cosmos DB during a systemic AWS outage becomes an insurmountable engineering challenge. True multicloud resilience demands that the application execution layer remains entirely ignorant of its underlying storage mechanism. By enforcing a strict Hexagonal Architecture paradigm, engineering teams can decouple the core domain from vendor specific infrastructure. Implementing pure Python output ports allows the runtime to dynamically inject either a DynamoDB adapter or a Cosmos DB adapter without altering a single line of business logic. This architectural abstraction guarantees execution portability, enabling workloads to shift seamlessly across cloud boundaries while neutralizing database vendor lock-in.</p>
 
-<h3 id="prerequisites">Prerequisites
-</h3>
+<h2 id="prerequisites">Prerequisites
+</h2>
 
 <p>Deploying this cloud agnostic data abstraction requires a deep understanding of Python object oriented programming and interface design. The compute environment requires Python 3.12. Vendor integration relies on the <code>boto3</code> library version 1.34.0 for AWS interactions and the <code>azure-cosmos</code> library version 4.5.1 for Azure interactions. Infrastructure provisioning requires Terraform version 1.7.0 or higher, utilizing the HashiCorp AWS Provider version 5.40.0 and the AzureRM Provider version 3.90.0. Ensure the execution environment possesses the necessary IAM roles for AWS and managed identities for Azure AD authentication.</p>
 
-<h3 id="stepbystep-implementation">Step-by-Step Implementation
-</h3>
+<h2 id="stepbystep-implementation">Step-by-Step Implementation
+</h2>
 
-<h3 id="defining-the-core-domain-and-outbound-port">Defining the Core Domain and Outbound Port
-</h3>
+<h2 id="defining-the-core-domain-and-outbound-port">Defining the Core Domain and Outbound Port
+</h2>
 
 <p>The foundation of execution portability begins by explicitly defining the domain invariants and isolating them from external dependencies. We construct a pure Python dataclass to represent the core business entity and an Abstract Base Class (ABC) to serve as the outbound port. The architectural justification for this absolute decoupling is to protect the domain from the volatile nature of vendor APIs. The <code>TransactionRepositoryPort</code> must never accept or return <code>boto3</code> dictionaries or Azure Cosmos response objects. It operates exclusively using pure domain data transfer objects. If the domain layer imports an AWS SDK, the hexagonal boundary is breached, and multicloud portability is instantly destroyed. By establishing a rigid interface contract, we force all future database implementations to bend to the will of the domain, rather than bending the domain to accommodate the database.<br>
 </p>
@@ -62,8 +62,8 @@
 
 <p>If the domain logic is now completely shielded from the infrastructure APIs, how do we translate these pure Python data structures into the proprietary JSON formats demanded by AWS and Azure respectively?</p>
 
-<h3 id="implementing-vendor-specific-infrastructure-adapters">Implementing Vendor Specific Infrastructure Adapters
-</h3>
+<h2 id="implementing-vendor-specific-infrastructure-adapters">Implementing Vendor Specific Infrastructure Adapters
+</h2>
 
 <p>We translate the domain requests into proprietary vendor operations by writing dedicated, highly specialized infrastructure adapters that implement our abstract port. We construct a <code>DynamoDbAdapter</code> utilizing <code>boto3</code> and a <code>CosmosDbAdapter</code> utilizing the <code>azure-cosmos</code> client. The architectural necessity here is to encapsulate all SDK complexity, retry logic, and exception handling within these distinct classes. When the domain invokes the <code>save</code> method, the DynamoDB adapter formats the payload using the explicit <code>boto3</code> parameters, while the Cosmos DB adapter formats the payload into a standard JSON document incorporating the required <code>id</code> and partition key fields. These adapters act as the translation layer, ensuring that the idiosyncrasies of AWS request units and Azure throughput configurations never contaminate the core application memory space.<br>
 </p>
@@ -178,8 +178,8 @@
 
 <p>When multiple infrastructure adapters exist within the codebase, how does the application seamlessly instantiate the correct cloud specific implementation during an active disaster recovery failover without requiring a manual code redeployment?</p>
 
-<h3 id="dynamic-runtime-resolution-and-dependency-injection">Dynamic Runtime Resolution and Dependency Injection
-</h3>
+<h2 id="dynamic-runtime-resolution-and-dependency-injection">Dynamic Runtime Resolution and Dependency Injection
+</h2>
 
 <p>We achieve zero downtime adapter switching by implementing a dynamic dependency injection factory that resolves the target infrastructure at application startup. The architectural reasoning is operational agility. During a critical cloud degradation event, operators cannot wait for deployment pipelines to build and deploy modified application images to Azure. By reading an environment variable injected by the orchestrator, the application dynamically resolves which adapter to instantiate and pass into the <code>TransactionService</code>. This topology ensures that the identical Docker image functions perfectly in both the AWS container execution environments and the Azure container execution environments. The AWS deployment initializes the <code>DynamoDbAdapter</code>, while the Azure deployment initializes the <code>CosmosDbAdapter</code>. The domain logic remains entirely oblivious to this injection phase, continuing to process transactions securely and deterministically regardless of its physical execution location.</p>
 
@@ -225,20 +225,20 @@
 
 <p>How do platform operators mitigate data structure failures when the primary key conventions differ fundamentally between DynamoDB composite keys and Cosmos DB document IDs?</p>
 
-<h3 id="common-troubleshooting">Common Troubleshooting
-</h3>
+<h2 id="common-troubleshooting">Common Troubleshooting
+</h2>
 
 <p>When implementing cross cloud database abstraction, primary key translation failures are a dominant source of runtime errors. If the Cosmos DB adapter returns an <code>HTTP 400 Bad Request</code> citing partition key mismatch, you must verify the document <code>id</code> property. DynamoDB natively supports composite primary keys defined by a Hash Key and a Range Key. Cosmos DB requires a strict lowercase <code>id</code> field mapped to a unique string, alongside a separate, explicitly defined partition key. The Python Cosmos adapter must manually construct this <code>id</code> mapping, ensuring the domain's unique identifier is bound to the <code>id</code> property of the JSON dictionary before executing the upsert operation.</p>
 
 <p>Another critical issue surfaces as extreme latency degradation during connection initialization. If the <code>DynamoDbAdapter</code> performs rapidly but the <code>CosmosDbAdapter</code> consistently times out on the initial request within an Azure execution context, check the SDK connectivity mode. The Python <code>azure-cosmos</code> client may default to Gateway Mode, traversing extra proxy layers. Ensure your Azure networking is configured to support Direct Mode connectivity on TCP ports 10000 to 20000, allowing the client to communicate directly with the Cosmos DB backend storage replicas, significantly reducing round trip latency.</p>
 
-<h3 id="conclusion">Conclusion
-</h3>
+<h2 id="conclusion">Conclusion
+</h2>
 
 <p>Abstracting cloud specific data services via Hexagonal Architecture establishes a resilient, vendor agnostic execution layer capable of surviving total provider degradation. By isolating domain logic from the <code>boto3</code> and <code>azure-cosmos</code> SDKs through strict Python output ports, engineering teams can dynamically pivot transactional workloads across AWS and Azure environments seamlessly. To complete the multicloud disaster recovery posture, architectures should deploy a background replication mesh bridging the two data stores utilizing DynamoDB Streams and Azure Event Grid to guarantee eventual data consistency alongside this compute portability.</p>
 
-<h3 id="references">References
-</h3>
+<h2 id="references">References
+</h2>
 
 <p>Cockburn, A. (2005). <em>Hexagonal architecture</em>. Alistair Cockburn. <a href="https://alistair.cockburn.us/hexagonal-architecture/" target="_blank" rel="noopener noreferrer">https://alistair.cockburn.us/hexagonal-architecture/</a></p>
 

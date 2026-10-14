@@ -1,12 +1,12 @@
-<h3 id="1-introduction">1. Introduction
-</h3>
+<h2 id="1-introduction">1. Introduction
+</h2>
 
 <p>In the cloud-native era, scaling an architecture often leads to a massive, interconnected system where a single failure can cause a global outage. Cellular Architecture solves this by decomposing the system into independent, isolated failure domains called "cells." In this tutorial, you will build a highly resilient event-driven architecture by combining the cellular pattern with an asynchronous flow (DynamoDB Streams, AWS Lambda, Amazon SNS, and Amazon SQS). </p>
 
 <p>Instead of a single monolithic data plane, you will deploy multiple identical infrastructure stamps (cells). A thin edge routing layer will inspect incoming requests and route them to the appropriate cell based on a partition key (such as a Tenant ID). If a poison pill event or a localized infrastructure degradation impacts one cell, the blast radius is strictly contained, ensuring maximum availability for tenants in other cells. This approach provides the ultimate fault isolation boundary for mission-critical distributed systems.</p>
 
-<h3 id="2-prerequisites">2. Prerequisites
-</h3>
+<h2 id="2-prerequisites">2. Prerequisites
+</h2>
 
 <p>To execute this deployment, your environment must be equipped with the following tools and foundational knowledge:</p>
 
@@ -17,11 +17,11 @@
 <li>Familiarity with Domain-Driven Design (DDD) to correctly define the partition keys that will dictate cell placement without creating cross-boundary data dependencies.</li>
 </ul>
 
-<h3 id="3-stepbystep">3. Step-by-Step
-</h3>
+<h2 id="3-stepbystep">3. Step-by-Step
+</h2>
 
-<h4 id="step-1-defining-the-data-plane-cell-module">Step 1: Defining the Data Plane Cell Module
-</h4>
+<h3 id="step-1-defining-the-data-plane-cell-module">Step 1: Defining the Data Plane Cell Module
+</h3>
 
 <p><strong>What to do:</strong> Create a reusable Terraform module that encapsulates the entire event-driven pipeline (DynamoDB, SNS, SQS, and Lambdas). This module represents a single, self-contained cell.</p>
 
@@ -96,8 +96,8 @@
 
 
 
-<h4 id="step-2-instantiating-the-independent-cells">Step 2: Instantiating the Independent Cells
-</h4>
+<h3 id="step-2-instantiating-the-independent-cells">Step 2: Instantiating the Independent Cells
+</h3>
 
 <p><strong>What to do:</strong> In your root Terraform configuration, instantiate the cell module multiple times to create your isolated failure domains.</p>
 
@@ -127,8 +127,8 @@
 
 
 
-<h4 id="step-3-building-the-control-plane-mapping">Step 3: Building the Control Plane Mapping
-</h4>
+<h3 id="step-3-building-the-control-plane-mapping">Step 3: Building the Control Plane Mapping
+</h3>
 
 <p><strong>What to do:</strong> Create a global DynamoDB table that acts as the Control Plane data store. This table maps your partition keys (e.g., Tenant ID) to their assigned Cell ID.</p>
 
@@ -158,8 +158,8 @@
 
 
 
-<h4 id="step-4-implementing-the-thin-cell-router">Step 4: Implementing the Thin Cell Router
-</h4>
+<h3 id="step-4-implementing-the-thin-cell-router">Step 4: Implementing the Thin Cell Router
+</h3>
 
 <p><strong>What to do:</strong> Deploy an Amazon API Gateway linked to a Lambda function. This function serves as the "Cell Router". It extracts the Tenant ID from the incoming HTTP payload, queries the global mapping table to resolve the destination cell, and then forwards the data to that specific cell's DynamoDB table.</p>
 
@@ -210,8 +210,8 @@
 
 
 
-<h3 id="4-common-troubleshooting">4. Common Troubleshooting
-</h3>
+<h2 id="4-common-troubleshooting">4. Common Troubleshooting
+</h2>
 
 <ol>
 <li> <strong>Cross-Cell Dependencies and Shared State:</strong> The most destructive error in cellular architecture is allowing cells to communicate with each other or share a backend resource (like a single centralized RDS instance or S3 bucket). If Cell Alpha synchronously queries data from Cell Beta, the isolation boundary is broken. Ensure strict domain boundaries; data required by a cell must reside entirely within that cell.</li>
@@ -219,7 +219,7 @@
 <li> <strong>Poison Pills and Asynchronous Failures:</strong> If a malformed payload triggers the DynamoDB Stream but crashes the Consumer Lambda, the message will cycle continuously in the SQS queue. Because this is a cellular architecture, this poison pill will only degrade the specific cell it entered. To resolve the localized issue, ensure your cell module includes a Dead Letter Queue (DLQ) to automatically eject failing messages after a set number of retries.</li>
 </ol>
 
-<h3 id="5-conclusion">5. Conclusion
-</h3>
+<h2 id="5-conclusion">5. Conclusion
+</h2>
 
 <p>By embedding an event-driven flow within a cellular architecture, you have constructed a system optimized for extreme resilience and strictly controlled blast radiuses. The separation between a global routing control plane and isolated data plane cells ensures that infrastructure or deployment failures remain mathematically contained. Utilizing Terraform modules to stamp out these cells guarantees environmental consistency and facilitates rapid, linear horizontal scaling. As your system matures, consider enhancing the edge routing layer using Amazon Route 53 Application Recovery Controller (ARC) for advanced DNS-level cell shifting and disaster recovery automation.</p>

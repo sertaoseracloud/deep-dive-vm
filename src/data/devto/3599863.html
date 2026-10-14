@@ -1,10 +1,10 @@
-<h4 id="introduction">Introduction
-</h4>
+<h3 id="introduction">Introduction
+</h3>
 
 <p>Standard multi-regional deployments often fall victim to centralized networking bottlenecks and shared control plane failures. When a primary cloud region experiences a backbone connectivity issue, the entire distributed system can lose its ability to synchronize state, leading to split-brain scenarios and data corruption. Engineers frequently rely on simple public internet VPNs for interconnectivity, which introduces unpredictable latency and security vulnerabilities. Agitating the problem further, a lack of deterministic network paths means that even if your application cells are isolated, their communication channels are not, creating a hidden single point of failure. The definitive architectural solution involves establishing a private, high-speed interconnect using AWS Transit Gateway and Azure ExpressRoute via a third-party colocation provider. This cellular networking strategy ensures that each cloud environment operates as a truly independent but interconnected cell with dedicated, low-latency bandwidth for mission-critical state replication.</p>
 
-<h4 id="prerequisites">Prerequisites
-</h4>
+<h3 id="prerequisites">Prerequisites
+</h3>
 
 <ul>
 <li>  Terraform v1.6.0+ with the <code>aws</code> (v5.0+) and <code>azurerm</code> (v3.0+) providers initialized.</li>
@@ -14,11 +14,11 @@
 <li>  Advanced knowledge of CIDR (Classless Inter-Domain Routing) to ensure non-overlapping address spaces across AWS VPCs and Azure VNETs.</li>
 </ul>
 
-<h4 id="stepbystep">Step-by-Step
-</h4>
-
-<h3 id="establishing-the-private-interconnect-backbone">Establishing the Private Interconnect Backbone
+<h3 id="stepbystep">Step-by-Step
 </h3>
+
+<h2 id="establishing-the-private-interconnect-backbone">Establishing the Private Interconnect Backbone
+</h2>
 
 <p>The foundation of cross-cloud cellular networking requires moving beyond the public internet for state synchronization. You must provision dedicated physical or virtual circuits that link AWS and Azure through a neutral exchange point. By using AWS Direct Connect and Azure ExpressRoute, you bypass the congestion of the public web, achieving deterministic latency that is essential for synchronous database replication between cells. This physical isolation ensures that a DDoS attack or a massive internet routing leak does not impact your internal system communications. You define these circuits in Terraform, treating the network as a first-class citizen of your cellular architecture.<br>
 </p>
@@ -52,8 +52,8 @@
 
 <p>Once the physical circuits are defined, how do you manage the routing complexity when scaling to hundreds of isolated VPCs or VNETs without creating a manual configuration nightmare that invites human error?</p>
 
-<h3 id="centralizing-routing-with-aws-transit-gateway-and-azure-route-server">Centralizing Routing with AWS Transit Gateway and Azure Route Server
-</h3>
+<h2 id="centralizing-routing-with-aws-transit-gateway-and-azure-route-server">Centralizing Routing with AWS Transit Gateway and Azure Route Server
+</h2>
 
 <p>Scaling cellular networking requires a hub-and-spoke model where a central routing engine manages the propagation of routes across all spokes. AWS Transit Gateway acts as a regional network click-to-connect hub, while Azure Route Server facilitates BGP peering between your virtual appliances and the VNET. This prevents the "mesh of doom" where every VPC must be manually peered with every other network. You attach your cellular VPCs to the Transit Gateway and use a single Direct Connect attachment to bridge to Azure. This simplifies the network topology, ensuring that adding a new cell to your architecture is a matter of a single attachment rather than a complete re-engineering of the routing table.<br>
 </p>
@@ -82,8 +82,8 @@
 
 <p>With the hub-and-spoke model established, how do you prevent a route leak in one cloud from poisoning the routing tables of your entire multicloud infrastructure and taking down all healthy cells simultaneously?</p>
 
-<h3 id="implementing-bgp-route-filtering-and-security-guardrails">Implementing BGP Route Filtering and Security Guardrails
-</h3>
+<h2 id="implementing-bgp-route-filtering-and-security-guardrails">Implementing BGP Route Filtering and Security Guardrails
+</h2>
 
 <p>To protect the cellular boundary, you must implement strict BGP route filters and prefix limits at the interconnect layer. Without these guardrails, a misconfigured router in Azure could advertise a "default route" (0.0.0.0/0) to AWS, causing all AWS traffic to be black-holed or redirected through a sub-optimal path. You use prefix lists to explicitly define which CIDR blocks are allowed to cross the cloud boundary. This ensures that only the specific IP ranges belonging to your cellular state stores are reachable. We use a Python script to audit the BGP peer status and prefix counts, ensuring they stay within the safety thresholds defined by our architectural standards.<br>
 </p>
@@ -124,8 +124,8 @@
 
 <p>The network boundaries are now secure and filtered. If a primary interconnect circuit fails, how can you automate the shift of state replication traffic to a backup VPN tunnel without causing a massive synchronization lag that impacts data consistency?</p>
 
-<h3 id="automated-failover-to-encrypted-backup-tunnels">Automated Failover to Encrypted Backup Tunnels
-</h3>
+<h2 id="automated-failover-to-encrypted-backup-tunnels">Automated Failover to Encrypted Backup Tunnels
+</h2>
 
 <p>Reliability at the networking layer necessitates a secondary, encrypted path that takes over when the primary ExpressRoute or Direct Connect circuit fails. You configure an AWS Site-to-Site VPN as a backup to the Direct Connect Gateway, utilizing the same Transit Gateway for seamless failover. The BGP protocol handles the failover automatically by assigning a lower "Local Preference" or higher "AS Path" length to the VPN route. When the primary circuit goes down, BGP detects the loss of peering and immediately promotes the VPN route. This transition must be transparent to the application cells. We configure the Terraform resources to ensure that the VPN is always standing by, ready to tunnel encrypted traffic over the public internet if the private backbone is severed.<br>
 </p>
@@ -166,8 +166,8 @@
 
 <p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fp7n24ot542h1m1kusuzx.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fp7n24ot542h1m1kusuzx.png" alt="Solution Diagram" loading="lazy" width="796" height="1330"></a></p>
 
-<h4 id="common-troubleshooting">Common Troubleshooting
-</h4>
+<h3 id="common-troubleshooting">Common Troubleshooting
+</h3>
 
 <ol>
 <li> <strong>BGP Flapping due to Hold Time Mismatches:</strong> Mismatched BGP timers between AWS (usually 90s) and on-premise or Azure routers cause frequent session resets.
@@ -184,13 +184,13 @@
 </li>
 </ol>
 
-<h4 id="conclusion">Conclusion
-</h4>
+<h3 id="conclusion">Conclusion
+</h3>
 
 <p>Building a resilient cross-cloud interconnect transforms separate cloud environments into a unified cellular system capable of surviving provider-specific backbone outages. By leveraging Transit Gateways, ExpressRoute, and automated BGP failover, you establish a networking layer that prioritizes deterministic performance and state integrity. The next logical progression is to implement Network Reachability Analyzers. Use these tools to continuously verify that your security group rules and route tables maintain strict cellular isolation while permitting necessary cross-cloud synchronization traffic.</p>
 
-<h4 id="references">References
-</h4>
+<h3 id="references">References
+</h3>
 
 <p>Amazon Web Services. (2023). <em>AWS Transit Gateway: Centralize your network management</em>. <a href="https://aws.amazon.com/transit-gateway/" target="_blank" rel="noopener noreferrer">https://aws.amazon.com/transit-gateway/</a></p>
 
