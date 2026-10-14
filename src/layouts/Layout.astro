@@ -164,7 +164,6 @@ const resolvedDescription = description ?? "Cursos gratuitos e acessíveis e eve
 		--nucleo-eletrico: #00ffff;
 		--abismo-profundo: #0a0f1e;
 		--sub-nivel: #1b293c;
-		--neutro-escuro: #000000;
 		--texto-principal: #ffffff;
 		--texto-secundario: #d1d9e6;
 		--texto-terciario: #8a99b5;
@@ -176,28 +175,16 @@ const resolvedDescription = description ?? "Cursos gratuitos e acessíveis e eve
 		--hairline: rgb(var(--rgb-texto) / 0.12);
 		--hairline-strong: rgb(var(--rgb-ciano) / 0.32);
 
-		--fundo-rodape: rgb(0 0 0 / 0.4);
-
-		/* Ciano escuro: fundo de faixas com texto branco (contraste >= 4.5:1). */
-		--nucleo-profundo: #007a85;
-		--perigo-texto: rgb(255 140 140 / 0.8);
-
 		/* Canais RGB das cores com transparência dos componentes:
 		   rgb(var(--rgb-ciano) / 0.3). Cada tema redefine os canais. */
 		--rgb-ciano: 0 255 255;
-		--rgb-fundo: 10 15 30;
 		--rgb-cartao: 27 41 60;
 		--rgb-texto: 209 217 230;
 		--rgb-sombra: 0 0 0;
 		--rgb-claro: 255 255 255;
-		--rgb-sucesso: 0 229 168;
 		--rgb-cobalto: 26 58 200;
 		--rgb-ceu: 0 180 255;
-		--rgb-perigo: 255 90 90;
 
-		/* Easing tokens — ANIM-03 */
-		--ease-entrance: cubic-bezier(0.25, 1, 0.5, 1);
-		--ease-micro: cubic-bezier(0.0, 0.0, 0.2, 1);
 	}
 
 	/* ————————————————————————————————
@@ -218,7 +205,6 @@ const resolvedDescription = description ?? "Cursos gratuitos e acessíveis e eve
 		--grid-line: transparent;
 		--hairline: rgb(var(--rgb-claro) / 0.7);
 		--hairline-strong: #ffff00;
-		--nucleo-profundo: #002b99;
 		--rgb-ciano: 255 255 0;
 	}
 
@@ -236,9 +222,7 @@ const resolvedDescription = description ?? "Cursos gratuitos e acessíveis e eve
 		--grid-line: transparent;
 		--hairline: rgb(var(--rgb-texto) / 0.16);
 		--hairline-strong: rgb(var(--rgb-ciano) / 0.45);
-		--nucleo-profundo: #2f6b6b;
 		--rgb-ciano: 140 199 199;
-		--rgb-fundo: 28 33 40;
 		--rgb-cartao: 37 43 52;
 	}
 
@@ -248,7 +232,6 @@ const resolvedDescription = description ?? "Cursos gratuitos e acessíveis e eve
 		--nucleo-eletrico: #00636b;
 		--abismo-profundo: #f5f7fb;
 		--sub-nivel: #ffffff;
-		--neutro-escuro: #e8ecf3;
 		--texto-principal: #0b1220;
 		--texto-secundario: #2c3a52;
 		--texto-terciario: #4a5873;
@@ -257,19 +240,13 @@ const resolvedDescription = description ?? "Cursos gratuitos e acessíveis e eve
 		--grid-line: rgb(var(--rgb-ciano) / 0.06);
 		--hairline: rgb(11 18 32 / 0.14);
 		--hairline-strong: rgb(var(--rgb-ciano) / 0.45);
-		--nucleo-profundo: #00636b;
-		--perigo-texto: #a31b1b;
-		--fundo-rodape: #e8ecf3;
 		--rgb-ciano: 0 99 107;
-		--rgb-fundo: 245 247 251;
 		--rgb-cartao: 255 255 255;
 		--rgb-texto: 44 58 82;
 		--rgb-sombra: 15 23 42;
 		--rgb-claro: 11 18 32;
-		--rgb-sucesso: 0 104 75;
 		--rgb-cobalto: 26 58 200;
 		--rgb-ceu: 0 120 200;
-		--rgb-perigo: 200 30 30;
 		color-scheme: light;
 	}
 
@@ -279,7 +256,6 @@ const resolvedDescription = description ?? "Cursos gratuitos e acessíveis e eve
 	:root[data-tema="claro"] .ambient {
 		background: var(--abismo-profundo);
 	}
-
 
 	:root[data-tema="alto-contraste"] *,
 	:root[data-tema="suave"] *,
@@ -331,7 +307,6 @@ const resolvedDescription = description ?? "Cursos gratuitos e acessíveis e eve
 		scroll-behavior: auto !important;
 	}
 
-
 	@media (prefers-reduced-motion: reduce) {
 		html {
 			scroll-behavior: auto !important;
@@ -347,7 +322,6 @@ const resolvedDescription = description ?? "Cursos gratuitos e acessíveis e eve
 			outline: 3px solid CanvasText;
 		}
 	}
-
 
 	body {
 		margin: 0;

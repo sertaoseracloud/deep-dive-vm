@@ -7,6 +7,10 @@ on:
     branches: [main]
   # Allows you to run this workflow manually from the Actions tab on GitHub.
   workflow_dispatch:
+  # Republica todo dia (06:00 em Brasília): os eventos encerrados saem do HTML,
+  # do carrossel e do contador da aba sem depender de um push.
+  schedule:
+    - cron: "0 9 * * *"
 
 # Allow this job to clone the repo and create a page deployment
 permissions:

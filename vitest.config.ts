@@ -34,6 +34,7 @@ export default getViteConfig({
       include: ["src/**"],
       exclude: [
         "src/assets/**",
+        "src/styles/**",
         "src/pages/**",
         "src/data/**",
         "src/**/*.astro",

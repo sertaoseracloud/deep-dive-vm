@@ -1,0 +1,51 @@
+---
+// Card de um evento do hub. O "faltam N dias" e a remoção de eventos
+// encerrados são feitos no navegador (src/pages/index.astro). Estilos em
+// src/styles/hub.css.
+import type { Event } from "../../data/events";
+import { dia, mesCurto, textoDoBotao } from "../../lib/eventos";
+
+interface Props {
+  evento: Event;
+}
+
+const { evento } = Astro.props;
+const temCfp = evento.links.some((l) => l.label === "Call for papers");
+---
+
+<article class="course-card active event-card" aria-labelledby={evento.id} data-inicio={evento.dates[0]} data-fim={evento.dates.at(-1)}>
+  <div class="event-topo">
+    <p class="event-data" aria-hidden="true">
+      <span class="event-dia">{dia(evento.dates[0])}{evento.dates.length > 1 && `–${dia(evento.dates.at(-1)!)}`}</span>
+      <span class="event-mes">{mesCurto(evento.dates[0])}</span>
+    </p>
+    <div>
+      <h4 class="course-title" id={evento.id}>{evento.title}</h4>
+      <p class="event-quando">
+        <time datetime={evento.dates[0]}>{evento.when}</time>
+        <span class="event-faltam" data-faltam></span>
+      </p>
+    </div>
+  </div>
+  <ul class="chips" aria-label="Destaques">
+    <li class="chip">{evento.format}</li>
+    {evento.free && <li class="chip chip-forte">Gratuito</li>}
+    {evento.ngo && <li class="chip">Renda para ONGs</li>}
+    {evento.highlight && <li class="chip chip-destaque">{evento.highlight}</li>}
+    {temCfp && <li class="chip chip-alerta">Call for papers aberto</li>}
+  </ul>
+  <p class="event-onde"><span class="sr-only">Local: </span>{evento.where}</p>
+  <p class="course-description">{evento.description}</p>
+  <div class="course-actions">
+    {evento.links.map((link, i) => (
+      <a href={link.url} class={i === 0 ? "course-link" : "course-star"} target="_blank" rel="noopener noreferrer">
+        {textoDoBotao(link.label)}<span aria-hidden="true"> →</span><span class="sr-only"> — {evento.title} (abre em nova aba)</span>
+      </a>
+    ))}
+    {evento.links.every((l) => l.url !== evento.site) && (
+      <a href={evento.site} class="link-texto" target="_blank" rel="noopener noreferrer">
+        Site do evento<span aria-hidden="true"> ↗</span><span class="sr-only"> {evento.title} (abre em nova aba)</span>
+      </a>
+    )}
+  </div>
+</article>

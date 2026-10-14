@@ -1,7 +1,7 @@
 {
   "name": "template-dd",
   "type": "module",
-  "version": "1.10.0",
+  "version": "1.10.1",
   "engines": {
     "node": ">=22.18.0"
   },
@@ -12,7 +12,6 @@
     "astro": "astro",
     "test:visual": "npx playwright test --project=chromium",
     "test:unit": "vitest run --reporter=verbose --coverage",
-    "test:integration": "vitest run --reporter=verbose tests/integration",
     "test:unit:watch": "vitest --watch",
     "test:all": "vitest run --coverage",
     "lighthouse": "lighthouse https://mentoria.sertaoseracloud.com/ --output json --output-path lighthouse-report.json --chrome-flags=\"--headless --no-sandbox\"",
@@ -24,26 +23,16 @@
     "@astrojs/sitemap": "^3.7.4",
     "astro": "^7.3.8",
     "astro-seo": "^1.2.0",
-    "gray-matter": "^4.0.3",
-    "pixelmatch": "^7.2.0",
-    "rehype-parse": "^9.0.1",
-    "rehype-remark": "^10.0.1",
-    "remark": "^15.0.1",
-    "remark-gfm": "^4.0.1",
-    "sharp": "^0.35.5",
-    "unified": "^11.0.5",
-    "zod": "^3.23.8"
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.1",
     "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.59.1",
-    "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@vitest/coverage-v8": "^5.0.4",
     "happy-dom": "^20.9.0",
     "impeccable": "4.5.2",
-    "jsdom": "^25.0.1",
     "lighthouse": "^13.5.0",
     "playwright": "^1.59.1",
     "vitest": "^5.0.4"

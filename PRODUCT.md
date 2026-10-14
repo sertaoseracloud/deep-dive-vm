@@ -6,15 +6,15 @@ brand
 
 ## Users
 
-Engenheiros de Nuvem Sênior, DevOps Leads e profissionais em transição para Cloud Architect no Brasil. Trabalham em fintechs, consultorias e SaaS B2B. Passam o dia no terminal, Azure Portal e Terraform. Querem ser ouvidos nas decisões de arquitetura — não apenas executar tickets. Chegam à landing page com ceticismo técnico: já viram muitos cursos rasos e precisam de evidência antes de confiar.
+Pessoas que querem aprender programação e cloud de graça, no navegador: estudantes, profissionais em transição de carreira e a comunidade técnica do Brasil. Inclui, de propósito, pessoas cegas, surdas, mudas e neurodivergentes (TDAH, dislexia, autismo, ansiedade). Chegam pelo LinkedIn, por QR Codes em eventos e por indicação.
 
 ## Product Purpose
 
-Converter engenheiros qualificados em alunos do "Deep Dive Azure VM" — formação de 54h ministrada por Cláudio Filipe Lima Raposo (Microsoft MVP & Docker Captain). Sucesso é a decisão de compra apoiada em confiança técnica genuína, não em FOMO ou desconto. O produto existe para transformar executores em arquitetos de nuvem reconhecidos.
+Ser o ponto de entrada do Cláudio Filipe Lima Rapôso (Arquiteto de Soluções, Microsoft MVP, Docker Captain e AWS Golden Jacket): levar aos cursos gratuitos DivergePHP, DivergeTerraform e DivergePython e à agenda de eventos da comunidade (MVP Conference, AWS User Group e outros), com inscrição e call for papers. Sucesso é a pessoa achar em segundos o curso ou o evento certo e conseguir usar o site do jeito que precisa.
 
 ## Brand Personality
 
-Expert · Acessível · Brasileiro. Voz direta de engenheiro para engenheiro — sem floreio de marketing, sem frieza corporativa. O nome "O Sertão será Cloud" é uma declaração de identidade, não um slogan. A emoção alvo ao chegar na landing page: "Esse cara sabe o que faz — eu confio."
+Expert · Acessível · Brasileiro. Voz direta de engenheiro para engenheiro — sem floreio de marketing, sem frieza corporativa. O nome "O Sertão será Cloud" é uma declaração de identidade, não um slogan. A emoção alvo ao chegar no hub: "Esse cara sabe o que faz, e isso foi feito pensando em mim também."
 
 ## Anti-references
 
@@ -33,4 +33,4 @@ Expert · Acessível · Brasileiro. Voz direta de engenheiro para engenheiro —
 
 ## Accessibility & Inclusion
 
-WCAG 2.1 AA obrigatório. Todos os elementos interativos com foco visível. `prefers-reduced-motion` sempre respeita a preferência do sistema operacional (sobrescreve qualquer localStorage). Contraste mínimo 4.5:1 para texto normal, 3:1 para texto grande. Testes com axe-core em CI.
+WCAG 2.2 AA obrigatório, conferido com axe-core nos 4 temas a cada push. Todos os elementos interativos com foco visível. `prefers-reduced-motion` sempre respeita a preferência do sistema operacional (sobrescreve qualquer localStorage). Contraste mínimo 4.5:1 para texto normal, 3:1 para texto grande. Testes com axe-core em CI.

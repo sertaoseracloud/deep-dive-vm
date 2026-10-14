@@ -1,6 +1,6 @@
 ---
-name: Deep Dive Azure VM · O Sertão será Cloud
-description: Formação técnica de elite para Engenheiros que viram Arquitetos de Nuvem
+name: O Sertão será Cloud · mentoria.sertaoseracloud.com
+description: Hub do Cláudio Rapôso com cursos gratuitos e acessíveis e a agenda de eventos da comunidade
 colors:
   chama-primaria: "#1a3ac8"
   chama-hover: "#2548e0"
@@ -83,7 +83,7 @@ components:
     padding: "18px 28px"
 ---
 
-# Design System: Deep Dive Azure VM · O Sertão será Cloud
+# Design System: O Sertão será Cloud
 
 ## 1. Overview
 

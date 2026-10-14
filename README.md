@@ -2,14 +2,16 @@
 
 ![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/sertaoseracloud/deep-dive-vm/badges/badges/coverage.json)
 
-Site estático em [Astro](https://astro.build) com o hub de cursos e as landing pages das formações.
+Site estático em [Astro](https://astro.build) com o hub de cursos e eventos do Cláudio Rapôso.
 
 | Rota | Conteúdo |
 | --- | --- |
 | `/` | Hub: perfil do mentor, redes e cursos gratuitos (DivergePHP, DivergeTerraform e DivergePython), em abas **Cursos** e **Eventos** (`/#eventos`), cada uma com carrossel de banners |
 | `/acessibilidade/` | Declaração de acessibilidade |
 
-Os cursos do hub vêm de [`src/data/courses.ts`](src/data/courses.ts). O banner de cada curso (1584×396, em [`src/assets/banners/`](src/assets/banners/)) aparece no carrossel do hub ([`CourseCarousel.astro`](src/components/ui/CourseCarousel.astro)): sem rotação automática, com botões, pontos, setas do teclado e arraste, e o Astro gera as versões WebP em 640, 960 e 1584 px. Os eventos vêm de [`src/data/events.ts`](src/data/events.ts): só aparecem os que ainda não terminaram (a filtragem acontece no build), e cada link pode ter um banner em [`src/assets/eventos/`](src/assets/eventos/).
+Os cursos do hub vêm de [`src/data/courses.ts`](src/data/courses.ts). O banner de cada curso (1584×396, em [`src/assets/banners/`](src/assets/banners/)) aparece no carrossel do hub ([`BannerCarousel.astro`](src/components/ui/BannerCarousel.astro)): sem rotação automática, com botões, pontos, setas do teclado e arraste, e o Astro gera as versões WebP em 640, 960 e 1584 px. Os eventos vêm de [`src/data/events.ts`](src/data/events.ts) e cada link pode ter um banner em [`src/assets/eventos/`](src/assets/eventos/). As regras de exibição (agrupar por mês, "faltam N dias", esconder os encerrados) ficam em [`src/lib/eventos.ts`](src/lib/eventos.ts), com testes; elas rodam no build e no navegador, e o site é republicado todo dia às 06:00 (horário de Brasília) para os eventos encerrados saírem também do HTML e do sitemap.
+
+Estrutura do hub: a página ([`src/pages/index.astro`](src/pages/index.astro)) monta o perfil, as abas e os painéis; os cards ficam em [`src/components/hub/`](src/components/hub/) e os estilos em [`src/styles/hub.css`](src/styles/hub.css).
 
 ## Acessibilidade
 
