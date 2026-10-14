@@ -1,0 +1,117 @@
+<blockquote>
+<p>Se você está começando a programar e quer entender como encontrar um item dentro de uma lista, a <strong>busca linear</strong> é o primeiro passo perfeito. Neste artigo, vamos caminhar juntos por esse conceito, explicando cada detalhe com calma e exemplos em Python 🐍.</p>
+</blockquote>
+
+
+<hr>
+
+<h2 id="o-que-%C3%A9-busca-linear">🧠 O que é Busca Linear?
+</h2>
+
+<p>A busca linear, também conhecida como <strong>pesquisa sequencial</strong>, é o método mais simples para procurar um valor em uma lista. Ela funciona da forma mais direta possível: <strong>olhando item por item</strong>, do começo ao fim, até encontrar o que você está procurando — ou até chegar ao final da lista.</p>
+
+<p>Imagine que você está procurando seu nome em uma lista de chamada 📋. Você começa do topo e vai descendo, linha por linha, até encontrar. É exatamente isso que a busca linear faz.</p>
+
+
+<hr>
+
+<h2 id="um-exemplo-do-mundo-real">🧪 Um Exemplo do Mundo Real
+</h2>
+
+<p>Pense em uma gaveta cheia de objetos misturados 🔑🧷🖊️. Você está procurando uma caneta azul. Você começa a tirar um item de cada vez, olhando com atenção. Primeiro uma chave, depois um clipe, depois uma caneta vermelha... até que finalmente encontra a azul. Esse processo é uma busca linear: simples, direta e sem atalhos.</p>
+
+
+<hr>
+
+<h2 id="como-funciona-a-busca-linear-em-python">🛠️ Como Funciona a Busca Linear em Python
+</h2>
+
+<p>Vamos construir o código juntos, explicando cada parte com carinho 💬</p>
+
+<h3 id="1-criando-a-fun%C3%A7%C3%A3o">1. Criando a função
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="k">def</span> <span class="nf">busca_linear</span><span class="p">(</span><span class="n">lista</span><span class="p">,</span> <span class="n">alvo</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">indice</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">lista</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">lista</span><span class="p">[</span><span class="n">indice</span><span class="p">]</span> <span class="o">==</span> <span class="n">alvo</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">indice</span>
+    <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Aqui estamos criando uma função chamada <code>busca_linear</code>. Ela recebe dois parâmetros:</p>
+
+<ul>
+<li>
+<code>lista</code>: a lista onde vamos procurar.</li>
+<li>
+<code>alvo</code>: o valor que queremos encontrar.</li>
+</ul>
+
+<p>Usamos um laço <code>for</code> para percorrer cada posição da lista. A cada passo, comparamos o valor atual com o <code>alvo</code>. Se forem iguais, retornamos o índice. Se chegarmos ao final sem encontrar, retornamos <code>-1</code>.</p>
+
+
+<hr>
+
+<h3 id="2-testando-a-fun%C3%A7%C3%A3o">2. Testando a função
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="c1"># Lista de exemplo
+</span><span class="n">numeros</span> <span class="o">=</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">9</span><span class="p">]</span>
+<span class="n">procurado</span> <span class="o">=</span> <span class="mi">5</span>
+
+<span class="c1"># Chamando a função
+</span><span class="n">resultado</span> <span class="o">=</span> <span class="nf">busca_linear</span><span class="p">(</span><span class="n">numeros</span><span class="p">,</span> <span class="n">procurado</span><span class="p">)</span>
+
+<span class="c1"># Exibindo o resultado
+</span><span class="k">if</span> <span class="n">resultado</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Encontrado no índice </span><span class="si">{</span><span class="n">resultado</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Número não encontrado</span><span class="sh">"</span><span class="p">)</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Neste exemplo, estamos procurando o número <code>5</code> na lista. A função vai verificar cada número, um por um, até encontrar o <code>5</code> e retornar sua posição. Se o número não estiver na lista, ela nos avisa com um <code>-1</code>.</p>
+
+
+<hr>
+
+<h2 id="por-que-usar-busca-linear">📈 Por que usar Busca Linear?
+</h2>
+
+<p>A busca linear é como aquele amigo que está sempre lá quando você precisa, mesmo que não seja o mais rápido 😄. Ela é:</p>
+
+<ul>
+<li>✅ <strong>Fácil de entender</strong>: ideal para quem está aprendendo.</li>
+<li>✅ <strong>Versátil</strong>: funciona com listas de qualquer tipo (números, textos, objetos).</li>
+<li>✅ <strong>Independente da ordem</strong>: não precisa que a lista esteja ordenada.</li>
+</ul>
+
+<p>Mas também tem seus limites:</p>
+
+<ul>
+<li>❌ <strong>Lenta para listas grandes</strong>: ela verifica todos os elementos, mesmo que o item esteja no final.</li>
+<li>❌ <strong>Pouco eficiente</strong>: se você precisa de velocidade, há métodos melhores (como a pesquisa binária).</li>
+</ul>
+
+
+<hr>
+
+<h2 id="conclus%C3%A3o">🧠 Conclusão
+</h2>
+
+<p>A busca linear é o primeiro passo no mundo dos algoritmos de busca. Ela pode parecer simples — e é! — mas é uma ferramenta poderosa para entender como os computadores procuram informações. Saber como ela funciona é essencial para qualquer pessoa que está aprendendo a programar.</p>
+
+<p>Agora que você conhece a busca linear, que tal experimentar com listas diferentes? Ou até comparar com a pesquisa binária que vimos antes? 🚀</p>

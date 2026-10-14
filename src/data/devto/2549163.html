@@ -1,0 +1,185 @@
+<h2 id="what-is-docker-model-runner">🚀 What is Docker Model Runner?
+</h2>
+
+<p>Docker Model Runner is a feature introduced in Docker Desktop (starting with version 4.40) that allows you to run AI models locally using the <code>docker model</code> command. It integrates directly with the Docker ecosystem, offering a streamlined experience for developers who want to test and iterate AI models in their own environments.</p>
+
+
+<hr>
+
+<h2 id="how-docker-model-runner-can-help-with-solution-decisions">🛠️ How Docker Model Runner Can Help with Solution Decisions
+</h2>
+
+<h3 id="1-local-testing-of-ai-models">1. <strong>Local Testing of AI Models</strong>
+</h3>
+
+<p>With Docker Model Runner, you can run language models locally, allowing developers to test and validate AI solutions without relying on external services. This is especially useful for evaluating model behavior in different scenarios and fine-tuning parameters as needed.</p>
+
+<h3 id="2-integration-with-existing-workflows">2. <strong>Integration with Existing Workflows</strong>
+</h3>
+
+<p>The tool integrates seamlessly with Docker Compose, enabling AI models to run as part of multi-container applications. This makes it easier to create consistent and reproducible development environments where different parts of the application can interact with AI models in a coordinated way.</p>
+
+<h3 id="3-openaicompatible-api">3. <strong>OpenAI-Compatible API</strong>
+</h3>
+
+<p>Docker Model Runner exposes endpoints compatible with the OpenAI API, making it easy to adapt existing applications that use this API to interact with locally run models. This gives you the flexibility to choose between local execution and cloud services depending on your project’s specific needs.</p>
+
+<h3 id="4-ondemand-execution-and-efficient-resource-management">4. <strong>On-Demand Execution and Efficient Resource Management</strong>
+</h3>
+
+<p>Models are loaded into memory only when needed and unloaded after a period of inactivity, optimizing system resource usage. This allows developers to run AI models on local machines without significantly impacting overall system performance.</p>
+
+<h3 id="in-summary-when-does-it-make-sense-to-use">In Summary, When Does It Make Sense to Use?
+</h3>
+
+<ul>
+<li>Testing and prototyping LLMs without paying for an external API</li>
+<li>Working offline (great for events, workshops, security, etc.)</li>
+<li>Integrating AI into your local workflow via Docker Compose</li>
+<li>Exploring models as if they were Docker images—but for AI</li>
+</ul>
+
+
+<hr>
+
+<h2 id="integrating-docker-model-runner-with-langchain">🔧 Integrating Docker Model Runner with LangChain
+</h2>
+
+<h3 id="1-prerequisites">1. <strong>Prerequisites</strong>
+</h3>
+
+<ul>
+<li>Docker Desktop 4.40+ (macOS, Windows, or Linux)</li>
+<li>Python 3.8+</li>
+<li><code>pip install langchain_openai</code></li>
+</ul>
+
+<blockquote>
+<p>💡 On Windows, you need an NVIDIA GPU with CUDA. On macOS, Apple Silicon (M1, M2, etc.). On Linux, it’s still in preview (requires <code>docker model</code> by CLI, in the interface yet).</p>
+</blockquote>
+
+<h3 id="2-enable-docker-model-runner">2. <strong>Enable Docker Model Runner</strong>
+</h3>
+
+<p>In Docker Desktop: (<a href="https://m.youtube.com/watch?pp=0gcJCX4JAYcqIYzv&amp;v=3p2uWjFyI1U&amp;utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">YouTube</a>)</p>
+
+<ol>
+<li>Open <strong>Docker Desktop</strong>. (<a href="https://dev.to/docker/think-fast-code-faster-local-ai-development-with-docker-model-runner-2878?utm_source=chatgpt.com">DEV Community</a>)</li>
+<li>Go to <strong>Settings</strong>.</li>
+<li>Click the <strong>Features in development</strong> tab.</li>
+<li>Enable <strong>Enable Docker Model Runner</strong>.</li>
+<li>Also enable <strong>Enable host-side TCP support</strong> and set the port to <strong>12434</strong>.</li>
+<li>Click <strong>Apply &amp; Restart</strong>.</li>
+</ol>
+
+<p>Or via command line:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>docker desktop <span class="nb">enable </span>model-runner <span class="nt">--tcp</span> 12434
+</code></pre>
+
+</div>
+
+
+
+<h3 id="3-pull-a-model">3. <strong>Pull a Model</strong>
+</h3>
+
+<p>Use the <code>docker model pull</code> command to download an available model, for example:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>docker model pull ai/llama3.2:3B-Q4_K_M
+</code></pre>
+
+</div>
+
+
+
+<h3 id="4-install-langchain">4. <strong>Install LangChain</strong>
+</h3>
+
+<p>Install the <code>langchain_openai</code> package using <code>pip</code>:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>pip <span class="nb">install </span>langchain_openai
+</code></pre>
+
+</div>
+
+
+
+<h3 id="5-integrate-langchain-with-docker-model-runner">5. <strong>Integrate LangChain with Docker Model Runner</strong>
+</h3>
+
+<p>Create a Python script to interact with the local model:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="kn">from</span> <span class="n">langchain_openai</span> <span class="kn">import</span> <span class="n">ChatOpenAI</span>
+
+<span class="n">llm</span> <span class="o">=</span> <span class="nc">ChatOpenAI</span><span class="p">(</span>
+    <span class="n">model</span><span class="o">=</span><span class="sh">"</span><span class="s">ai/llama3.2:3B-Q4_K_M</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">base_url</span><span class="o">=</span><span class="sh">"</span><span class="s">http://localhost:12434/engines/v1</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">api_key</span><span class="o">=</span><span class="sh">"</span><span class="s">ignored</span><span class="sh">"</span>
+<span class="p">)</span>
+
+<span class="n">response</span> <span class="o">=</span> <span class="n">llm</span><span class="p">.</span><span class="nf">invoke</span><span class="p">(</span><span class="sh">"</span><span class="s">Explain the Doppler effect in simple terms.</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+</code></pre>
+
+</div>
+
+
+
+<p>This script configures LangChain to communicate with Docker Model Runner through an OpenAI-compatible API.</p>
+
+<h3 id="6-run-the-script">6. <strong>Run the Script</strong>
+</h3>
+
+<p>Save the above script to a file (e.g., <code>test_model.py</code>) and run it:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>python test_model.py
+</code></pre>
+
+</div>
+
+
+
+<p>You’ll see the model’s response directly in the terminal.</p>
+
+
+<hr>
+
+<h2 id="additional-resources">📚 Additional Resources
+</h2>
+
+<ul>
+<li><a href="https://docs.docker.com/model-runner/" target="_blank" rel="noopener noreferrer">Official Docker Model Runner documentation</a></li>
+<li><a href="https://docs.docker.com/compose/how-tos/model-runner/" target="_blank" rel="noopener noreferrer">Docker Compose Integration Guide</a></li>
+<li><a href="https://dev.to/docker/from-zero-to-local-llm-a-developers-guide-to-docker-model-runner-4oi2">Article: From Zero to Local LLM: A Developer's Guide to Docker Model Runner</a></li>
+</ul>
+
+
+<hr>
+
+<p>Using Docker Model Runner together with LangChain enables developers to test and integrate language models locally, making it easier to prototype and build AI-based solutions without relying on cloud services.</p>
+
+
+<hr>
+
+<h2 id="liked-it">Liked It?
+</h2>
+
+<p>Want to chat about AI, cloud, and architecture? Follow me on social:</p>
+
+<ul>
+<li><a href="https://www.linkedin.com/in/cfraposo/" target="_blank" rel="noopener noreferrer">LinkedIn: /cfraposo</a></li>
+<li><a href="https://www.instagram.com/osertaoseracloud" target="_blank" rel="noopener noreferrer">Instagram: @osertaoseracloud</a></li>
+</ul>
+
+<p>I post technical content straight from the trenches. And when I find a tool that saves time and gets the job done—like this one—you’ll hear about it too.</p>

@@ -8,13 +8,16 @@ Hub do Cláudio Filipe Lima Rapôso, Arquiteto de Soluções e Staff Software En
 - Certificações: AWS Solutions Architect (Professional e Associate), Microsoft Certified: Solutions Architect Expert e Microsoft Certified Trainer.
 
 ## Páginas
-- / : perfil, redes sociais e abas "Cursos" e "Eventos" (/#eventos)
+- / : perfil, redes sociais e abas "Cursos", "Eventos" (/#eventos) e "Blog" (/#blog)
 - /acessibilidade/ : declaração de acessibilidade (meta WCAG 2.2 AA)
 
 ## Cursos gratuitos (no navegador, com certificados)
 - DivergePHP: https://sertaoseracloud.github.io/php-playground/
 - DivergeTerraform: https://sertaoseracloud.github.io/terraform-playground/
 - DivergePython: https://sertaoseracloud.github.io/python-playground/
+
+## Blog
+Artigos sobre arquitetura de software, cloud (AWS e Azure), Terraform, Kubernetes e IA, em português e inglês: https://dev.to/sertaoseracloud (aba Blog do hub, /#blog, atualizada todo dia).
 
 ## Eventos
 Agenda da MVP Conference (MVPConf): edições regionais gratuitas e a MVPConf nacional, com links de inscrição e de call for papers.

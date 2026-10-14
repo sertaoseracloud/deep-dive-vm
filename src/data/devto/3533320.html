@@ -1,0 +1,403 @@
+<p>Your <code>OrderService</code> does six things when a customer clicks <em>Place Order</em>. It writes to the orders table, reserves inventory, charges the card, enqueues the shipping label, emails the receipt, and logs the analytics event. It does all of that inside one HTTP handler, in one transaction, on one box. When the payment gateway hiccups, the order fails. When the email provider rate-limits, the order fails. When inventory is slow, the order fails. The monolith tied six independent failure domains to one shared fate.</p>
+
+<p>This article rebuilds that pipeline as an event-driven system on both Azure and AWS, and walks through where they genuinely differ - not where they superficially look the same. The reference scenario is e-commerce order processing with fan-out to Inventory, Payment, and Notification. Audience: intermediate-to-senior engineers who already read the vendor landing pages and want the parts those pages leave out.</p>
+
+<h2 id="the-pattern-before-the-products">The pattern before the products
+</h2>
+
+<p>Before naming any cloud service, fix the shape. What you want is <strong>publish/subscribe fan-out with durable per-consumer queues and per-consumer dead-letter queues</strong>. The producer emits one logical event - <code>OrderPlaced</code> - to a topic. The topic delivers a copy to one durable queue per consumer. Each consumer drains its own queue at its own pace, retries on its own schedule, and when it gives up, the message lands in <em>its own</em> DLQ - not a shared one.</p>
+
+<p>That last part matters. A shared DLQ means a poisoned inventory message blocks the payment team's on-call from seeing their own poison. One queue per consumer, one DLQ per consumer, one retry budget per consumer. The blast radius of any single bad message is exactly one bounded context.</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F4u58flh3h0l5nf1oxzz6.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F4u58flh3h0l5nf1oxzz6.png" alt="Fluxogram" loading="lazy" width="800" height="295"></a></p>
+
+<p>With the shape fixed, we can map it onto two clouds - one concern at a time.</p>
+
+<h2 id="side-by-side-one-concern-at-a-time">Side by side, one concern at a time
+</h2>
+
+<h3 id="topic-and-subscription-model">Topic and subscription model
+</h3>
+
+<p>On <strong>AWS</strong> the topic and the queues are separate primitives. SNS publishes; SQS stores. You wire them together with a topic subscription and a queue policy. The queue holds your messages; the topic just fans them out. Two resource types per consumer.</p>
+
+<p>On <strong>Azure</strong> Service Bus collapses that into one resource graph. A <strong>namespace</strong> contains a <strong>topic</strong>, and each consumer is a <strong>subscription</strong> on that topic. The subscription has a virtual queue behind it; you do not manage a separate queue resource. Fewer moving parts at the IaC layer, but less separation of concern - the topic and its subscribers share a lifecycle and a billing unit.</p>
+
+<h3 id="queue-semantics-and-dlq">Queue semantics and DLQ
+</h3>
+
+<p>Both brokers are <strong>at-least-once</strong>. Consumers will see duplicates. No marketing slide changes that.</p>
+
+<p>AWS pairs each SQS queue with an explicit DLQ via a redrive policy. <code>maxReceiveCount</code> is the threshold; the main queue holds the in-flight message until the consumer explicitly deletes it, controlled by <code>visibility_timeout_seconds</code>. That visibility timeout must exceed P99 handler latency, with margin. Set it too low and the broker redelivers while the first handler is still working - you get two concurrent handlers racing, and idempotency becomes load-bearing in a way you probably did not test.</p>
+
+<p>Azure Service Bus bakes the DLQ into every subscription as <code>$DeadLetterQueue</code>. <code>maxDeliveryCount</code> plays the same role as <code>maxReceiveCount</code>. Service Bus also dead-letters on two classes of failure SQS does not know about: <strong>message TTL expiry</strong> and <strong>filter-evaluation exceptions</strong>. Those two extra DLQ triggers are real operational wins - expired or malformed messages do not vanish into metrics.</p>
+
+<p>One common claim worth pushing back on: <em>Service Bus gives exactly-once delivery</em>. It does not. What it gives is <strong>duplicate detection within a bounded window</strong> (up to seven days) on a per-<code>MessageId</code> basis. That is a broker-side helper, not a semantic guarantee. Consumers must still be idempotent. Same story on SQS FIFO and its five-minute content-based dedup window.</p>
+
+<h3 id="identity-and-dataplane-auth">Identity and data-plane auth
+</h3>
+
+<p>On AWS, consumers assume an IAM role from Lambda, ECS, or EKS. No access keys, no user credentials in config. The queue policy restricts senders to a specific topic ARN via an <code>aws:SourceArn</code> condition - without it, any SNS topic in your account can write to your queue. That is the classic confused-deputy footgun, and leaving the condition off is one of the most common rejection triggers in a real review.</p>
+
+<p>On Azure, the equivalent of "no long-lived keys" is <code>disableLocalAuth: true</code> on the namespace, which kills SAS authentication entirely. All auth goes through AAD and Managed Identity. The right role is <strong>Service Bus Data Receiver</strong> scoped <strong>per subscription</strong>, not namespace-wide. Writers get <strong>Service Bus Data Sender</strong> on the topic. Scoping at the subscription level means a compromised notification consumer cannot read payment events - lateral movement is bounded by the RBAC scope.</p>
+
+<h3 id="ordering">Ordering
+</h3>
+
+<p>Both platforms can do ordering. Neither should do ordering by default.</p>
+
+<p>On AWS, ordering means FIFO queues keyed by <code>MessageGroupId</code>. The cap is 300 messages/sec (3,000 with batching) per queue. That is a hard ceiling, not a soft throttle.</p>
+
+<p>On Azure, ordering means <code>SessionId</code> on messages and <code>requiresSession: true</code> on the subscription. Order is preserved per session. Throughput is fine on Standard; partitioning on Premium pushes it higher. The cost is that session-pinning serialises a subscription - a slow consumer on one session stalls messages in that session until the lock clears.</p>
+
+<p>If the domain does not require strict order, do not enable it. FIFO is a business decision, not an architectural default.</p>
+
+<h2 id="the-tradeoff-matrix">The trade-off matrix
+</h2>
+
+<p>This is the center of the article, not the closer. If you remember one thing, remember this table.</p>
+
+<div class="table-wrapper-paragraph"><table tabindex="0">
+<thead>
+<tr>
+<th>Dimension</th>
+<th>AWS SNS + SQS</th>
+<th>Azure Service Bus (Standard / Premium)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Primitive model</strong></td>
+<td>Topic (SNS) fans out to separate SQS queues - two resource types per consumer</td>
+<td>Single namespace → topic → subscription - one resource graph</td>
+</tr>
+<tr>
+<td><strong>Cost model</strong></td>
+<td>Pay-per-request on both SNS publishes and SQS requests; no idle cost</td>
+<td>Standard: pay-per-million operations + namespace hourly. Premium: fixed messaging units (predictable floor ≈ $670/MU/month at time of writing; verify current SKU pricing, it drifts)</td>
+</tr>
+<tr>
+<td><strong>Message ordering</strong></td>
+<td>Standard: none. FIFO: strict ordering by <code>MessageGroupId</code>, capped at 300 msgs/s (3,000 with batching)</td>
+<td>Standard: ordering within a session (<code>SessionId</code>). Premium: same, higher throughput, partitioning supported</td>
+</tr>
+<tr>
+<td><strong>Delivery semantics</strong></td>
+<td>At-least-once. FIFO adds content-based dedup in a 5-minute window</td>
+<td>At-least-once. PeekLock + duplicate detection up to 7 days. Broker-side helper; still needs idempotent consumers</td>
+</tr>
+<tr>
+<td><strong>Max message size</strong></td>
+<td>256 KB on both SNS and SQS. Workaround: claim-check via S3 + SQS Extended Client</td>
+<td>Standard: 256 KB. Premium: 100 MB native</td>
+</tr>
+<tr>
+<td><strong>DLQ handling</strong></td>
+<td>Explicit SQS queue + redrive policy. <code>maxReceiveCount</code> threshold. Delivery-failure DLQ only</td>
+<td>Implicit <code>$DeadLetterQueue</code> per subscription. <code>maxDeliveryCount</code> threshold. Also DLQs on TTL expiry and filter-eval errors</td>
+</tr>
+<tr>
+<td><strong>Filtering</strong></td>
+<td>SNS filter policies: JSON attribute match at subscription time</td>
+<td>SQL filter and correlation filter per subscription - richer expression model</td>
+</tr>
+<tr>
+<td><strong>Ops surface</strong></td>
+<td>CloudWatch: <code>ApproximateNumberOfMessages</code>, <code>ApproximateAgeOfOldestMessage</code>. Alarm on DLQ depth &gt; 0</td>
+<td>Azure Monitor: <code>ActiveMessages</code>, <code>DeadletteredMessages</code>. Alarm on <code>DeadletteredMessages &gt; 0</code>
+</td>
+</tr>
+<tr>
+<td><strong>Identity</strong></td>
+<td>IAM roles assumed by Lambda/ECS/EKS; SSE-KMS</td>
+<td>AAD + Managed Identity; <code>disableLocalAuth=true</code> kills SAS</td>
+</tr>
+<tr>
+<td><strong>Network isolation</strong></td>
+<td>VPC Endpoints (Interface for SNS, Interface/Gateway for SQS)</td>
+<td>Private Endpoint (Premium SKU for full VNet integration)</td>
+</tr>
+<tr>
+<td><strong>Throughput</strong></td>
+<td>SNS: millions of msgs/s. SQS standard: effectively unlimited. SQS FIFO: 300–3,000 msgs/s per queue</td>
+<td>Standard: ~2,000 msgs/s per namespace as a working guideline. Premium: scales with messaging units (~1,000 msgs/s per MU)</td>
+</tr>
+</tbody>
+</table></div>
+
+<p><strong>One-line heuristic:</strong> If the workload demands &gt;256 KB messages, strong ordering at high throughput, or VNet isolation with ordering, Service Bus Premium earns its cost. Otherwise - massive fan-out, idempotent consumers, per-request billing - SNS + SQS wins. <strong>Standard Service Bus is the baseline; Premium is an upgrade you justify, not a default.</strong></p>
+
+<h2 id="the-iac-aws">The IaC - AWS
+</h2>
+
+<p>Production-grade Terraform. FinOps tags, SSE, redrive policies, and an <code>aws:SourceArn</code> condition on the queue policy. Keep all of it - each line carries a security or reliability property the cluster depends on.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">terraform</span> <span class="p">{</span>
+  <span class="nx">required_version</span> <span class="p">=</span> <span class="s2">"&gt;= 1.6.0"</span>
+  <span class="nx">required_providers</span> <span class="p">{</span>
+    <span class="nx">aws</span> <span class="p">=</span> <span class="p">{</span>
+      <span class="nx">source</span>  <span class="p">=</span> <span class="s2">"hashicorp/aws"</span>
+      <span class="nx">version</span> <span class="p">=</span> <span class="s2">"~&gt; 5.40"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">variable</span> <span class="s2">"project"</span>        <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"environment"</span>    <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>               <span class="c1"># dev | stg | prd</span>
+<span class="nx">variable</span> <span class="s2">"aws_region"</span>     <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span>  <span class="nx">default</span> <span class="p">=</span> <span class="s2">"us-east-1"</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"consumers"</span> <span class="p">{</span>
+  <span class="nx">description</span> <span class="p">=</span> <span class="s2">"Logical consumers that subscribe to the OrderPlaced topic."</span>
+  <span class="nx">type</span>        <span class="p">=</span> <span class="nx">set</span><span class="p">(</span><span class="nx">string</span><span class="p">)</span>
+  <span class="nx">default</span>     <span class="p">=</span> <span class="p">[</span><span class="s2">"inventory"</span><span class="p">,</span> <span class="s2">"payment"</span><span class="p">,</span> <span class="s2">"notification"</span><span class="p">]</span>
+<span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"max_receive_count"</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">number</span> <span class="nx">default</span> <span class="p">=</span> <span class="mi">5</span> <span class="p">}</span> <span class="c1"># redrive threshold</span>
+
+<span class="nx">locals</span> <span class="p">{</span>
+  <span class="nx">name_prefix</span> <span class="p">=</span> <span class="s2">"${var.project}-${var.environment}"</span>
+  <span class="nx">tags</span> <span class="p">=</span> <span class="p">{</span>
+    <span class="nx">Project</span>     <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">project</span>
+    <span class="nx">Environment</span> <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">environment</span>
+    <span class="nx">Workload</span>    <span class="p">=</span> <span class="s2">"eda-orders"</span>
+    <span class="nx">CostCenter</span>  <span class="p">=</span> <span class="s2">"platform-events"</span>
+    <span class="nx">ManagedBy</span>   <span class="p">=</span> <span class="s2">"terraform"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># --- Topic ----------------------------------------------------------------</span>
+<span class="nx">resource</span> <span class="s2">"aws_sns_topic"</span> <span class="s2">"orders_placed"</span> <span class="p">{</span>
+  <span class="nx">name</span>              <span class="p">=</span> <span class="s2">"${local.name_prefix}-orders-placed"</span>
+  <span class="nx">kms_master_key_id</span> <span class="p">=</span> <span class="s2">"alias/aws/sns"</span>          <span class="c1"># SSE at rest with AWS-managed CMK; swap to customer CMK for stricter tenants</span>
+  <span class="nx">tags</span>              <span class="p">=</span> <span class="nx">local</span><span class="p">.</span><span class="nx">tags</span>
+<span class="p">}</span>
+
+<span class="c1"># --- Queues + DLQs per consumer ------------------------------------------</span>
+<span class="nx">resource</span> <span class="s2">"aws_sqs_queue"</span> <span class="s2">"dlq"</span> <span class="p">{</span>
+  <span class="nx">for_each</span>                   <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">consumers</span>
+  <span class="nx">name</span>                       <span class="p">=</span> <span class="s2">"${local.name_prefix}-${each.key}-dlq"</span>
+  <span class="nx">message_retention_seconds</span>  <span class="p">=</span> <span class="mi">1209600</span>            <span class="c1"># 14 days - max allowed, buys ops time</span>
+  <span class="nx">kms_master_key_id</span>          <span class="p">=</span> <span class="s2">"alias/aws/sqs"</span>
+  <span class="nx">tags</span>                       <span class="p">=</span> <span class="nx">merge</span><span class="p">(</span><span class="nx">local</span><span class="p">.</span><span class="nx">tags</span><span class="p">,</span> <span class="p">{</span> <span class="nx">Role</span> <span class="p">=</span> <span class="s2">"dlq"</span><span class="p">,</span> <span class="nx">Consumer</span> <span class="p">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">key</span> <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_sqs_queue"</span> <span class="s2">"main"</span> <span class="p">{</span>
+  <span class="nx">for_each</span>                   <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">consumers</span>
+  <span class="nx">name</span>                       <span class="p">=</span> <span class="s2">"${local.name_prefix}-${each.key}"</span>
+  <span class="nx">visibility_timeout_seconds</span> <span class="p">=</span> <span class="mi">60</span>                 <span class="c1"># must exceed consumer max processing time</span>
+  <span class="nx">message_retention_seconds</span>  <span class="p">=</span> <span class="mi">345600</span>             <span class="c1"># 4 days</span>
+  <span class="nx">receive_wait_time_seconds</span>  <span class="p">=</span> <span class="mi">20</span>                 <span class="c1"># long polling - reduces empty-receive cost</span>
+  <span class="nx">kms_master_key_id</span>          <span class="p">=</span> <span class="s2">"alias/aws/sqs"</span>
+  <span class="nx">redrive_policy</span> <span class="p">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
+    <span class="nx">deadLetterTargetArn</span> <span class="p">=</span> <span class="nx">aws_sqs_queue</span><span class="p">.</span><span class="nx">dlq</span><span class="p">[</span><span class="nx">each</span><span class="p">.</span><span class="nx">key</span><span class="p">].</span><span class="nx">arn</span>
+    <span class="nx">maxReceiveCount</span>     <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">max_receive_count</span>
+  <span class="p">})</span>
+  <span class="nx">tags</span> <span class="p">=</span> <span class="nx">merge</span><span class="p">(</span><span class="nx">local</span><span class="p">.</span><span class="nx">tags</span><span class="p">,</span> <span class="p">{</span> <span class="nx">Role</span> <span class="p">=</span> <span class="s2">"main"</span><span class="p">,</span> <span class="nx">Consumer</span> <span class="p">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">key</span> <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="c1"># --- Allow SNS to write to SQS -------------------------------------------</span>
+<span class="nx">data</span> <span class="s2">"aws_iam_policy_document"</span> <span class="s2">"sns_to_sqs"</span> <span class="p">{</span>
+  <span class="nx">for_each</span> <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">consumers</span>
+  <span class="nx">statement</span> <span class="p">{</span>
+    <span class="nx">sid</span>     <span class="p">=</span> <span class="s2">"AllowSNSDeliver"</span>
+    <span class="nx">effect</span>  <span class="p">=</span> <span class="s2">"Allow"</span>
+    <span class="nx">actions</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"sqs:SendMessage"</span><span class="p">]</span>
+    <span class="nx">principals</span> <span class="p">{</span>
+      <span class="nx">type</span>        <span class="p">=</span> <span class="s2">"Service"</span>
+      <span class="nx">identifiers</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"sns.amazonaws.com"</span><span class="p">]</span>
+    <span class="p">}</span>
+    <span class="nx">resources</span> <span class="p">=</span> <span class="p">[</span><span class="nx">aws_sqs_queue</span><span class="p">.</span><span class="nx">main</span><span class="p">[</span><span class="nx">each</span><span class="p">.</span><span class="nx">key</span><span class="p">].</span><span class="nx">arn</span><span class="p">]</span>
+    <span class="nx">condition</span> <span class="p">{</span>
+      <span class="nx">test</span>     <span class="p">=</span> <span class="s2">"ArnEquals"</span>
+      <span class="nx">variable</span> <span class="p">=</span> <span class="s2">"aws:SourceArn"</span>
+      <span class="nx">values</span>   <span class="p">=</span> <span class="p">[</span><span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">orders_placed</span><span class="p">.</span><span class="nx">arn</span><span class="p">]</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_sqs_queue_policy"</span> <span class="s2">"main"</span> <span class="p">{</span>
+  <span class="nx">for_each</span>  <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">consumers</span>
+  <span class="nx">queue_url</span> <span class="p">=</span> <span class="nx">aws_sqs_queue</span><span class="p">.</span><span class="nx">main</span><span class="p">[</span><span class="nx">each</span><span class="p">.</span><span class="nx">key</span><span class="p">].</span><span class="nx">id</span>
+  <span class="nx">policy</span>    <span class="p">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_iam_policy_document</span><span class="p">.</span><span class="nx">sns_to_sqs</span><span class="p">[</span><span class="nx">each</span><span class="p">.</span><span class="nx">key</span><span class="p">].</span><span class="nx">json</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_sns_topic_subscription"</span> <span class="s2">"consumer"</span> <span class="p">{</span>
+  <span class="nx">for_each</span>             <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">consumers</span>
+  <span class="nx">topic_arn</span>            <span class="p">=</span> <span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">orders_placed</span><span class="p">.</span><span class="nx">arn</span>
+  <span class="nx">protocol</span>             <span class="p">=</span> <span class="s2">"sqs"</span>
+  <span class="nx">endpoint</span>             <span class="p">=</span> <span class="nx">aws_sqs_queue</span><span class="p">.</span><span class="nx">main</span><span class="p">[</span><span class="nx">each</span><span class="p">.</span><span class="nx">key</span><span class="p">].</span><span class="nx">arn</span>
+  <span class="nx">raw_message_delivery</span> <span class="p">=</span> <span class="kc">true</span>                     <span class="c1"># consumers parse the raw event, not the SNS envelope</span>
+<span class="p">}</span>
+
+<span class="c1"># --- Consumer IAM role template (least-privilege) ------------------------</span>
+<span class="nx">data</span> <span class="s2">"aws_iam_policy_document"</span> <span class="s2">"consumer_assume"</span> <span class="p">{</span>
+  <span class="nx">statement</span> <span class="p">{</span>
+    <span class="nx">actions</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"sts:AssumeRole"</span><span class="p">]</span>
+    <span class="nx">principals</span> <span class="p">{</span>
+      <span class="nx">type</span>        <span class="p">=</span> <span class="s2">"Service"</span>
+      <span class="nx">identifiers</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"lambda.amazonaws.com"</span><span class="p">,</span> <span class="s2">"ecs-tasks.amazonaws.com"</span><span class="p">]</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_iam_role"</span> <span class="s2">"consumer"</span> <span class="p">{</span>
+  <span class="nx">for_each</span>           <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">consumers</span>
+  <span class="nx">name</span>               <span class="p">=</span> <span class="s2">"${local.name_prefix}-${each.key}-consumer"</span>
+  <span class="nx">assume_role_policy</span> <span class="p">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_iam_policy_document</span><span class="p">.</span><span class="nx">consumer_assume</span><span class="p">.</span><span class="nx">json</span>
+  <span class="nx">tags</span>               <span class="p">=</span> <span class="nx">merge</span><span class="p">(</span><span class="nx">local</span><span class="p">.</span><span class="nx">tags</span><span class="p">,</span> <span class="p">{</span> <span class="nx">Consumer</span> <span class="p">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">key</span> <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="nx">data</span> <span class="s2">"aws_iam_policy_document"</span> <span class="s2">"consumer_sqs"</span> <span class="p">{</span>
+  <span class="nx">for_each</span> <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">consumers</span>
+  <span class="nx">statement</span> <span class="p">{</span>
+    <span class="nx">actions</span> <span class="p">=</span> <span class="p">[</span>
+      <span class="s2">"sqs:ReceiveMessage"</span><span class="p">,</span>
+      <span class="s2">"sqs:DeleteMessage"</span><span class="p">,</span>
+      <span class="s2">"sqs:GetQueueAttributes"</span><span class="p">,</span>
+      <span class="s2">"sqs:ChangeMessageVisibility"</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="nx">resources</span> <span class="p">=</span> <span class="p">[</span><span class="nx">aws_sqs_queue</span><span class="p">.</span><span class="nx">main</span><span class="p">[</span><span class="nx">each</span><span class="p">.</span><span class="nx">key</span><span class="p">].</span><span class="nx">arn</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_iam_role_policy"</span> <span class="s2">"consumer_sqs"</span> <span class="p">{</span>
+  <span class="nx">for_each</span> <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">consumers</span>
+  <span class="nx">role</span>     <span class="p">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">consumer</span><span class="p">[</span><span class="nx">each</span><span class="p">.</span><span class="nx">key</span><span class="p">].</span><span class="nx">id</span>
+  <span class="nx">policy</span>   <span class="p">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_iam_policy_document</span><span class="p">.</span><span class="nx">consumer_sqs</span><span class="p">[</span><span class="nx">each</span><span class="p">.</span><span class="nx">key</span><span class="p">].</span><span class="nx">json</span>
+<span class="p">}</span>
+
+<span class="nx">output</span> <span class="s2">"topic_arn"</span> <span class="p">{</span> <span class="nx">value</span> <span class="p">=</span> <span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">orders_placed</span><span class="p">.</span><span class="nx">arn</span> <span class="p">}</span>
+<span class="nx">output</span> <span class="s2">"queues"</span>    <span class="p">{</span> <span class="nx">value</span> <span class="p">=</span> <span class="p">{</span> <span class="nx">for</span> <span class="nx">k</span><span class="p">,</span> <span class="nx">q</span> <span class="nx">in</span> <span class="nx">aws_sqs_queue</span><span class="p">.</span><span class="nx">main</span> <span class="err">:</span> <span class="nx">k</span> <span class="p">=</span><span class="err">&gt;</span> <span class="nx">q</span><span class="p">.</span><span class="nx">arn</span> <span class="p">}</span> <span class="p">}</span>
+<span class="nx">output</span> <span class="s2">"dlqs"</span>      <span class="p">{</span> <span class="nx">value</span> <span class="p">=</span> <span class="p">{</span> <span class="nx">for</span> <span class="nx">k</span><span class="p">,</span> <span class="nx">q</span> <span class="nx">in</span> <span class="nx">aws_sqs_queue</span><span class="p">.</span><span class="nx">dlq</span>  <span class="err">:</span> <span class="nx">k</span> <span class="p">=</span><span class="err">&gt;</span> <span class="nx">q</span><span class="p">.</span><span class="nx">arn</span> <span class="p">}</span> <span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h2 id="the-iac-azure">The IaC - Azure
+</h2>
+
+<p>Same scenario, same tags, same <code>maxDeliveryCount = 5</code>. Note <code>disableLocalAuth: true</code> on the namespace and per-subscription RBAC at the bottom.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>// Deployment scope: resourceGroup
+targetScope = 'resourceGroup'
+
+@description('Project short code, e.g. osecloud')
+param project string
+
+@allowed([ 'dev', 'stg', 'prd' ])
+param environment string
+
+@description('Azure region.')
+param location string = resourceGroup().location
+
+@description('Logical consumers that subscribe to the OrderPlaced topic.')
+param consumers array = [ 'inventory', 'payment', 'notification' ]
+
+@description('Consumer identity object IDs (managed identities that will receive Data Receiver role). Key must match a name in `consumers`.')
+param consumerPrincipalIds object = {}
+
+@description('Service Bus SKU. Use Premium when you need ordering at scale, VNet integration, or &gt;1MB messages.')
+@allowed([ 'Standard', 'Premium' ])
+param skuName string = 'Standard'
+
+var namePrefix = toLower('${project}-${environment}')
+var tags = {
+  project:     project
+  environment: environment
+  workload:    'eda-orders'
+  costCenter:  'platform-events'
+  managedBy:   'bicep'
+}
+
+// --- Namespace ------------------------------------------------------------
+resource sbNamespace 'Microsoft.ServiceBus/namespaces@2022-10-01-preview' = {
+  name:     '${namePrefix}-sb'
+  location: location
+  sku: {
+    name: skuName
+    tier: skuName
+  }
+  properties: {
+    minimumTlsVersion: '1.2'
+    publicNetworkAccess: 'Enabled' // set to 'Disabled' + private endpoint in prd
+    disableLocalAuth: true         // force AAD/Managed Identity - no SAS keys
+  }
+  tags: tags
+}
+
+// --- Topic ----------------------------------------------------------------
+resource topic 'Microsoft.ServiceBus/namespaces/topics@2022-10-01-preview' = {
+  parent: sbNamespace
+  name: 'orders-placed'
+  properties: {
+    defaultMessageTimeToLive: 'P14D'
+    enableBatchedOperations: true
+    supportOrdering: true          // preserves order within a session (partition) - only honoured with session-enabled subscriptions
+  }
+}
+
+// --- Subscriptions + DLQ (DLQ is implicit per subscription) --------------
+resource subs 'Microsoft.ServiceBus/namespaces/topics/subscriptions@2022-10-01-preview' = [for name in consumers: {
+  parent: topic
+  name:   '${name}-sub'
+  properties: {
+    deadLetteringOnMessageExpiration:    true
+    deadLetteringOnFilterEvaluationExceptions: true
+    maxDeliveryCount: 5             // redrive threshold → moves to $DeadLetterQueue
+    lockDuration:     'PT1M'        // matches visibility-timeout in AWS terms
+    defaultMessageTimeToLive: 'P4D'
+    requiresSession: false          // set true for FIFO-per-session guarantees
+  }
+}]
+
+// --- RBAC: Azure Service Bus Data Receiver on each subscription ----------
+var dataReceiverRoleId = '4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0' // Service Bus Data Receiver
+
+resource rbacReceiver 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for (name, i) in consumers: if (contains(consumerPrincipalIds, name)) {
+  name:  guid(subs[i].id, consumerPrincipalIds[name], dataReceiverRoleId)
+  scope: subs[i]
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', dataReceiverRoleId)
+    principalId:      consumerPrincipalIds[name]
+    principalType:    'ServicePrincipal'
+  }
+}]
+
+output namespaceId       string = sbNamespace.id
+output topicId           string = topic.id
+output subscriptionNames array  = [for (name, i) in consumers: subs[i].name]
+</code></pre>
+
+</div>
+
+
+
+<p>One caveat on the API version: <code>2022-10-01-preview</code> is still labelled preview at the time of writing. If your platform team forbids preview API versions in production, pin to the latest stable GA release and re-test <code>disableLocalAuth</code> - its behaviour has shifted across API versions.</p>
+
+<h2 id="seven-architectural-constraints">Seven architectural constraints
+</h2>
+
+<p>Treat these as acceptance criteria for any EDA pipeline you ship on either cloud. They are a punch list, not a wish list.</p>
+
+<ol>
+<li>
+<strong>At-least-once is the default on both sides.</strong> Exactly-once is a consumer property - idempotent handlers plus a dedup store - not a broker guarantee. Broker-side windows (SQS FIFO 5 min, Service Bus duplicate detection up to 7 days) narrow the problem; they do not eliminate it.</li>
+<li>
+<strong>Visibility timeout and lock duration must exceed P99 handler latency.</strong> If the broker redelivers while the first handler is still working, you double-process. Measure P99 under load, add headroom, and alert when handler duration approaches the timeout.</li>
+<li>
+<strong>Ordering is a bet you pay for.</strong> FIFO caps AWS throughput at 300–3,000 msgs/s; sessions serialise Azure subscriptions. Turn it on only when the domain demands ordering - never as a safety blanket.</li>
+<li>
+<strong>DLQs are not a graveyard.</strong> They need alerts (<code>DLQ depth &gt; 0</code> pages the on-call) and a documented replay procedure - SQS redrive or Service Bus <code>$DeadLetterQueue</code> receive-and-resubmit. A DLQ without a replay runbook is a silent leak.</li>
+<li>
+<strong>Large messages are an anti-pattern.</strong> &gt;256 KB on AWS implies claim-check via S3. Premium Service Bus supports 100 MB, but transport cost and consumer memory pressure still argue for claim-check at that size.</li>
+<li>
+<strong>Tag every resource</strong> with <code>project</code>, <code>environment</code>, <code>workload</code>, <code>costCenter</code>, <code>managedBy</code>. Without those tags, FinOps cannot attribute spend and the platform team cannot enforce lifecycle policies. The snippets above carry the full set; do not strip them.</li>
+<li>
+<strong>No SAS keys, no IAM user keys.</strong> Managed Identity on Azure, IAM roles on AWS. <code>disableLocalAuth: true</code> on the Service Bus namespace, <code>aws:SourceArn</code> condition on every SQS queue policy. Anything else is a long-lived credential waiting to leak.</li>
+</ol>
+
+<p>The choice between SNS/SQS and Service Bus is rarely binary. Start on Standard Service Bus or SNS + SQS. Move to Premium or FIFO only when a constraint above - size, ordering, isolation - forces you there.</p>

@@ -1,0 +1,217 @@
+<p>Você já parou para pensar que muito do que fazemos no dia a dia pode virar conteúdo? Seja uma pesquisa sobre tendências de nuvem, um estudo sobre novas features da Azure, ou até aquela visita aos fóruns da comunidade. Tudo isso pode ser transformado em pauta para artigos, palestras ou <strong>lives</strong>.</p>
+
+<p>Quando decidi relançar o canal <em>O Sertão será Cloud</em>, queria evitar o problema clássico: <strong>"Sobre o que vou falar essa semana?"</strong>. Minha resposta foi simples: <strong>automatizar a geração de pautas</strong>. E é exatamente sobre isso que vou compartilhar aqui: como construí uma solução que coleta conteúdos relevantes de várias fontes (RSS e Reddit), categoriza por tema e gera arquivos Markdown prontos para serem usados como roteiro.</p>
+
+
+<hr>
+
+<h2 id="ideia-por-tr%C3%A1s-do-projeto">🧾  ideia por trás do projeto
+</h2>
+
+<p>O objetivo é <strong>transformar o consumo diário de informação em algo útil</strong> para gerar conteúdo. Se estou lendo novidades sobre o Azure, AWS ou DevOps, por que não capturar automaticamente essas referências e organizá-las como possíveis tópicos de live?</p>
+
+<p>Então defini alguns requisitos:</p>
+
+<ul>
+<li>Buscar notícias e artigos de blogs oficiais (Azure, AWS etc.).</li>
+<li>Ler feeds por tags em portais como Medium e Dev.to.</li>
+<li>Rastrear discussões quentes no Reddit por categoria (Cloud, Dev, Carreira, etc.).</li>
+<li>Agrupar tudo por categoria e <strong>gerar arquivos Markdown</strong> prontos para serem usados em pauta de live ou post de blog.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="estrutura-da-solu%C3%A7%C3%A3o">✅ Estrutura da solução
+</h2>
+
+<p>Implementei seguindo uma arquitetura simples, mas escalável:</p>
+
+<ul>
+<li>
+<strong>Adapters (Fontes de Dados):</strong> classes que conectam a diferentes fontes (RSS, Reddit).</li>
+<li>
+<strong>Use Case:</strong> um coletor que unifica tudo (<code>CollectPostsUseCase</code>).</li>
+<li>
+<strong>Presenter:</strong> que salva os resultados no formato Markdown (<code>MarkdownPresenter</code>).</li>
+<li>
+<strong>Domínio:</strong> um modelo simples <code>Post</code> que padroniza os dados.</li>
+</ul>
+
+<p>Essa separação facilita expandir no futuro — por exemplo, posso adicionar um adapter para o X (Twitter) ou para o LinkedIn sem alterar o restante.</p>
+
+
+<hr>
+
+<h3 id="1-coletando-dados-de-rss-azure-aws-medium-devto">1. Coletando dados de RSS (Azure, AWS, Medium, Dev.to)
+</h3>
+
+<p>O <strong>RSSAdapter</strong> usa <code>feedparser</code> para ler os feeds e <code>BeautifulSoup</code> para limpar o HTML do resumo.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="k">class</span> <span class="nc">RSSAdapter</span><span class="p">(</span><span class="n">DataSourcePort</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">category</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">feed_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">top_n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">category</span> <span class="o">=</span> <span class="n">category</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">feed_url</span> <span class="o">=</span> <span class="n">feed_url</span>  
+        <span class="n">self</span><span class="p">.</span><span class="n">top_n</span> <span class="o">=</span> <span class="n">top_n</span>
+
+    <span class="k">def</span> <span class="nf">fetch_posts</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">feed</span> <span class="o">=</span> <span class="n">feedparser</span><span class="p">.</span><span class="nf">parse</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">feed_url</span><span class="p">)</span>
+        <span class="n">posts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">feed</span><span class="p">.</span><span class="n">entries</span><span class="p">[:</span><span class="n">self</span><span class="p">.</span><span class="n">top_n</span><span class="p">]:</span>
+            <span class="n">resumo</span> <span class="o">=</span> <span class="nc">BeautifulSoup</span><span class="p">(</span><span class="n">entry</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">summary</span><span class="sh">"</span><span class="p">,</span> <span class="sh">""</span><span class="p">),</span> <span class="sh">"</span><span class="s">html.parser</span><span class="sh">"</span><span class="p">).</span><span class="nf">get_text</span><span class="p">()[:</span><span class="mi">300</span><span class="p">].</span><span class="nf">strip</span><span class="p">()</span>
+            <span class="n">posts</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nc">Post</span><span class="p">(</span>
+                <span class="n">origem</span><span class="o">=</span><span class="sh">"</span><span class="s">rss</span><span class="sh">"</span><span class="p">,</span>
+                <span class="n">categoria</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">category</span><span class="p">,</span>
+                <span class="n">titulo</span><span class="o">=</span><span class="n">entry</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">title</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">Sem título</span><span class="sh">"</span><span class="p">),</span>
+                <span class="n">resumo</span><span class="o">=</span><span class="n">resumo</span><span class="p">,</span>
+                <span class="n">link</span><span class="o">=</span><span class="n">entry</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">link</span><span class="sh">"</span><span class="p">,</span> <span class="sh">""</span><span class="p">),</span>
+                <span class="n">engajamento</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">hashtags</span><span class="o">=</span><span class="nf">gerar_hashtags_por_categoria</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">category</span><span class="p">),</span>
+            <span class="p">))</span>
+        <span class="k">return</span> <span class="n">posts</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Com isso, consigo capturar as últimas notícias do <a href="https://azure.microsoft.com/en-us/blog/" target="_blank" rel="noopener noreferrer">Azure Blog</a> e do <a href="https://aws.amazon.com/blogs/aws/" target="_blank" rel="noopener noreferrer">AWS News</a>, além de posts relevantes por tags em <strong>Medium</strong> e <strong>Dev.to</strong>.</p>
+
+
+<hr>
+
+<h3 id="2-buscando-discuss%C3%B5es-no-reddit">2. Buscando discussões no Reddit
+</h3>
+
+<p>Para conteúdos mais "comunitários", o <strong>RedditAdapter</strong> lê os posts mais quentes de subreddits como <code>r/aws</code>, <code>r/azure</code> e <code>r/devops</code>. Além do título e resumo, guardo também um indicador simples de engajamento (ups + comentários):<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="k">class</span> <span class="nc">RedditAdapter</span><span class="p">(</span><span class="n">DataSourcePort</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">subreddit</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">category</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">subreddit</span> <span class="o">=</span> <span class="n">subreddit</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">category</span> <span class="o">=</span> <span class="n">category</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">https://www.reddit.com/r/</span><span class="si">{</span><span class="n">subreddit</span><span class="si">}</span><span class="s">/hot.json?limit=</span><span class="si">{</span><span class="n">limit</span><span class="si">}</span><span class="sh">"</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">headers</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">User-Agent</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">trend-analyzer</span><span class="sh">"</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">fetch_posts</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">url</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">headers</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">resp</span><span class="p">.</span><span class="nf">json</span><span class="p">()</span>
+        <span class="n">posts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">data</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">data</span><span class="sh">"</span><span class="p">,</span> <span class="p">{}).</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">children</span><span class="sh">"</span><span class="p">,</span> <span class="p">[]):</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="n">child</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">data</span><span class="sh">"</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="k">if</span> <span class="n">p</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">stickied</span><span class="sh">"</span><span class="p">):</span> 
+                <span class="k">continue</span>
+            <span class="n">posts</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nc">Post</span><span class="p">(</span>
+                <span class="n">origem</span><span class="o">=</span><span class="sh">"</span><span class="s">reddit</span><span class="sh">"</span><span class="p">,</span>
+                <span class="n">categoria</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">category</span><span class="p">,</span>
+                <span class="n">titulo</span><span class="o">=</span><span class="n">p</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">title</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">Sem título</span><span class="sh">"</span><span class="p">),</span>
+                <span class="n">resumo</span><span class="o">=</span><span class="n">p</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">selftext</span><span class="sh">"</span><span class="p">,</span> <span class="sh">""</span><span class="p">)[:</span><span class="mi">300</span><span class="p">].</span><span class="nf">strip</span><span class="p">(),</span>
+                <span class="n">link</span><span class="o">=</span><span class="sh">"</span><span class="s">https://reddit.com</span><span class="sh">"</span> <span class="o">+</span> <span class="n">p</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">permalink</span><span class="sh">"</span><span class="p">,</span> <span class="sh">""</span><span class="p">),</span>
+                <span class="n">engajamento</span><span class="o">=</span><span class="n">p</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">ups</span><span class="sh">"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="n">p</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">num_comments</span><span class="sh">"</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                <span class="n">hashtags</span><span class="o">=</span><span class="nf">gerar_hashtags_por_categoria</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">category</span><span class="p">),</span>
+            <span class="p">))</span>
+        <span class="k">return</span> <span class="n">posts</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h3 id="3-apresentando-como-markdown">3. Apresentando como Markdown
+</h3>
+
+<p>Aqui está o toque final: os <strong>posts são agrupados por categoria</strong> e salvos como arquivos <code>.md</code> prontos para uso como pauta de live:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="k">class</span> <span class="nc">MarkdownPresenter</span><span class="p">(</span><span class="n">PresenterPort</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">"</span><span class="s">pautas_md</span><span class="sh">"</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">date_folder</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">().</span><span class="nf">strftime</span><span class="p">(</span><span class="sh">"</span><span class="s">%Y-%m-%d</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">output_dir</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">self</span><span class="p">.</span><span class="n">date_folder</span><span class="p">)</span>
+        <span class="n">os</span><span class="p">.</span><span class="nf">makedirs</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">present</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">posts</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Post</span><span class="p">]):</span>
+        <span class="n">categories</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">post</span> <span class="ow">in</span> <span class="n">posts</span><span class="p">:</span>
+            <span class="n">categories</span><span class="p">.</span><span class="nf">setdefault</span><span class="p">(</span><span class="n">post</span><span class="p">.</span><span class="n">categoria</span><span class="p">,</span> <span class="p">[]).</span><span class="nf">append</span><span class="p">(</span><span class="n">post</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">cat</span><span class="p">,</span> <span class="n">items</span> <span class="ow">in</span> <span class="n">categories</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">output_dir</span><span class="si">}</span><span class="s">/</span><span class="si">{</span><span class="n">cat</span><span class="p">.</span><span class="nf">replace</span><span class="p">(</span><span class="sh">'</span><span class="s"> </span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">_</span><span class="sh">'</span><span class="p">).</span><span class="nf">lower</span><span class="p">()</span><span class="si">}</span><span class="s">.md</span><span class="sh">"</span>
+            <span class="k">with</span> <span class="nf">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="sh">"</span><span class="s">w</span><span class="sh">"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="sh">"</span><span class="s">utf-8</span><span class="sh">"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">f</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s"># Pautas: </span><span class="si">{</span><span class="n">cat</span><span class="si">}</span><span class="se">\n\n</span><span class="sh">"</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+                    <span class="n">f</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">## </span><span class="si">{</span><span class="n">item</span><span class="p">.</span><span class="n">titulo</span><span class="si">}</span><span class="se">\n</span><span class="si">{</span><span class="n">item</span><span class="p">.</span><span class="n">resumo</span><span class="si">}</span><span class="se">\n\n</span><span class="s">🔗 [Acessar fonte](</span><span class="si">{</span><span class="n">item</span><span class="p">.</span><span class="n">link</span><span class="si">}</span><span class="s">)</span><span class="se">\n\n</span><span class="si">{</span><span class="sh">'</span><span class="s"> </span><span class="sh">'</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">item</span><span class="p">.</span><span class="n">hashtags</span><span class="p">)</span><span class="si">}</span><span class="se">\n\n</span><span class="s">---</span><span class="se">\n\n</span><span class="sh">"</span><span class="p">)</span>
+</code></pre>
+
+</div>
+
+
+
+<p>O resultado? <strong>Um diretório com arquivos Markdown organizados por data e categoria</strong>, como:</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fjgu7thknzbv1f0db6sjp.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fjgu7thknzbv1f0db6sjp.png" alt="Logs" loading="lazy" width="800" height="320"></a></p>
+
+
+<hr>
+
+<h2 id="transformando-isso-em-pauta-de-live">🏁 Transformando isso em pauta de live
+</h2>
+
+<p>Agora, toda vez que for preparar uma live do <em>O Sertão será Cloud</em>, basta abrir os arquivos do dia. Cada um contém:</p>
+
+<ul>
+<li><strong>Títulos prontos para discussão</strong></li>
+<li>
+<strong>Resumo do tema</strong> (perfeito para dar contexto)</li>
+<li><strong>Links para a fonte original</strong></li>
+<li>
+<strong>Hashtags sugeridas</strong> (ótimas para divulgar no LinkedIn e Twitter)</li>
+</ul>
+
+<p>Em menos de 1 minuto, tenho um roteiro pronto para usar.</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fk7sw6hxkiaq7tjzgbzsg.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fk7sw6hxkiaq7tjzgbzsg.png" alt="Roteiro" loading="lazy" width="800" height="289"></a></p>
+
+
+<hr>
+
+<h2 id="pr%C3%B3ximos-passos">📚 Próximos passos
+</h2>
+
+<ul>
+<li>
+<strong>Adicionar ranking por engajamento</strong> (ordenar os temas mais quentes primeiro).</li>
+<li>
+<strong>Exportar também em JSON</strong> para integração com ferramentas de automação (ex.: gerar cards automáticos no Trello).</li>
+<li>
+<strong>Integrar com IA</strong>: gerar automaticamente um resumo expandido e perguntas que posso usar ao vivo.</li>
+</ul>
+
+
+<hr>
+
+<p><strong>E você?</strong><br>
+Já pensou em como o que você consome no dia a dia pode virar <strong>semanas de conteúdo</strong>?<br>
+No meu caso, automatizar essa coleta tornou o processo de criar pauta para o canal muito mais rápido e criativo.</p>
+
+<p>👉 <em>Quer que eu publique o código completo no GitHub para você adaptar?</em></p>
+
+
+<hr>
+
+<h2 id="curtiu">💡Curtiu?
+</h2>
+
+<p>Se quiser trocar ideia sobre IA, cloud e arquitetura, me segue nas redes:</p>
+
+<ul>
+<li><a href="https://olink.ai/sertaoseracloud" target="_blank" rel="noopener noreferrer">Redes Sociais</a></li>
+</ul>
+
+<p>Publico conteúdos técnicos direto do campo de batalha. E quando descubro uma ferramenta que economiza tempo e resolve bem, como essa, você fica sabendo também.</p>

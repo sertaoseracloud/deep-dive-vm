@@ -1,0 +1,182 @@
+<p>Documentar a arquitetura de um sistema de software é fundamental para que todos os envolvidos entendam como as partes se conectam. O <strong>C4 Model</strong> (ou <em>C4 Framework</em>) é uma forma de visualizar e descrever a arquitetura em quatro níveis de abstração: <strong>Contexto</strong>, <strong>Container</strong>, <strong>Componente</strong> e <strong>Código</strong>. Criado por Simon Brown, esse modelo surgiu para resolver problemas de documentações confusas e difíceis de manter, trazendo <strong>uma visão mais clara da arquitetura em múltiplos níveis</strong>, adequada a diferentes públicos (desenvolvedores, arquitetos, stakeholders etc.). Neste artigo, vamos explicar cada uma das quatro camadas do C4 Model em linguagem simples, voltada para iniciantes, usando como exemplo uma <strong>API de supermercado</strong> escrita em TypeScript.</p>
+
+<p>Você vai aprender o que representa cada nível (do grande panorama ao código) e como eles se aplicam no exemplo prático de uma aplicação de supermercado online. Vamos lá!</p>
+
+
+<hr>
+
+<h2 id="n%C3%ADvel-diagrama-de-contexto-vis%C3%A3o-de-contexto-do-sistema">Nível 1️⃣: <strong>Diagrama de Contexto</strong> (Visão de Contexto do Sistema)
+</h2>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fm1zogaugggesc5jkhfp8.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fm1zogaugggesc5jkhfp8.png" alt="Nível 1:Diagrama de Contexto" loading="lazy" width="489" height="365"></a></p>
+
+<p>No nível mais alto de abstração temos o <strong>Contexto</strong>. O <em>Diagrama de Contexto</em> mostra, em um único quadro geral, o sistema de software e como ele se relaciona com o mundo externo – isto é, <strong>quem utiliza o sistema e com quais outros sistemas ele interage</strong>. Em outras palavras, é uma visão <strong>macro</strong>: ideal para entender <strong>quem são os atores</strong> (usuários ou outros sistemas) e <strong>como o seu sistema se encaixa no ecossistema</strong> maior.</p>
+
+<p><strong>Como isso se aplica à nossa API de supermercado?</strong> Imagine que estamos desenvolvendo uma plataforma online de supermercado. No diagrama de contexto, nosso <strong>sistema principal</strong> seria a “<strong>Aplicação Supermercado Online</strong>” (a API que estamos construindo). Os <strong>atores externos</strong> podem incluir, por exemplo, o <strong>Cliente</strong> (usuário final que acessa o aplicativo para fazer compras) e um <strong>Administrador</strong> (funcionário do supermercado gerenciando produtos e pedidos). Além das pessoas, também podem existir <strong>sistemas externos</strong> interagindo com a nossa API. No caso do supermercado, poderíamos ter:</p>
+
+<ul>
+<li>Um <strong>sistema de pagamento</strong> de terceiros (por exemplo, um serviço de pagamento via cartão de crédito) que a nossa API utiliza para processar compras.</li>
+<li>Um <strong>serviço de e-mail</strong> ou notificações utilizado para enviar confirmações de pedido aos clientes.</li>
+</ul>
+
+<p>No diagrama de contexto, representaríamos cada <strong>pessoa</strong> (cliente, administrador) como um ator fora do sistema, e cada <strong>sistema externo</strong> (gateway de pagamento, serviço de e-mail) como um elemento externo. Nossa <strong>API de supermercado</strong> ficaria ao centro, demonstrando as interações: clientes se comunicam com a API (por meio do app ou site), e a API por sua vez se comunica com os serviços externos necessários. Tudo resumido em um desenho simples, sem entrar em detalhes internos — é <strong>alto nível e fácil de entender</strong>, ideal para mostrar a visão geral a qualquer um, inclusive membros não técnicos da equipe.</p>
+
+<p><em>(Por exemplo, pense em um cliente fazendo login no aplicativo do supermercado e comprando um item: o diagrama de contexto mostraria o cliente → nosso sistema API supermercado → sistema de pagamento, evidenciando esses relacionamentos básicos. O Exemplo abaixo mostra o diagrama criado seguindo o framework)</em></p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F61ye4xf5svh9cxd5bozp.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F61ye4xf5svh9cxd5bozp.png" alt="C4 Diagrams Diagrama de Contexto" loading="lazy" width="800" height="521"></a></p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Ffialg09ms6jnuqhj54u0.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Ffialg09ms6jnuqhj54u0.png" alt="C4 Diagrams Diagrama de Contexto legendas" loading="lazy" width="800" height="160"></a></p>
+
+
+<hr>
+
+<h2 id="n%C3%ADvel-diagrama-de-container-vis%C3%A3o-dos-cont%C3%AAineres-do-sistema">Nível 2️⃣: <strong>Diagrama de Container</strong> (Visão dos Contêineres do Sistema)
+</h2>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fwkvlg2bv0i6nt383onqw.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fwkvlg2bv0i6nt383onqw.png" alt="Nível 2: Diagrama de Container" loading="lazy" width="576" height="383"></a></p>
+
+<p>Descendo um nível de detalhe, temos o <strong>Container</strong>. Aqui, "container" não se refere a container Docker especificamente, mas a <strong>unidades executáveis ou de armazenamento</strong> que compõem o sistema – aplicações, serviços, bases de dados, etc. O <em>Diagrama de Container</em> mostra os principais <strong>contêineres de software que compõem o sistema e como eles se comunicam</strong>, incluindo as tecnologias usadas. Em resumo, essa visão detalha a <strong>arquitetura interna de alto nível</strong>: quais aplicações e bancos de dados existem e como interagem entre si.</p>
+
+<p><strong>Aplicando ao exemplo do supermercado:</strong> Dentro da nossa “Aplicação Supermercado Online”, provavelmente há vários contêineres trabalhando juntos. Podemos identificar pelo menos os seguintes:</p>
+
+<ul>
+<li>
+<strong>Backend API do Supermercado</strong> – O nosso serviço principal, implementado em Node.js/TypeScript (por exemplo, usando Express ou NestJS). Este container expõe endpoints HTTP (REST) que permitem realizar login, listar produtos, criar pedidos, etc.</li>
+<li>
+<strong>Banco de Dados do Supermercado</strong> – Um contêiner de armazenamento de dados (pode ser um banco relacional PostgreSQL, um NoSQL como MongoDB, etc.) onde ficam guardadas informações de produtos, clientes, pedidos, etc.</li>
+<li>
+<strong>Aplicação Front-end</strong> – Embora o foco seja a API, vale lembrar que os clientes interagem através de uma interface. Poderíamos ter um contêiner para um <strong>aplicativo Web</strong> (por exemplo, uma aplicação React ou Angular rodando no navegador) <strong>e/ou um aplicativo móvel</strong> que consome a API. Esses front-ends são contêineres separados que se comunicam com a API via HTTP.</li>
+</ul>
+
+<p>No diagrama de container, desenharíamos a <strong>API</strong> como um contêiner (indicando a tecnologia, ex: “Node.js/Express API”), o <strong>Banco de Dados</strong> como outro (ex: “MongoDB Database”) e o <strong>Front-end</strong> como outro (ex: “Aplicativo Web React”). Indicaríamos as <strong>comunicações</strong>: o front-end se conecta à API (chamadas REST), a API consulta/escreve no banco de dados (conexão de banco), e a API também se conecta ao serviço de pagamento externo (chamada API externa). Cada contêiner também mostra sua <strong>responsabilidade principal</strong>. Por exemplo, a API cuida da lógica de negócio, o banco armazena dados, o front-end exibe as funcionalidades ao usuário.</p>
+
+<p>Essa visão de containers deixa claro <strong>como o sistema está estruturado em termos de deploy</strong> – quem roda onde e falando com quem. Novamente, ainda não vemos detalhes de código ou componentes internos, mas já sabemos, por exemplo, que nossa API de supermercado consiste em um backend + database, e que existe um front-end consumindo, mais integrações externas. Isso ajuda arquitetos e desenvolvedores a entenderem a <strong>divisão de responsabilidades entre serviços</strong> (cada contêiner com seu papel) e as tecnologias em jogo antes de mergulharmos no código.</p>
+
+<p><em>(No diagrama de container abaixo do nosso supermercado: veríamos algo como um retângulo para “API Supermercado (Node/TS)”, conectado a um banco “DB Supermercado (Postgres)”, e a um retângulo “App Web Cliente (React)”, além de uma seta da API para um bloco externo “Gateway de Pagamento”.)</em></p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fvex1bwi3pbmizydg56qk.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fvex1bwi3pbmizydg56qk.png" alt="C4 Diagrams Diagrama de Container" loading="lazy" width="800" height="632"></a></p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fyo5bidhkur83hjhe8fdb.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fyo5bidhkur83hjhe8fdb.png" alt="C4 Diagrams Diagrama de Container legendas" loading="lazy" width="800" height="160"></a></p>
+
+
+<hr>
+
+<h2 id="n%C3%ADvel-diagrama-de-componentes-vis%C3%A3o-interna-de-componentes">Nível 3️⃣: <strong>Diagrama de Componentes</strong> (Visão Interna de Componentes)
+</h2>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fsmgn6nugibmm2wvtl64a.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fsmgn6nugibmm2wvtl64a.png" alt="Nível 3: Diagrama de Componentes" loading="lazy" width="618" height="359"></a></p>
+
+<p>O terceiro nível foca <strong>dentro de um contêiner específico</strong>, revelando os blocos de construção internos – os <strong>Componentes</strong> de software e suas interações. Um <em>Diagrama de Componentes</em> mostra os principais componentes de um container e como eles se relacionam. Podemos pensar em <strong>componentes</strong> como agregados de classes ou módulos com uma responsabilidade específica dentro da aplicação (por exemplo: um controlador MVC, um serviço, um repositório de dados, etc.). Essa visão é especialmente útil para desenvolvedores, pois aproxima da implementação sem chegar ao código-fonte detalhado.</p>
+
+<p><strong>No caso da API de supermercado (container de Backend):</strong> Vamos ampliar a nossa API Node/TypeScript para ver seus componentes internos. Suponha que implementamos a API seguindo uma arquitetura em camadas (por exemplo, modelo MVC ou similar). Poderíamos ter componentes como:</p>
+
+<ul>
+<li>
+<strong>Controller de Produtos</strong> – responsável por receber as requisições relacionadas a produtos (listar produtos, detalhes de produto, adicionar novo produto, etc.) e retornar as respostas adequadas.</li>
+<li>
+<strong>Controller de Pedidos</strong> – responsável pelas requisições de criação de pedidos, atualização de status, listagem de pedidos do cliente, etc.</li>
+<li>
+<strong>Serviço de Pagamento</strong> – componente que encapsula a lógica de integração com o sistema de pagamento externo. Por exemplo, o Controller de Pedidos chamará este serviço para processar o pagamento de uma compra.</li>
+<li>
+<strong>Serviços de Domínio</strong> – camadas de negócio associadas a cada entidade principal. Por exemplo, um <strong>ProductService</strong> contendo regras de negócios de produtos (verificar estoque, aplicar promoções) e um <strong>OrderService</strong> para regras de pedidos (calcular total, verificar disponibilidade, coordenar pagamento). Esses serviços são chamados pelos controllers.</li>
+<li>
+<strong>Repositórios (Data Access)</strong> – componentes responsáveis por interagir com o banco de dados. Por exemplo, um <strong>ProdutoRepository</strong> para operações CRUD de produtos na base de dados e um <strong>PedidoRepository</strong> para pedidos. Os serviços de domínio utilizam os repositórios para acessar os dados.</li>
+</ul>
+
+<p>Cada um desses componentes é uma parte do código com uma <strong>responsabilidade clara</strong>. No diagrama de componentes da API, visualizaríamos, por exemplo, que o <em>PedidoController</em> utiliza o <em>OrderService</em>, que por sua vez conversa com o <em>PedidoRepository</em> e o <em>Serviço de Pagamento</em>. Também veríamos o <em>ProdutoController</em> conversando com <em>ProductService</em> e este com <em>ProdutoRepository</em>, e assim por diante. As <strong>relações</strong> (setas no diagrama) indicam chamadas ou dependências entre componentes. Essa visão ajuda a equipe a entender como o código está organizado internamente em módulos e camadas, antes mesmo de olhar para a implementação. Em resumo, no nível de componente estamos <strong>mapeando as partes da aplicação dentro de um contêiner</strong> – no nosso caso, dentro da API do supermercado – e vendo como essas partes colaboram para realizar as funcionalidades. É um nível ótimo para desenvolvedores discutirem design interno da aplicação, divisão em módulos, responsabilidades de classes, etc..</p>
+
+<p><em>(Continuando nosso exemplo, o diagrama de componentes deixaria claro, por exemplo: “PedidoController -&gt; OrderService -&gt; (PedidoRepository + ServiçoPagamento) -&gt; GatewayPagamento externo”, mostrando o fluxo interno quando um pedido é criado.)</em></p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F5slsg4vh6ecdfv20ko3e.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F5slsg4vh6ecdfv20ko3e.png" alt="C4 Diagrams Diagrama de Componentes" loading="lazy" width="800" height="673"></a></p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Ffj97tex3qbnre9wamio1.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Ffj97tex3qbnre9wamio1.png" alt="C4 Diagrams Diagrama de Componentes legendas" loading="lazy" width="800" height="160"></a></p>
+
+
+<hr>
+
+<h2 id="n%C3%ADvel-diagrama-de-c%C3%B3digo-vis%C3%A3o-do-c%C3%B3digoimplementa%C3%A7%C3%A3o">Nível 4️⃣: <strong>Diagrama de Código</strong> (Visão do Código/Implementação)
+</h2>
+
+<p>Finalmente, o quarto nível é o mais detalhado: a visão de <strong>Código</strong> ou implementação. Nem sempre é necessário chegar a esse nível na documentação, pois ele mostra os detalhes de classes, métodos e código-fonte – algo que, muitas vezes, os próprios desenvolvedores obtêm diretamente do repositório. De fato, o uso do diagrama de código é <strong>opcional</strong>, recomendado apenas se for útil para compreensão, já que geralmente pode ser gerado pelas ferramentas ou IDEs quando preciso. No C4 Model, esse nível costuma ser representado por <strong>diagramas UML de classes ou sequências</strong>, mostrando como um componente é realizado internamente por classes e suas relações.</p>
+
+<p><strong>No exemplo da nossa API de supermercado:</strong> Se quisermos detalhar ainda mais o componente de Pedidos, poderíamos ilustrar com um diagrama ou trecho de código como as classes estão implementadas. Vamos supor que o componente <em>OrderService/PedidoController</em> é implementado com duas classes em TypeScript: uma classe <code>PedidoController</code> e uma classe <code>PedidoService</code>, e que temos também uma classe <code>PagamentoService</code> e <code>PedidoRepository</code>.</p>
+
+<p>Vamos mostrar como é a interação entre essas classes dentro do componente de Pedidos:</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fisrai0jcgnz02swfim9c.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fisrai0jcgnz02swfim9c.png" alt="Nível 4: Diagrama de Código" loading="lazy" width="603" height="397"></a></p>
+
+<p>No diagrama acima, vemos <strong>como as classes colaboram</strong> dentro do componente de Pedidos: o <code>PedidoController</code> recebe a requisição HTTP e delega a criação do pedido ao <code>PedidoService</code>. O <code>PedidoService</code>, por sua vez, utiliza o <code>PagamentoService</code> para processar o pagamento do pedido e o <code>PedidoRepository</code> para salvar os dados no banco. Essa implementação corresponde exatamente ao que havíamos descrito no diagrama de componentes. Se fôssemos desenhar um diagrama de classes UML para este componente, teríamos caixas representando essas classes (<code>PedidoController</code>, <code>PedidoService</code>, etc.) e setas indicando que <code>PedidoController</code> depende de <code>PedidoService</code>, que por sua vez depende de <code>PagamentoService</code> e <code>PedidoRepository</code>.</p>
+
+<p>O importante sobre a camada de Código é notar que <strong>ela reflete o código-fonte real</strong>. Muitas vezes, times ágeis não mantêm diagramas de código atualizados porque o código em si já é a fonte de verdade – por isso esse nível é opcional. Mas em treinamentos ou documentação de referência, pode ser útil mostrar um exemplo de código ou diagrama de classe para ilustrar <em>como</em> um determinado componente foi implementado. No nosso exemplo, conseguimos visualizar em TypeScript exatamente como a lógica de pedidos é estruturada, o que ajuda novos desenvolvedores a compreenderem detalhes da implementação.</p>
+
+
+<hr>
+
+<h2 id="conclus%C3%A3o">📚 Conclusão
+</h2>
+
+<p>O C4 Model nos permite descrever a arquitetura de um sistema <strong>em diferentes níveis de granularidade</strong>, do panorama geral até os detalhes finos do código. Cada nível atende a um propósito e a um público: o contexto para entendermos o sistema no mundo (útil para apresentar a ideia a stakeholders não técnicos), os containers para vermos as partes do sistema e tecnologias (útil para arquitetos e devs planejando a estrutura), os componentes para detalhar a construção interna de cada parte (útil para desenvolvedores implementando funcionalidades), e o código para aqueles que precisam do detalhe máximo (geralmente usado apenas quando necessário). Essa abordagem hierárquica possibilita <strong>contar diferentes “histórias” da arquitetura para diferentes audiências</strong> de forma clara e estruturada, sem sobrecarregar ninguém com informação de menos ou em excesso.</p>
+
+<p>Concluimos que documentar sua aplicação de supermercado (ou qualquer outro sistema) usando o C4 Model garante que você e seu time tenham uma compreensão compartilhada da arquitetura em todos os níveis – facilitando a comunicação, a manutenção e a evolução do software. Para um desenvolvedor júnior, essa técnica oferece um mapa valioso: desde entender onde seu código se encaixa no contexto do negócio até ver como as partes do sistema trabalham juntas. Aproveite esses <strong>quatro níveis de perspectiva</strong> para construir sistemas mais bem documentados e mais fáceis de entender por todos!</p>
+
+<p>Claro! Para aprofundar seu conhecimento sobre o C4 Model e a utilização do Structurizr DSL, especialmente aplicando esses conceitos a uma API de supermercado em TypeScript, recomendo as seguintes leituras e recursos:</p>
+
+
+<hr>
+
+<h3 id="leitura-recomendada">📘 Leitura Recomendada
+</h3>
+
+<ol>
+<li><p><strong>Documentação Oficial do Structurizr DSL</strong><br>
+A documentação oficial oferece uma visão abrangente sobre como modelar arquiteturas de software utilizando o Structurizr DSL, baseado no C4 Model.<br>
+🔗 <a href="https://docs.structurizr.com/dsl" target="_blank" rel="noopener noreferrer">Structurizr DSL Documentation</a></p></li>
+<li><p><strong>C4 Model – Site Oficial</strong><br>
+O site oficial do C4 Model fornece uma introdução detalhada aos quatro níveis de abstração (Contexto, Contêiner, Componente e Código) e exemplos de diagramas.<br>
+🔗 <a href="https://c4model.com/" target="_blank" rel="noopener noreferrer">C4 Model</a></p></li>
+<li><p><strong>Cookbook do Structurizr DSL</strong><br>
+Este guia prático apresenta exemplos e melhores práticas para criar diagramas utilizando o Structurizr DSL, incluindo estilos, temas e visualizações personalizadas.<br>
+🔗 <a href="https://docs.structurizr.com/dsl/cookbook/" target="_blank" rel="noopener noreferrer">Structurizr DSL Cookbook</a></p></li>
+<li><p><strong>Exemplos Práticos no GitHub</strong><br>
+Repositório com exemplos de modelagem de arquiteturas de software usando o C4 Model e o Structurizr DSL, incluindo diferentes níveis de diagramas.<br>
+🔗 <a href="https://github.com/godatadriven/c4-model-example" target="_blank" rel="noopener noreferrer">godatadriven/c4-model-example</a></p></li>
+<li><p><strong>Artigo: "Getting Started with the Structurizr DSL" por Simon Brown</strong><br>
+Neste artigo, o criador do C4 Model apresenta uma introdução prática ao Structurizr DSL, demonstrando como definir modelos e visualizações.<br>
+🔗 <a href="https://dev.to/simonbrown/getting-started-with-the-structurizr-dsl-34dh">Getting Started with the Structurizr DSL</a></p></li>
+<li><p><strong>Tutorial em Vídeo: "How to Create C4 Diagrams with Code"</strong><br>
+Este vídeo tutorial demonstra como criar diagramas C4 utilizando o Structurizr DSL, abordando desde a instalação até a geração de diagramas.<br>
+🔗 <a href="https://www.youtube.com/watch?v=ySW7Jo9SyW0" target="_blank" rel="noopener noreferrer">YouTube – How to Create C4 Diagrams with Code</a></p></li>
+</ol>
+
+
+<hr>
+
+<h3 id="ferramentas-e-recursos-adicionais">🛠️ Ferramentas e Recursos Adicionais
+</h3>
+
+<ul>
+<li><p><strong>Structurizr Lite</strong>: Versão local do Structurizr que permite visualizar e editar diagramas definidos com o DSL. Ideal para testes e desenvolvimento local.<br>
+🔗 <a href="https://structurizr.com/help/lite" target="_blank" rel="noopener noreferrer">Structurizr Lite</a></p></li>
+<li><p><strong>Structurizr CLI</strong>: Interface de linha de comando para trabalhar com workspaces do Structurizr, permitindo push/pull de modelos e exportação para outros formatos.<br>
+🔗 <a href="https://docs.structurizr.com/cli" target="_blank" rel="noopener noreferrer">Structurizr CLI</a>(<a href="https://docs.structurizr.com/dsl" target="_blank" rel="noopener noreferrer">Structurizr</a>)</p></li>
+<li><p><strong>Editor Online do Structurizr DSL</strong>: Editor baseado na web para escrever e visualizar modelos DSL sem necessidade de instalação local.<br>
+🔗 <a href="https://structurizr.com/dsl" target="_blank" rel="noopener noreferrer">Structurizr DSL Editor</a></p></li>
+</ul>
+
+
+<hr>
+
+<h2 id="curtiu">Curtiu?
+</h2>
+
+<p>Se quiser trocar ideia sobre IA, cloud e arquitetura, me segue nas redes:</p>
+
+<ul>
+<li><a href="https://www.linkedin.com/in/cfraposo/" target="_blank" rel="noopener noreferrer">LinkedIn: /cfraposo</a></li>
+<li><a href="https://www.instagram.com/osertaoseracloud" target="_blank" rel="noopener noreferrer">Instagram: @osertaoseracloud</a></li>
+</ul>
+
+<p>Publico conteúdos técnicos direto do campo de batalha. E quando descubro uma ferramenta que economiza tempo e resolve bem, como essa, você fica sabendo também.</p>
+
+
+<hr>

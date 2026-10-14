@@ -1,0 +1,51 @@
+---
+// Card de um artigo do blog no dev.to. A capa é decorativa (o título já diz
+// do que se trata); sem capa, mostra um bloco com a primeira tag. Artigos em
+// outro idioma marcam o lang, para o leitor de tela pronunciar certo.
+// Estilos em src/styles/hub.css.
+import type { Artigo } from "../../lib/devto.js";
+import { dataCurta, nomeDoIdioma } from "../../lib/devto.js";
+
+interface Props {
+  artigo: Artigo;
+}
+
+const { artigo } = Astro.props;
+const lang = artigo.language === "pt" ? undefined : artigo.language;
+const idCard = `post-${artigo.id}`;
+---
+
+<article class="course-card active post-card" aria-labelledby={idCard} data-idioma={artigo.language}>
+  {artigo.cover ? (
+    <img class="post-capa" src={artigo.cover} alt="" width="1000" height="420" loading="lazy" decoding="async" />
+  ) : (
+    <div class="post-capa post-capa-vazia" aria-hidden="true"><span>#{artigo.tags[0] ?? "dev"}</span></div>
+  )}
+  <p class="post-meta">
+    <time datetime={artigo.publishedAt}>{dataCurta(artigo.publishedAt)}</time>
+    <span aria-hidden="true"> · </span>{artigo.readingTime} min de leitura
+    <span aria-hidden="true"> · </span><span class="post-idioma">{nomeDoIdioma(artigo.language)}</span>
+  </p>
+  <h3 class="course-title post-titulo" id={idCard} lang={lang}>{artigo.title}</h3>
+  {artigo.description && <p class="course-description post-resumo" lang={lang}>{artigo.description}</p>}
+  {artigo.tags.length > 0 && (
+    <ul class="chips" aria-label="Tags">
+      {artigo.tags.slice(0, 4).map((tag) => <li class="chip">#{tag}</li>)}
+    </ul>
+  )}
+  <div class="course-actions">
+    <a href={`/blog/${artigo.slug}/`} class="course-link">
+      Ler artigo<span aria-hidden="true"> →</span><span class="sr-only"> — {artigo.title}</span>
+    </a>
+    <a href={artigo.url} class="link-texto" target="_blank" rel="noopener noreferrer">
+      dev.to<span aria-hidden="true"> ↗</span><span class="sr-only"> — {artigo.title} no dev.to (abre em nova aba)</span>
+    </a>
+    {(artigo.reactions > 0 || artigo.comments > 0) && (
+      <p class="post-reacoes">
+        {artigo.reactions > 0 && <span>{artigo.reactions} {artigo.reactions === 1 ? "reação" : "reações"}</span>}
+        {artigo.reactions > 0 && artigo.comments > 0 && <span aria-hidden="true"> · </span>}
+        {artigo.comments > 0 && <span>{artigo.comments} {artigo.comments === 1 ? "comentário" : "comentários"}</span>}
+      </p>
+    )}
+  </div>
+</article>

@@ -1,0 +1,243 @@
+<p>O Princípio da Responsabilidade Única (SRP - <em>Single Responsibility Principle</em>) é a base dos princípios SOLID. Ele estabelece que <strong>uma classe deve ter um, e apenas um, motivo para mudar.</strong></p>
+
+<p>Quando ignoramos esse princípio, criamos "God Classes" (Classes Deus) componentes que sabem demais e fazem demais. Essas classes são frágeis: uma mudança no banco de dados pode quebrar a lógica de validação, ou uma alteração nas regras de negócio pode quebrar o sistema de envio de e-mails.</p>
+
+<p>Neste guia, analisaremos um antipadrão comum em uma funcionalidade de Cadastro de Usuário e a refatoraremos para uma arquitetura limpa e desacoplada.</p>
+
+
+<hr>
+
+<h2 id="o-antes-a-viola%C3%A7%C3%A3o-do-srp">❌ O "Antes": A Violação do SRP
+</h2>
+
+<p>Aqui está um exemplo típico de código legado. Temos uma classe chamada <code>UserService</code>, mas ela não está agindo como um serviço; ela age como um monolito.</p>
+
+<p><strong>Por que isso é ruim:</strong></p>
+
+<ul>
+<li>
+<strong>Alto Acoplamento:</strong> Ela está fortemente ligada a regras de validação específicas e instruções de banco de dados (<code>print</code>).</li>
+<li>
+<strong>Difícil de Testar:</strong> Você não consegue testar a lógica de registro sem acionar a lógica do banco de dados.</li>
+<li>
+<strong>Múltiplos Motivos para Mudar:</strong> Se as regras de senha mudarem, este arquivo é aberto. Se o banco de dados mudar, este arquivo também é aberto.
+</li>
+</ul>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="k">class</span> <span class="nc">UserService</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
+        <span class="c1"># Responsabilidade 1: Lógica de Validação
+</span>        <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">O nome é muito curto</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="sh">"</span><span class="s">@</span><span class="sh">"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">email</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">Email inválido</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">password</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">A senha é muito fraca</span><span class="sh">"</span><span class="p">)</span>
+
+        <span class="c1"># Responsabilidade 2: Lógica de Banco de Dados (Verificar existência)
+</span>        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[DB] Verificando se </span><span class="si">{</span><span class="n">email</span><span class="si">}</span><span class="s"> existe...</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">email</span> <span class="o">==</span> <span class="sh">"</span><span class="s">taken@example.com</span><span class="sh">"</span><span class="p">:</span>
+             <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">Email já está em uso</span><span class="sh">"</span><span class="p">)</span>
+
+        <span class="c1"># Responsabilidade 3: Lógica de Persistência (Salvar)
+</span>        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[DB] INSERT INTO users (name, email) VALUES (</span><span class="sh">'</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="sh">'</span><span class="s">, </span><span class="sh">'</span><span class="si">{</span><span class="n">email</span><span class="si">}</span><span class="sh">'</span><span class="s">)</span><span class="sh">"</span><span class="p">)</span>
+
+        <span class="c1"># Responsabilidade 4: Lógica de Notificação
+</span>        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[MAIL] Enviando e-mail de boas-vindas para </span><span class="si">{</span><span class="n">email</span><span class="si">}</span><span class="s">...</span><span class="sh">"</span><span class="p">)</span>
+
+
+</code></pre>
+
+</div>
+
+
+
+<p><strong>Uso</strong><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>service = UserService()
+service.register("Alice", "alice@example.com", "123456")
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="a-refatora%C3%A7%C3%A3o-separa%C3%A7%C3%A3o-de-preocupa%C3%A7%C3%B5es">✅ A Refatoração: Separação de Preocupações
+</h2>
+
+<p>Para corrigir isso, devemos identificar as responsabilidades distintas e extraí-las para suas próprias classes.</p>
+
+<h3 id="1-a-entidade-estrutura-de-dados">1. A Entidade (Estrutura de Dados)
+</h3>
+
+<p>Primeiro, criamos uma representação dos dados. Esta classe não tem lógica; ela apenas armazena estado.</p>
+
+<ul>
+<li>
+<strong>Motivo para mudar:</strong> Apenas se os atributos do usuário (como adicionar <code>telefone</code>) mudarem.
+</li>
+</ul>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="kn">from</span> <span class="n">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">User</span><span class="p">:</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">email</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">password</span><span class="p">:</span> <span class="nb">str</span>
+
+</code></pre>
+
+</div>
+
+
+
+<h3 id="2-o-validador-regras-de-neg%C3%B3cio">2. O Validador (Regras de Negócio)
+</h3>
+
+<p>Extraímos as regras de validação. Esta classe garante a integridade dos dados.</p>
+
+<ul>
+<li>
+<strong>Motivo para mudar:</strong> Apenas se as regras para dados válidos mudarem.
+</li>
+</ul>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="k">class</span> <span class="nc">UserValidator</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">validate</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">user</span><span class="p">:</span> <span class="n">User</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">user</span><span class="p">.</span><span class="n">name</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">O nome é muito curto</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="sh">"</span><span class="s">@</span><span class="sh">"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">user</span><span class="p">.</span><span class="n">email</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">Email inválido</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">user</span><span class="p">.</span><span class="n">password</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">A senha é muito fraca</span><span class="sh">"</span><span class="p">)</span>
+
+</code></pre>
+
+</div>
+
+
+
+<h3 id="3-o-reposit%C3%B3rio-persist%C3%AAncia">3. O Repositório (Persistência)
+</h3>
+
+<p>Abstraímos as operações de banco de dados. Esta classe lida com o "Como" armazenar os dados.</p>
+
+<ul>
+<li>
+<strong>Motivo para mudar:</strong> Apenas se a tecnologia do banco de dados (SQL, NoSQL, Arquivo) mudar.
+</li>
+</ul>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="k">class</span> <span class="nc">UserRepository</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">exists</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">email</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="c1"># Simula verificação no DB
+</span>        <span class="k">return</span> <span class="n">email</span> <span class="o">==</span> <span class="sh">"</span><span class="s">taken@example.com</span><span class="sh">"</span>
+
+    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">user</span><span class="p">:</span> <span class="n">User</span><span class="p">):</span>
+        <span class="c1"># Simula salvamento no DB
+</span>        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">[DB] INSERT INTO users VALUES (</span><span class="sh">'</span><span class="si">{</span><span class="n">user</span><span class="p">.</span><span class="n">name</span><span class="si">}</span><span class="sh">'</span><span class="s">, </span><span class="sh">'</span><span class="si">{</span><span class="n">user</span><span class="p">.</span><span class="n">email</span><span class="si">}</span><span class="sh">'</span><span class="s">)</span><span class="sh">"</span><span class="p">)</span>
+
+</code></pre>
+
+</div>
+
+
+
+<h3 id="4-o-servi%C3%A7o-o-orquestrador">4. O Serviço (O Orquestrador)
+</h3>
+
+<p>Finalmente, reescrevemos o <code>UserService</code>. Note como ele ficou limpo. Ele não sabe <em>como</em> validar ou <em>como</em> salvar; ele simplesmente delega essas tarefas para os especialistas (as dependências injetadas).</p>
+
+<ul>
+<li>
+<strong>Motivo para mudar:</strong> Apenas se o <em>fluxo de trabalho</em> do cadastro mudar (ex: adicionar uma etapa para verificar o telefone via SMS).
+</li>
+</ul>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="k">class</span> <span class="nc">UserService</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">validator</span><span class="p">:</span> <span class="n">UserValidator</span><span class="p">,</span> <span class="n">repository</span><span class="p">:</span> <span class="n">UserRepository</span><span class="p">):</span>
+        <span class="c1"># Injeção de Dependência: Pedimos as ferramentas que precisamos
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">validator</span> <span class="o">=</span> <span class="n">validator</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">repository</span> <span class="o">=</span> <span class="n">repository</span>
+
+    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
+        <span class="n">user</span> <span class="o">=</span> <span class="nc">User</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">email</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span>
+
+        <span class="c1"># Passo 1: Validar
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">validator</span><span class="p">.</span><span class="nf">validate</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>
+
+        <span class="c1"># Passo 2: Verificar Regras de Negócio
+</span>        <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">repository</span><span class="p">.</span><span class="nf">exists</span><span class="p">(</span><span class="n">email</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">Email já está em uso</span><span class="sh">"</span><span class="p">)</span>
+
+        <span class="c1"># Passo 3: Persistir
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">repository</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>
+
+        <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">&gt;&gt;&gt; Usuário registrado com sucesso.</span><span class="sh">"</span><span class="p">)</span>
+
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="exemplo-de-uso">Exemplo de Uso
+</h2>
+
+<p>Ao conectar os componentes ("wiring"), criamos um sistema flexível.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code>    <span class="c1"># 1. Configurar as dependências
+</span>    <span class="n">repo</span> <span class="o">=</span> <span class="nc">UserRepository</span><span class="p">()</span>
+    <span class="n">val</span> <span class="o">=</span> <span class="nc">UserValidator</span><span class="p">()</span>
+
+    <span class="c1"># 2. Injetar dependências no Serviço
+</span>    <span class="n">service</span> <span class="o">=</span> <span class="nc">UserService</span><span class="p">(</span><span class="n">validator</span><span class="o">=</span><span class="n">val</span><span class="p">,</span> <span class="n">repository</span><span class="o">=</span><span class="n">repo</span><span class="p">)</span>
+
+    <span class="c1"># 3. Executar a lógica
+</span>    <span class="k">try</span><span class="p">:</span>
+        <span class="n">service</span><span class="p">.</span><span class="nf">register</span><span class="p">(</span><span class="sh">"</span><span class="s">Bob</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">bob@example.com</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">senhaSegura123</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">except</span> <span class="nb">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Erro: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="conclus%C3%A3o">Conclusão
+</h2>
+
+<p>Ao aplicar o Princípio da Responsabilidade Única, transformamos um script rígido em uma arquitetura de software profissional.</p>
+
+<p>Os benefícios dessa abordagem são claros:</p>
+
+<ol>
+<li>
+<strong>Testabilidade:</strong> Agora você pode criar testes unitários para o <code>UserValidator</code> isoladamente, sem precisar de um banco de dados falso.</li>
+<li>
+<strong>Manutenibilidade:</strong> Se o esquema do banco de dados mudar, você edita apenas o <code>UserRepository</code>. O <code>UserService</code> permanece intocado.</li>
+<li>
+<strong>Legibilidade:</strong> O <code>UserService</code> agora lê como uma história de alto nível sobre <em>o que</em> acontece, em vez de uma lista bagunçada de <em>como</em> acontece.</li>
+</ol>
+
+<p>Essa separação reduz a carga cognitiva sobre o desenvolvedor e garante que sua aplicação seja robusta o suficiente para lidar com mudanças futuras com risco mínimo.</p>

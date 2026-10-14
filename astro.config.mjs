@@ -45,6 +45,8 @@ export default defineConfig({
     },
   ],
   integrations: [
-    sitemap(),
+    // Os artigos do blog (/blog/...) têm canonical no dev.to; o sitemap lista
+    // só as páginas canônicas deste site.
+    sitemap({ filter: (pagina) => !pagina.includes('/blog/') }),
   ],
 });

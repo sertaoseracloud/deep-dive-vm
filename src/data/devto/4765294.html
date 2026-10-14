@@ -1,0 +1,209 @@
+<p>A digitalização de documentos corporativos (faturas, contratos e relatórios) impõe um desafio computacional severo quando realizada de forma síncrona. Tentar extrair texto de arquivos PDF densos utilizando bibliotecas locais dentro de funções sem servidor (serverless) esbarra inevitavelmente nos limites rígidos de tempo de execução (timeouts) e alocação de memória. Simultaneamente, bloquear o cliente aguardando o término do processamento degrada a experiência da aplicação. A implementação de um pipeline de OCR assíncrono fundamentado no Azure AI Document Intelligence, Azure Functions e PostgreSQL resolve essa deficiência estrutural. Ao delegar o escaneamento pesado para o serviço cognitivo gerenciado e estruturar o fluxo de retorno via webhook com persistência otimizada, a arquitetura assegura escalabilidade elástica, tolerância a falhas e rendimento massivo para fluxos de trabalho orientados a documentos em ecossistemas corporativos.</p>
+
+<h3 id="pr%C3%A9requisitos">Pré-requisitos
+</h3>
+
+<p>A orquestração desta topologia exige proficiência em processamento de arquivos em nuvem, manipulação de streams binários e modelagem relacional de alta performance. A infraestrutura deve ser provisionada utilizando o Terraform versão 1.7.0 ou superior acoplado ao provedor HashiCorp AzureRM versão 3.90.0 ou superior. A camada computacional utiliza o Python 3.12, integrando o modelo de programação v2 do <code>azure-functions</code>, o SDK oficial <code>azure-ai-documentintelligence</code> e o driver <code>psycopg</code> para persistência relacional assíncrona. Privilégios administrativos na assinatura do Azure são mandatórios para provisionar os recursos cognitivos de inteligência artificial e configurar a string de conexão segura com o PostgreSQL.</p>
+
+<h3 id="passo-a-passo">Passo a Passo
+</h3>
+
+<h3 id="provisionamento-da-infraestrutura-cognitiva-e-de-armazenamento">Provisionamento da Infraestrutura Cognitiva e de Armazenamento
+</h3>
+
+<p>A fundação do pipeline inicia-se com o provisionamento do Azure AI Document Intelligence e do banco de dados relacional PostgreSQL. A justificativa técnica para priorizar o serviço cognitivo gerenciado em detrimento de motores auto-hospedados baseados em Tesseract reside na acurácia e na capacidade de extração estruturada de tabelas e pares chave-valor em múltiplos idiomas. Provisionamos o recurso cognitivo atrelado a uma camada padronizada, enquanto o PostgreSQL gerencia a persistência transacional dos dados estruturados resultantes da extração. Configuramos o Azure Storage Account para atuar como a zona de pouso (Landing Zone) primária, onde os usuários finais depositam os arquivos brutos. O Terraform abaixo consolida essa topologia isolada, garantindo que as chaves de acesso sejam geridas de forma centralizada.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight terraform"><code><span class="k">resource</span> <span class="s2">"azurerm_cognitive_account"</span> <span class="s2">"document_intelligence"</span> <span class="p">{</span>
+  <span class="nx">name</span>                  <span class="p">=</span> <span class="s2">"cog-enterprise-ocr"</span>
+  <span class="nx">location</span>              <span class="p">=</span> <span class="kd">var</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">resource_group_name</span>   <span class="p">=</span> <span class="kd">var</span><span class="p">.</span><span class="nx">resource_group_name</span>
+  <span class="nx">kind</span>                  <span class="p">=</span> <span class="s2">"FormRecognizer"</span>
+  <span class="nx">sku_name</span>              <span class="p">=</span> <span class="s2">"S0"</span>
+  <span class="nx">local_authentication_enabled</span> <span class="p">=</span> <span class="kc">true</span>
+<span class="p">}</span>
+
+<span class="k">resource</span> <span class="s2">"azurerm_postgresql_flexible_server"</span> <span class="s2">"pg_core"</span> <span class="p">{</span>
+  <span class="nx">name</span>                   <span class="p">=</span> <span class="s2">"psql-enterprise-ocr-core"</span>
+  <span class="nx">resource_group_name</span>    <span class="p">=</span> <span class="kd">var</span><span class="p">.</span><span class="nx">resource_group_name</span>
+  <span class="nx">location</span>               <span class="p">=</span> <span class="kd">var</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">version</span>                <span class="p">=</span> <span class="s2">"15"</span>
+  <span class="nx">administrator_login</span>    <span class="p">=</span> <span class="kd">var</span><span class="p">.</span><span class="nx">db_admin</span>
+  <span class="nx">administrator_password</span> <span class="p">=</span> <span class="kd">var</span><span class="p">.</span><span class="nx">db_password</span>
+  <span class="nx">storage_mb</span>             <span class="p">=</span> <span class="mi">32768</span>
+  <span class="nx">sku_name</span>               <span class="p">=</span> <span class="s2">"GP_Standard_D2s_v3"</span>
+<span class="p">}</span>
+
+<span class="k">resource</span> <span class="s2">"azurerm_storage_account"</span> <span class="s2">"ocr_landing"</span> <span class="p">{</span>
+  <span class="nx">name</span>                     <span class="p">=</span> <span class="s2">"stocrlandingzone01"</span>
+  <span class="nx">resource_group_name</span>      <span class="p">=</span> <span class="kd">var</span><span class="p">.</span><span class="nx">resource_group_name</span>
+  <span class="nx">location</span>                 <span class="p">=</span> <span class="kd">var</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">account_tier</span>             <span class="p">=</span> <span class="s2">"Standard"</span>
+  <span class="nx">account_replication_type</span> <span class="p">=</span> <span class="s2">"LRS"</span>
+<span class="p">}</span>
+
+</code></pre>
+
+</div>
+
+
+
+<p>Como acionamos o motor cognitivo assim que um documento é depositado no armazenamento sem bloquear a thread de execução da aplicação principal?</p>
+
+<h3 id="inicia%C3%A7%C3%A3o-ass%C3%ADncrona-via-azure-blob-trigger">Iniciação Assíncrona via Azure Blob Trigger
+</h3>
+
+<p>Disparamos o processo de reconhecimento óptico de caracteres de forma puramente assíncrona utilizando um gatilho de Blob Storage (Blob Trigger) acoplado a uma Azure Function. O adaptador de entrada intercepta a criação do arquivo PDF, extrai a URL autenticada do objeto e a submete ao Azure AI Document Intelligence utilizando o método de análise em segundo plano (<code>begin_analyze_document_from_url</code>). O raciocínio arquitetônico vital nesta etapa é o desacoplamento de tempo (Time Decoupling). O serviço cognitivo recebe a tarefa, devolve um identificador de operação imediato (Operation ID) e processa as centenas de páginas do documento nos bastidores da infraestrutura da Microsoft. A função Python conclui sua execução em poucos milissegundos, liberando o container sem estourar o limite de timeout e sem consumir recursos computacionais ociosos enquanto o documento é escaneado.<br>
+</p>
+
+<pre tabindex="0" data-lang="mermaid"><code>sequenceDiagram
+    participant User as Cliente / App
+    participant Blob as Azure Blob Storage
+    participant FuncInit as Azure Function (Iniciadora)
+    participant Cog as Azure AI Document Intelligence
+    participant FuncWebhook as Azure Function (Webhook)
+    participant DB as PostgreSQL
+
+    User-&gt;&gt;Blob: Upload de PDF Bruto (Fatura.pdf)
+    Blob-&gt;&gt;FuncInit: Dispara Blob Trigger
+    FuncInit-&gt;&gt;Cog: Inicia Análise Assíncrona (begin_analyze_document)
+    Cog--&gt;&gt;FuncInit: Retorna Operation ID (202 Accepted)
+    Note over Cog: Processamento pesado em segundo plano
+    Cog-&gt;&gt;FuncWebhook: Notifica Conclusão via Webhook (Callback)
+    FuncWebhook-&gt;&gt;DB: Persiste Dados Estruturados Extraídos</code></pre>
+
+
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="kn">import</span> <span class="n">os</span>
+<span class="kn">import</span> <span class="n">logging</span>
+<span class="kn">import</span> <span class="n">azure.functions</span> <span class="k">as</span> <span class="n">func</span>
+<span class="kn">from</span> <span class="n">azure.ai.documentintelligence</span> <span class="kn">import</span> <span class="n">DocumentIntelligenceClient</span>
+<span class="kn">from</span> <span class="n">azure.core.credentials</span> <span class="kn">import</span> <span class="n">AzureKeyCredential</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">func</span><span class="p">.</span><span class="nc">FunctionApp</span><span class="p">()</span>
+
+<span class="k">class</span> <span class="nc">OcrInitiatorAdapter</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">endpoint</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="sh">"</span><span class="s">DOCUMENT_INTELLIGENCE_ENDPOINT</span><span class="sh">"</span><span class="p">]</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="sh">"</span><span class="s">DOCUMENT_INTELLIGENCE_KEY</span><span class="sh">"</span><span class="p">]</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">client</span> <span class="o">=</span> <span class="nc">DocumentIntelligenceClient</span><span class="p">(</span><span class="n">endpoint</span><span class="o">=</span><span class="n">endpoint</span><span class="p">,</span> <span class="n">credential</span><span class="o">=</span><span class="nc">AzureKeyCredential</span><span class="p">(</span><span class="n">key</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">trigger_analysis</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">file_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">document_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">logging</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Disparando análise assíncrona para o documento ID: </span><span class="si">{</span><span class="n">document_id</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+
+        <span class="c1"># O modelo prebuilt-invoice ou prebuilt-document extrai o texto de forma estruturada
+</span>        <span class="n">poller</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">client</span><span class="p">.</span><span class="nf">begin_analyze_document_from_url</span><span class="p">(</span>
+            <span class="n">model_id</span><span class="o">=</span><span class="sh">"</span><span class="s">prebuilt-document</span><span class="sh">"</span><span class="p">,</span>
+            <span class="n">analyze_request</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">urlSource</span><span class="sh">"</span><span class="p">:</span> <span class="n">file_url</span><span class="p">},</span>
+            <span class="c1"># O webhook notificará o término do processo em segundo plano
+</span>            <span class="c1"># notification_url=os.environ["OCR_WEBHOOK_CALLBACK_URL"]
+</span>        <span class="p">)</span>
+        <span class="n">logging</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Operação iniciada com poller ID: </span><span class="si">{</span><span class="n">poller</span><span class="p">.</span><span class="nb">id</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">initiator</span> <span class="o">=</span> <span class="nc">OcrInitiatorAdapter</span><span class="p">()</span>
+
+<span class="nd">@app.blob_trigger</span><span class="p">(</span>
+    <span class="n">arg_name</span><span class="o">=</span><span class="sh">"</span><span class="s">pdfinput</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">path</span><span class="o">=</span><span class="sh">"</span><span class="s">incoming-documents/{name}</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">connection</span><span class="o">=</span><span class="sh">"</span><span class="s">AZURE_STORAGE_CONNECTION_STRING</span><span class="sh">"</span>
+<span class="p">)</span>
+<span class="k">def</span> <span class="nf">initiate_ocr_process</span><span class="p">(</span><span class="n">pdfinput</span><span class="p">:</span> <span class="n">func</span><span class="p">.</span><span class="n">InputStream</span><span class="p">):</span>
+    <span class="n">file_name</span> <span class="o">=</span> <span class="n">pdfinput</span><span class="p">.</span><span class="n">name</span>
+    <span class="n">logging</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Novo documento detectado na zona de pouso: </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="c1"># URL temporária assinada (SAS) gerada para o serviço cognitivo acessar o blob com segurança
+</span>    <span class="c1"># Simplificado aqui para fins estruturais
+</span>    <span class="n">file_url</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">https://stocrlandingzone01.blob.core.windows.net/incoming-documents/</span><span class="si">{</span><span class="n">os</span><span class="p">.</span><span class="n">path</span><span class="p">.</span><span class="nf">basename</span><span class="p">(</span><span class="n">file_name</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span>
+
+    <span class="n">initiator</span><span class="p">.</span><span class="nf">trigger_analysis</span><span class="p">(</span><span class="n">file_url</span><span class="p">,</span> <span class="n">document_id</span><span class="o">=</span><span class="n">file_name</span><span class="p">)</span>
+
+</code></pre>
+
+</div>
+
+
+
+<p>Uma vez que o Azure AI Document Intelligence conclui a leitura de milhares de linhas de texto, tabelas e metadados, como processamos esse payload estruturado volumoso e o persistimos no PostgreSQL de forma otimizada?</p>
+
+<h3 id="persist%C3%AAncia-relacional-otimizada-com-postgresql">Persistência Relacional Otimizada com PostgreSQL
+</h3>
+
+<p>Persistimos o resultado estruturado capturando o payload consolidado através de um endpoint HTTP (Webhook Adapter) e gravando-o no PostgreSQL utilizando comandos parametrizados de alta performance. O modelo relacional exige que dados semi-estruturados extraídos por IA (como pares chave-valor e listas de itens de faturas) sejam mapeados para o tipo de dado nativo <code>JSONB</code> do PostgreSQL. O raciocínio técnico para priorizar o <code>JSONB</code> em detrimento de tabelas normalizadas rígidas é a variabilidade intrínseca de documentos corporativos: cada fatura possui um layout ligeiramente diferente. Armazenar o documento bruto extraído em formato JSONB binário indexado permite consultas analíticas futuras extremamente rápidas através de operadores de contenção do PostgreSQL (<code>@&gt;</code>), sem exigir migrações de esquema constantes para acomodar novas colunas de metadados.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="kn">import</span> <span class="n">json</span>
+<span class="kn">import</span> <span class="n">logging</span>
+<span class="kn">import</span> <span class="n">azure.functions</span> <span class="k">as</span> <span class="n">func</span>
+<span class="kn">import</span> <span class="n">psycopg</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">func</span><span class="p">.</span><span class="nc">FunctionApp</span><span class="p">()</span>
+
+<span class="k">class</span> <span class="nc">PostgresPersistenceAdapter</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">conn_string</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="sh">"</span><span class="s">POSTGRESQL_CONNECTION_STRING</span><span class="sh">"</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">save_extracted_document</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">document_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">extracted_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">logging</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Persistindo dados extraídos do documento </span><span class="si">{</span><span class="n">document_id</span><span class="si">}</span><span class="s"> no PostgreSQL...</span><span class="sh">"</span><span class="p">)</span>
+
+        <span class="n">query</span> <span class="o">=</span> <span class="sh">"""</span><span class="s">
+            INSERT INTO extracted_documents (document_id, raw_payload, status, created_at)
+            VALUES (%s, %s, %s, NOW())
+            ON CONFLICT (document_id) 
+            DO UPDATE SET raw_payload = EXCLUDED.raw_payload, status = EXCLUDED.status;
+        </span><span class="sh">"""</span>
+
+        <span class="k">with</span> <span class="n">psycopg</span><span class="p">.</span><span class="nf">connect</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">conn_string</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">conn</span><span class="p">.</span><span class="nf">cursor</span><span class="p">()</span> <span class="k">as</span> <span class="n">cur</span><span class="p">:</span>
+                <span class="n">cur</span><span class="p">.</span><span class="nf">execute</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="p">(</span><span class="n">document_id</span><span class="p">,</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">extracted_data</span><span class="p">),</span> <span class="sh">"</span><span class="s">COMPLETED</span><span class="sh">"</span><span class="p">))</span>
+                <span class="n">conn</span><span class="p">.</span><span class="nf">commit</span><span class="p">()</span>
+
+        <span class="n">logging</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sh">"</span><span class="s">Persistência relacional concluída com sucesso.</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">persistence_adapter</span> <span class="o">=</span> <span class="nc">PostgresPersistenceAdapter</span><span class="p">()</span>
+
+<span class="nd">@app.route</span><span class="p">(</span><span class="n">route</span><span class="o">=</span><span class="sh">"</span><span class="s">ocr-webhook</span><span class="sh">"</span><span class="p">,</span> <span class="n">auth_level</span><span class="o">=</span><span class="n">func</span><span class="p">.</span><span class="n">AuthLevel</span><span class="p">.</span><span class="n">FUNCTION</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">ocr_completion_webhook</span><span class="p">(</span><span class="n">req</span><span class="p">:</span> <span class="n">func</span><span class="p">.</span><span class="n">HttpRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">func</span><span class="p">.</span><span class="n">HttpResponse</span><span class="p">:</span>
+    <span class="n">logging</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sh">"</span><span class="s">Webhook de conclusão de OCR acionado pelo Azure AI Service.</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">body</span> <span class="o">=</span> <span class="n">req</span><span class="p">.</span><span class="nf">get_json</span><span class="p">()</span>
+        <span class="n">document_id</span> <span class="o">=</span> <span class="n">body</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">documentId</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">analysis_result</span> <span class="o">=</span> <span class="n">body</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">analyzeResult</span><span class="sh">"</span><span class="p">,</span> <span class="p">{})</span>
+
+        <span class="n">persistence_adapter</span><span class="p">.</span><span class="nf">save_extracted_document</span><span class="p">(</span><span class="n">document_id</span><span class="p">,</span> <span class="n">analysis_result</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">func</span><span class="p">.</span><span class="nc">HttpResponse</span><span class="p">(</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">"</span><span class="s">status</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">Success</span><span class="sh">"</span><span class="p">}),</span> <span class="n">status_code</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">mimetype</span><span class="o">=</span><span class="sh">"</span><span class="s">application/json</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">except</span> <span class="nb">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logging</span><span class="p">.</span><span class="nf">error</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Erro ao processar webhook de OCR: </span><span class="si">{</span><span class="nf">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">func</span><span class="p">.</span><span class="nc">HttpResponse</span><span class="p">(</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span><span class="sh">"</span><span class="s">error</span><span class="sh">"</span><span class="p">:</span> <span class="nf">str</span><span class="p">(</span><span class="n">e</span><span class="p">)}),</span> <span class="n">status_code</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">mimetype</span><span class="o">=</span><span class="sh">"</span><span class="s">application/json</span><span class="sh">"</span><span class="p">)</span>
+
+</code></pre>
+
+</div>
+
+
+
+<h3 id="solu%C3%A7%C3%A3o-de-problemas-comuns">Solução de Problemas Comuns
+</h3>
+
+<p>Uma adversidade frequente em pipelines de OCR baseados em documentos volumosos é a ocorrência de falhas silenciosas onde o Azure AI Document Intelligence reporta status de erro no processamento das páginas (<code>InvalidRequest</code> ou <code>UnsupportedDocument</code>). Isso ocorre habitualmente quando o arquivo PDF enviado para a zona de pouso está corrompido, protegido por senha ou vetorizado incorretamente como imagem bitmap de baixa resolução sem camadas de texto limpas. O diagnóstico exige a inspeção dos logs gerados pelo objeto <code>AnalyzeResult</code> na função de retorno. Para mitigar esse problema, implemente um adaptador de validação prévia no Blob Trigger que rejeite arquivos com menos de uma página ou aplique normalizações de imagem utilizando bibliotecas de processamento antes de despachar o payload para o serviço cognitivo.</p>
+
+<p>Outro gargalo comum manifesta-se através de erros de esgotamento de conexões no PostgreSQL (<code>Too many clients</code>) durante picos vertiginosos de processamento em lote (Batch OCR). Como as funções serverless do Azure escalam horizontalmente de forma instantânea, centenas de instâncias Python podem tentar abrir conexões TCP simultâneas com o banco de dados relacional, ultrapassando o limite de conexões simultâneas suportado pelo servidor Flexível do PostgreSQL. A solução arquitetônica exige a introdução de um pooler de conexões intermediário, como o PgBouncer, ou a configuração estrita de padrões Singleton e limites de reuso de conexões dentro do adaptador Python, garantindo que o banco de dados preserve sua integridade transacional sob carga extrema.</p>
+
+<h3 id="conclus%C3%A3o">Conclusão
+</h3>
+
+<p>A integração do Azure AI Document Intelligence com Azure Functions e PostgreSQL estabelece uma fundação robusta para a automatização de processos baseados em documentos não estruturados. A separação assíncrona entre a ingestão, o escaneamento cognitivo e a persistência relacional blinda a arquitetura contra os limites restritivos de timeout de nuvem. Esta topologia transforma arquivos estáticos em dados transacionais consultáveis em tempo real. Como evolução natural desta plataforma, as equipes de engenharia podem conectar o payload JSONB persistido no PostgreSQL a motores de busca vetorial para habilitar consultas em linguagem natural baseadas em RAG sobre o histórico completo de faturas e contratos corporativos.</p>
+
+<h3 id="refer%C3%AAncias">Referências
+</h3>
+
+<p>Esposito, D. (2018). <em>Architecting for scale: How to maintain high availability and manage risk in the cloud</em>. O'Reilly Media.</p>
+
+<p>Microsoft Azure. (2024). <em>What is Azure AI Document Intelligence?</em>. Microsoft Learn. <a href="https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/overview?utm_source=gemini" target="_blank" rel="noopener noreferrer">https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/overview</a></p>
+
+<p>PostgreSQL Global Development Group. (2023). <em>PostgreSQL 15 Documentation: JSON Types</em>. PostgreSQL.org. <a href="https://www.postgresql.org/docs/15/datatype-json.html?utm_source=gemini" target="_blank" rel="noopener noreferrer">https://www.postgresql.org/docs/15/datatype-json.html</a></p>

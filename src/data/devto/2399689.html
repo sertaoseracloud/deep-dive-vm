@@ -1,0 +1,425 @@
+<p>Recently, I've been working on an OCR system focused on reading <strong>digital medical prescriptions</strong>. The goal is simple: to allow healthcare professionals and pharmacies to automate the interpretation of medical prescriptions from images sent via API. All of this with security, scalability, and without the headache of credential management.</p>
+
+<p>In this first article of the series, I'll show how I designed the <strong>architecture</strong>, the <strong>justification for using Azure Functions</strong>, and how I integrated with <strong>Blob Storage</strong> using <strong>Managed Identity</strong>. By the end, we'll have a functional endpoint for secure image upload. Shall we?</p>
+
+
+<hr>
+
+<h2 id="why-azure-functions">Why Azure Functions?
+</h2>
+
+<p>The choice of Azure Functions came naturally for several reasons:</p>
+
+<ul>
+<li>
+<strong>Serverless</strong>: I don't need to worry about infrastructure.</li>
+<li>
+<strong>Scalable</strong>: The system will handle many image uploads, so scaling on demand is essential.</li>
+<li>
+<strong>Integrated with the Azure ecosystem</strong>: especially Blob Storage and Managed Identity.</li>
+</ul>
+
+<p>And since we're talking about an OCR system, where the main trigger will be the submission of an image for analysis, an HTTP Function fits perfectly.</p>
+
+
+<hr>
+
+<h2 id="about-the-project-architecture">About the project architecture
+</h2>
+
+<p>I organized the code structure in a clean and modular way, following a light DDD approach.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>/ocr-function-app
+├── application/
+│   └── UploadImageService.ts
+├── domain/
+│   └── IImageStorage.ts
+├── infrastructure/
+│   └── AzureBlobStorage.ts
+├── HttpAddToBlob/
+│   └── index.ts
+│   └── function.json
+├── host.json
+├── local.settings.json
+└── package.json
+</code></pre>
+
+</div>
+
+
+
+<p>The idea is for the Function to be just the entry point, delegating responsibilities to more specific layers.</p>
+
+
+<hr>
+
+<h2 id="setting-up-the-azure-function-environment">⛏️ Setting Up the Azure Function Environment
+</h2>
+
+<p>Before we start coding, we need to ensure that our Azure Function environment is ready to deploy and run correctly with <strong>Managed Identity</strong> authentication and <strong>Blob Storage</strong> integration.</p>
+
+<ol>
+<li>Create your Azure Function in the portal or via CLI:
+</li>
+</ol>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>func init ocr-function-app <span class="nt">--worker-runtime</span> node <span class="nt">--language</span> typescript
+</code></pre>
+
+</div>
+
+
+
+<ol>
+<li>Create the HTTP trigger Function:
+</li>
+</ol>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>func new <span class="nt">--name</span> HttpAddToBlob <span class="nt">--template</span> <span class="s2">"HTTP trigger"</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="packages-used">📦 Packages Used
+</h3>
+
+<p>You will need to install the following packages in your TypeScript project with Azure Functions:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>npm <span class="nb">install</span> @azure/storage-blob
+npm <span class="nb">install</span> @azure/identity
+</code></pre>
+
+</div>
+
+
+
+<p>These packages will be used to:</p>
+
+<ul>
+<li>Create the HTTP trigger Function (<code>@azure/functions</code>)</li>
+<li>Interact with Blob Storage (<code>@azure/storage-blob</code>)</li>
+<li>Use Managed Identity authentication (<code>@azure/identity</code>)</li>
+</ul>
+
+
+<hr>
+
+<h2 id="connecting-your-azure-function-to-blob-storage-securely">🔗 Connecting Your Azure Function to Blob Storage Securely
+</h2>
+
+<p>At this point, we've set up the base of our Function App and have the code ready to receive images. Now comes a crucial part: ensuring the application can access <strong>Azure Blob Storage</strong> in a <strong>secure and scalable</strong> manner.</p>
+
+<p>The idea here is to <strong>avoid using sensitive connection strings</strong> in your code or environment variables, opting for something much more secure: <strong>Managed Identity + Service Connector</strong>.</p>
+
+
+<hr>
+
+<h3 id="why-use-service-connector">✅ Why Use Service Connector?
+</h3>
+
+<p>When we use <code>DefaultAzureCredential</code> in the code, Azure already knows we want to use a managed identity (Managed Identity) for authentication. But for this to work in practice, we need to ensure this identity has access permissions to the Blob.</p>
+
+<p>The Service Connector acts as a facilitator: it creates the connection between resources <strong>securely and without hassle</strong>, and also takes care of network configurations and permissions for you.</p>
+
+<h3 id="creating-the-connection-to-blob">⚙️ Creating the Connection to Blob
+</h3>
+
+<ul>
+<li>In the Azure portal, go to your <strong>Function App</strong>.</li>
+<li>In the side menu, click on <strong>Service Connector</strong> &gt; <strong>+ Add</strong>.
+!Service Connector</li>
+</ul>
+
+<ol>
+<li>Fill in the options as follows:</li>
+</ol>
+
+<blockquote>
+<p><strong>Target Resource</strong>: select your <strong>Azure Storage</strong> account.<br>
+<strong>Connection Name</strong>: something like <code>BlobConnection_OcrApp</code>.</p>
+</blockquote>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fos5zf7m0hwzn5y8yop4p.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fos5zf7m0hwzn5y8yop4p.png" alt="Initial Configuration" loading="lazy" width="800" height="743"></a></p>
+
+<ul>
+<li>
+<strong>Authentication Type</strong>: select <strong>User Assigned Managed Identity</strong> (this is what makes everything more secure).</li>
+</ul>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F51uex77g4gxhhlr1lhma.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F51uex77g4gxhhlr1lhma.png" alt="Authentication Configuration" loading="lazy" width="800" height="743"></a></p>
+
+<ul>
+<li>In the network step, you can leave the default settings. Azure will ensure your Function App can communicate with the Storage.</li>
+</ul>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fhxhchsw24b25b3z8dyiz.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fhxhchsw24b25b3z8dyiz.png" alt="Network Settings" loading="lazy" width="800" height="742"></a></p>
+
+<ul>
+<li>Click <strong>Next: Review + Create</strong> and then <strong>Create</strong>.</li>
+</ul>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fzk0rv7e1hh3eaopvkco7.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fzk0rv7e1hh3eaopvkco7.png" alt="Review" loading="lazy" width="800" height="742"></a></p>
+
+<p>This process takes a few minutes, but once it's done, your Function will be ready to access the Blob with all the security that the cloud can offer.</p>
+
+
+<hr>
+
+<h3 id="permissions-granting-access-to-the-container-with-service-connector">🔐 Permissions: Granting Access to the Container with Service Connector
+</h3>
+
+<p>After creating the connection, the service connector <strong>ensures that the managed identity of the Function will have permission on the Blob container</strong>.</p>
+
+<p>How to validate this?</p>
+
+<ol>
+<li>Access the <strong>storage account</strong> in the Azure portal.</li>
+<li>Go to <strong>Access Control (IAM)</strong>.</li>
+<li>Click on <strong>Role Assignments</strong>.</li>
+<li>You will see the identity used with permissions similar to <code>ocr-umi</code>:</li>
+</ol>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fsb4vse55z1n79k4dxc5a.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fsb4vse55z1n79k4dxc5a.png" alt="Confirmed Identity" loading="lazy" width="800" height="374"></a></p>
+
+<p>Save the changes. Done! Now your Function App can securely upload to the Blob without needing to store any credentials in the code.</p>
+
+
+<hr>
+
+<h3 id="in-the-code-the-implementation-is-simple">📦 In the Code, the Implementation is Simple!
+</h3>
+
+<p>In the code, you will configure the <code>DefaultAzureCredential</code>. It will automatically use the identity configured by the Service Connector.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="kd">const</span> <span class="nx">credential</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">DefaultAzureCredential</span><span class="p">({</span>
+  <span class="nx">managedIdentityClientId</span><span class="p">,</span>
+<span class="p">});</span>
+</code></pre>
+
+</div>
+
+
+
+<p>With this, your backend is much more secure—and ready to scale without headaches.</p>
+
+
+<hr>
+
+<h2 id="environment-variables">🔐 Environment Variables
+</h2>
+
+<p>Environment variables are essential for securely configuring access to Blob Storage using managed identity:</p>
+
+<h3 id="localsettingsjson-for-local-development-only">local.settings.json (for local development only)
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"IsEncrypted"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"Values"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"AzureWebJobsStorage"</span><span class="p">:</span><span class="w"> </span><span class="s2">"UseDevelopmentStorage=true"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"FUNCTIONS_WORKER_RUNTIME"</span><span class="p">:</span><span class="w"> </span><span class="s2">"node"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"AZURE_STORAGEBLOB_RESOURCEENDPOINT"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://&lt;accountname&gt;.blob.core.windows.net"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"AZURE_STORAGEBLOB_CONTAINERNAME"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ocr-container"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"AZURE_STORAGEBLOB_CLIENTID"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;client-id-of-managed-identity&gt;"</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre>
+
+</div>
+
+
+
+<blockquote>
+<p>The <code>AZURE_STORAGEBLOB_CLIENTID</code> should contain the <strong>Client ID of the User Assigned Managed Identity</strong> created in Azure, which will be used by the Function to access the Blob.</p>
+</blockquote>
+
+
+<hr>
+
+<h2 id="secure-upload-using-managed-identity">Secure Upload Using Managed Identity
+</h2>
+
+<p>A critical point here is the <strong>image upload to Azure Blob Storage</strong>. Instead of using a hardcoded connection string (which would be a security risk), I opted to use <strong>Managed Identity</strong> as mentioned earlier.</p>
+
+<p>The flow is as follows:</p>
+
+<ol>
+<li>The image arrives via HTTP.</li>
+<li>The Function authenticates with Blob Storage via Managed Identity.</li>
+<li>The image is securely saved in the container.</li>
+<li>The image URL is returned to the API caller.</li>
+</ol>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fhknd1rlr9lcfcz4ihjpz.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fhknd1rlr9lcfcz4ihjpz.png" alt="Sequence Diagram" loading="lazy" width="800" height="726"></a></p>
+
+<p>The magic begins in the application service:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">export</span> <span class="kd">class</span> <span class="nc">UploadImageService</span> <span class="p">{</span>
+  <span class="nf">constructor</span><span class="p">(</span><span class="k">private</span> <span class="k">readonly</span> <span class="nx">imageStorage</span><span class="p">:</span> <span class="nx">IImageStorage</span><span class="p">)</span> <span class="p">{}</span>
+
+  <span class="k">async</span> <span class="nf">handleUpload</span><span class="p">(</span><span class="nx">buffer</span><span class="p">:</span> <span class="nx">Buffer</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span> <span class="na">url</span><span class="p">:</span> <span class="kr">string</span><span class="p">;</span> <span class="nl">fileName</span><span class="p">:</span> <span class="kr">string</span> <span class="p">}</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">fileName</span> <span class="o">=</span> <span class="s2">`</span><span class="p">${</span><span class="nf">uuidv4</span><span class="p">()}</span><span class="s2">.png`</span><span class="p">;</span>
+    <span class="kd">const</span> <span class="nx">url</span> <span class="o">=</span> <span class="k">await</span> <span class="k">this</span><span class="p">.</span><span class="nx">imageStorage</span><span class="p">.</span><span class="nf">uploadImage</span><span class="p">(</span><span class="nx">buffer</span><span class="p">,</span> <span class="nx">fileName</span><span class="p">);</span>
+    <span class="k">return</span> <span class="p">{</span> <span class="nx">url</span><span class="p">,</span> <span class="nx">fileName</span> <span class="p">};</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Here, the <code>UploadImageService</code> follows the principle of dependency injection, working with the <code>IImageStorage</code> interface, which facilitates testing and decouples business logic from the actual storage implementation.</p>
+
+
+<hr>
+
+<h2 id="implementing-storage-with-azure-blob">Implementing Storage with Azure Blob
+</h2>
+
+<p>The concrete implementation of <code>IImageStorage</code> is the <code>AzureBlobStorage</code> class, which encapsulates all interaction with the Azure SDK.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">export</span> <span class="kd">class</span> <span class="nc">AzureBlobStorage</span> <span class="k">implements</span> <span class="nx">IImageStorage</span> <span class="p">{</span>
+    <span class="k">private</span> <span class="k">readonly</span> <span class="nx">blobServiceClient</span><span class="p">:</span> <span class="nx">BlobServiceClient</span><span class="p">;</span>
+
+    <span class="nf">constructor</span><span class="p">(</span>
+        <span class="nx">url</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> 
+        <span class="k">private</span> <span class="k">readonly</span> <span class="nx">containerName</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> 
+        <span class="nx">credential</span><span class="p">:</span> <span class="nx">DefaultAzureCredential</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">blobServiceClient</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">BlobServiceClient</span><span class="p">(</span>
+            <span class="nx">url</span><span class="p">,</span>
+            <span class="nx">credential</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">async</span> <span class="nf">uploadImage</span><span class="p">(</span><span class="nx">buffer</span><span class="p">:</span> <span class="nx">Buffer</span><span class="p">,</span> <span class="nx">fileName</span><span class="p">:</span> <span class="kr">string</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="kr">string</span><span class="o">&gt;</span> <span class="p">{</span>
+        <span class="kd">const</span> <span class="nx">containerClient</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">blobServiceClient</span><span class="p">.</span><span class="nf">getContainerClient</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">containerName</span><span class="p">);</span>
+        <span class="kd">const</span> <span class="nx">blobClient</span> <span class="o">=</span> <span class="nx">containerClient</span><span class="p">.</span><span class="nf">getBlockBlobClient</span><span class="p">(</span><span class="nx">fileName</span><span class="p">);</span>
+        <span class="k">await</span> <span class="nx">blobClient</span><span class="p">.</span><span class="nf">upload</span><span class="p">(</span><span class="nx">buffer</span><span class="p">,</span> <span class="nx">buffer</span><span class="p">.</span><span class="nx">length</span><span class="p">);</span>
+        <span class="k">return</span> <span class="nx">blobClient</span><span class="p">.</span><span class="nx">url</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Notice that the <code>BlobServiceClient</code> is instantiated with <code>DefaultAzureCredential</code>, which automatically uses the <strong>Managed Identity</strong> of the Function App in Azure, without exposing secrets in the code.</p>
+
+
+<hr>
+
+<h2 id="the-function-that-receives-the-image">The Function That Receives the Image
+</h2>
+
+<p>At the API layer, we have an Azure Function that serves as the entry point for the application:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">AzureFunction</span><span class="p">,</span> <span class="nx">Context</span><span class="p">,</span> <span class="nx">HttpRequest</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@azure/functions</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">BlobServiceClient</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@azure/storage-blob</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">DefaultAzureCredential</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@azure/identity</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">import</span> <span class="p">{</span> <span class="nx">AzureBlobStorage</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">../infrastructure/AzureBlobStorage</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">UploadImageService</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">../application/UploadImageService</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="c1">// Loading environment variables</span>
+<span class="kd">const</span> <span class="nx">blobUrl</span> <span class="o">=</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">BLOB_STORAGE_URL</span><span class="o">!</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">containerName</span> <span class="o">=</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">BLOB_CONTAINER_NAME</span><span class="o">!</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">managedIdentityClientId</span> <span class="o">=</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">AZURE_STORAGEBLOB_CLIENTID</span><span class="o">!</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">httpTrigger</span><span class="p">:</span> <span class="nx">AzureFunction</span> <span class="o">=</span> <span class="k">async</span> <span class="nf">function </span><span class="p">(</span><span class="nx">context</span><span class="p">,</span> <span class="nx">req</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">req</span><span class="p">.</span><span class="nx">body</span> <span class="o">||</span> <span class="o">!</span><span class="nx">req</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="dl">"</span><span class="s2">content-type</span><span class="dl">"</span><span class="p">]?.</span><span class="nf">startsWith</span><span class="p">(</span><span class="dl">"</span><span class="s2">image/</span><span class="dl">"</span><span class="p">))</span> <span class="p">{</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span> <span class="na">status</span><span class="p">:</span> <span class="mi">400</span><span class="p">,</span> <span class="na">body</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Invalid or missing image</span><span class="dl">"</span> <span class="p">};</span>
+    <span class="k">return</span><span class="p">;</span>
+  <span class="p">}</span>
+
+  <span class="kd">const</span> <span class="nx">buffer</span> <span class="o">=</span> <span class="nx">Buffer</span><span class="p">.</span><span class="nf">isBuffer</span><span class="p">(</span><span class="nx">req</span><span class="p">.</span><span class="nx">body</span><span class="p">)</span> <span class="p">?</span> <span class="nx">req</span><span class="p">.</span><span class="nx">body</span> <span class="p">:</span> <span class="nx">Buffer</span><span class="p">.</span><span class="k">from</span><span class="p">(</span><span class="nx">req</span><span class="p">.</span><span class="nx">body</span><span class="p">);</span>
+
+  <span class="kd">const</span> <span class="nx">credential</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">DefaultAzureCredential</span><span class="p">({</span>
+    <span class="nx">managedIdentityClientId</span><span class="p">,</span>
+  <span class="p">});</span>
+
+  <span class="kd">const</span> <span class="nx">blobStorage</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AzureBlobStorage</span><span class="p">(</span><span class="nx">blobUrl</span><span class="p">,</span> <span class="nx">containerName</span><span class="p">,</span> <span class="nx">credential</span><span class="p">);</span>
+
+  <span class="kd">const</span> <span class="nx">uploadService</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">UploadImageService</span><span class="p">(</span><span class="nx">blobStorage</span><span class="p">);</span>
+  <span class="kd">const</span> <span class="p">{</span> <span class="nx">url</span> <span class="p">}</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">uploadService</span><span class="p">.</span><span class="nf">handleUpload</span><span class="p">(</span><span class="nx">buffer</span><span class="p">);</span>
+
+  <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="na">status</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span>
+    <span class="na">body</span><span class="p">:</span> <span class="p">{</span>
+      <span class="na">message</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Image successfully stored</span><span class="dl">"</span><span class="p">,</span>
+      <span class="nx">url</span><span class="p">,</span>
+    <span class="p">},</span>
+  <span class="p">};</span>
+<span class="p">};</span>
+</code></pre>
+
+</div>
+
+
+
+<p>The example below demonstrates the execution of the function on Azure via curl:</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fu72rzre4qrlbk4bo95sx.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fu72rzre4qrlbk4bo95sx.png" alt="Proof of Concept Successfully Executed" loading="lazy" width="800" height="220"></a></p>
+
+<p>With just a few blocks of code, we’re able to build a complete, clean, and secure upload pipeline.</p>
+
+
+<hr>
+
+<h2 id="security-considerations">Security Considerations
+</h2>
+
+<p>This approach offers several advantages:</p>
+
+<p>✅ No connection strings in the code<br><br>
+✅ Use of Managed Identity to authenticate with Blob Storage<br><br>
+✅ Clear code organization, separating the Function from business logic  </p>
+
+
+<hr>
+
+<h2 id="next-steps">🔄 Next Steps
+</h2>
+
+<p>With the image successfully stored, the next step will be:</p>
+
+<blockquote>
+<p><strong>Integrating with the Azure SQL database</strong>, where we’ll <strong>model and store the extracted data</strong> from the medical prescription before, during, and after OCR processing.</p>
+</blockquote>
+
+<p>We’ll register data such as:</p>
+
+<ul>
+<li>Image ID
+</li>
+<li>Upload date
+</li>
+<li>Text extracted via OCR
+</li>
+<li>Processing status
+</li>
+</ul>
+
+<p>All of this while maintaining security and scalability.</p>
+
+<p>🚀 <strong>Next step:</strong> <a href="#">Part 2 - Persisting Data in Azure SQL with Best Practices</a></p>

@@ -1,0 +1,595 @@
+<p>Nos últimos dias eu precisava <strong>testar o Kafka Connect</strong> para um cenário de ingestão de dados e pensei: por que não montar um laboratório simples que já faça sentido para outros projetos?</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Frcryhrrrnwou6buw8mhc.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Frcryhrrrnwou6buw8mhc.png" alt="Diagrama de Arquitetura" loading="lazy" width="800" height="459"></a></p>
+
+<p>A ideia era clara:</p>
+
+<ul>
+<li>
+<strong>Um producer em Go</strong> que consulta a API da Binance e envia mensagens para o Kafka.</li>
+<li>
+<strong>Kafka Connect</strong> consumindo esse tópico e jogando as mensagens no <strong>Elasticsearch</strong>.</li>
+<li>
+<strong>Kafka UI</strong> para inspecionar o que está rolando nos tópicos.</li>
+</ul>
+
+<p>Tudo isso rodando em <strong>containers com Docker Compose</strong>, porque ninguém merece configurar isso manualmente.</p>
+
+<p>Quer aprender como fazer? Bora lá!</p>
+
+
+<hr>
+
+<h2 id="o-que-vamos-construir"><strong>O que vamos construir</strong>
+</h2>
+
+<p>Nosso fluxo de dados vai ser assim:</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Ftfiiesfhy3i415gvagik.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Ftfiiesfhy3i415gvagik.png" alt="Diagrama de Sequência" loading="lazy" width="800" height="323"></a></p>
+
+<p>E vamos adicionar o <strong>Kafka UI</strong> para facilitar a visualização.</p>
+
+
+<hr>
+
+<h2 id="passo-1-estrutura-do-projeto"><strong>Passo 1 – Estrutura do projeto</strong>
+</h2>
+
+<p>Crie uma pasta para o projeto:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code><span class="nb">mkdir </span>kafka-connect-lab
+<span class="nb">cd </span>kafka-connect-lab
+</code></pre>
+
+</div>
+
+
+
+<p>Estruture assim:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>kafka-connect-lab/
+├── cmd/worker/        # Código Go do producer
+│   └── main.go
+├── Dockerfile         # Dockerfile do worker
+├── docker-compose.yml # Orquestração
+└── go.mod             # Módulo Go
+</code></pre>
+
+</div>
+
+
+
+<p>Inicialize o módulo Go:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>go mod init github.com/seuprojeto/kafka-connect-lab
+go get github.com/segmentio/kafka-go
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="passo-2-escrevendo-o-worker-em-go"><strong>Passo 2 – Escrevendo o Worker em Go</strong>
+</h2>
+
+<p>Vamos criar um <strong>producer</strong> que consulta o preço do Bitcoin na Binance e publica no Kafka.</p>
+
+<h3 id="o-c%C3%B3digo-completo"><strong>O código completo:</strong>
+</h3>
+
+<p>Abra <code>cmd/worker/main.go</code>:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">package</span> <span class="n">main</span>
+
+<span class="k">import</span> <span class="p">(</span>
+    <span class="s">"context"</span>
+    <span class="s">"encoding/json"</span>
+    <span class="s">"fmt"</span>
+    <span class="s">"log"</span>
+    <span class="s">"net/http"</span>
+    <span class="s">"os"</span>
+    <span class="s">"time"</span>
+
+    <span class="n">kafka</span> <span class="s">"github.com/segmentio/kafka-go"</span>
+<span class="p">)</span>
+</code></pre>
+
+</div>
+
+
+
+<p>👉 <strong>O que temos aqui?</strong></p>
+
+<ul>
+<li>Importamos pacotes básicos (<code>log</code>, <code>os</code>, <code>time</code>, etc.).</li>
+<li>Importamos a lib <code>kafka-go</code> para conectar no Kafka.</li>
+</ul>
+
+
+<hr>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">type</span> <span class="n">Ticker</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">Symbol</span> <span class="kt">string</span> <span class="s">`json:"symbol"`</span>
+    <span class="n">Price</span>  <span class="kt">string</span> <span class="s">`json:"price"`</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>👉 <strong>Por que essa struct?</strong><br>
+Ela representa o JSON que recebemos da API da Binance, com <strong>par de negociação</strong> e <strong>preço</strong>.</p>
+
+<hr>
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">func</span> <span class="n">fetchTicker</span><span class="p">(</span><span class="n">symbol</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">Ticker</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">url</span> <span class="o">:=</span> <span class="s">"https://api.binance.com/api/v3/ticker/price?symbol="</span> <span class="o">+</span> <span class="n">symbol</span>
+    <span class="n">resp</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">http</span><span class="o">.</span><span class="n">Get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="k">defer</span> <span class="n">resp</span><span class="o">.</span><span class="n">Body</span><span class="o">.</span><span class="n">Close</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">StatusCode</span> <span class="o">!=</span> <span class="n">http</span><span class="o">.</span><span class="n">StatusOK</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"erro Binance: %d"</span><span class="p">,</span> <span class="n">resp</span><span class="o">.</span><span class="n">StatusCode</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">var</span> <span class="n">t</span> <span class="n">Ticker</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">json</span><span class="o">.</span><span class="n">NewDecoder</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">Body</span><span class="p">)</span><span class="o">.</span><span class="n">Decode</span><span class="p">(</span><span class="o">&amp;</span><span class="n">t</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="o">&amp;</span><span class="n">t</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+<p>👉 <strong>O que essa função faz?</strong></p>
+
+<ul>
+<li>Monta a URL da Binance.</li>
+<li>Faz uma requisição HTTP GET.</li>
+<li>Decodifica a resposta JSON direto para a struct <code>Ticker</code>.</li>
+<li>Retorna um ponteiro para <code>Ticker</code>.</li>
+</ul>
+
+<hr>
+
+<p>Agora vem a função <code>main()</code>:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">func</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">broker</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"KAFKA_BROKER"</span><span class="p">)</span>
+    <span class="n">topic</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"KAFKA_TOPIC"</span><span class="p">)</span>
+    <span class="n">symbol</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"BINANCE_SYMBOL"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">symbol</span> <span class="o">==</span> <span class="s">""</span> <span class="p">{</span>
+        <span class="n">symbol</span> <span class="o">=</span> <span class="s">"BTCUSDT"</span>
+    <span class="p">}</span>
+    <span class="n">interval</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"FETCH_INTERVAL"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">interval</span> <span class="o">==</span> <span class="s">""</span> <span class="p">{</span>
+        <span class="n">interval</span> <span class="o">=</span> <span class="s">"5s"</span>
+    <span class="p">}</span>
+    <span class="n">d</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">time</span><span class="o">.</span><span class="n">ParseDuration</span><span class="p">(</span><span class="n">interval</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">Fatalf</span><span class="p">(</span><span class="s">"Intervalo inválido: %v"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>👉 <strong>O que estamos fazendo?</strong></p>
+
+<ul>
+<li>Pegando as configs via <strong>variáveis de ambiente</strong>.</li>
+<li>Se não passar nada, usamos defaults (<code>BTCUSDT</code> e intervalo de <code>5s</code>).</li>
+</ul>
+
+
+<hr>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code>    <span class="n">writer</span> <span class="o">:=</span> <span class="n">kafka</span><span class="o">.</span><span class="n">NewWriter</span><span class="p">(</span><span class="n">kafka</span><span class="o">.</span><span class="n">WriterConfig</span><span class="p">{</span>
+        <span class="n">Brokers</span><span class="o">:</span>  <span class="p">[]</span><span class="kt">string</span><span class="p">{</span><span class="n">broker</span><span class="p">},</span>
+        <span class="n">Topic</span><span class="o">:</span>    <span class="n">topic</span><span class="p">,</span>
+        <span class="n">Balancer</span><span class="o">:</span> <span class="o">&amp;</span><span class="n">kafka</span><span class="o">.</span><span class="n">LeastBytes</span><span class="p">{},</span>
+    <span class="p">})</span>
+    <span class="k">defer</span> <span class="n">writer</span><span class="o">.</span><span class="n">Close</span><span class="p">()</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"Worker iniciado. Broker=%s, Tópico=%s, Ativo=%s"</span><span class="p">,</span> <span class="n">broker</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">symbol</span><span class="p">)</span>
+</code></pre>
+
+</div>
+
+
+
+<p>👉 <strong>Aqui inicializamos o Producer</strong>:</p>
+
+<ul>
+<li>
+<code>NewWriter</code> cria um writer para enviar mensagens ao Kafka.</li>
+<li>Usamos o balanceador <code>LeastBytes</code> para distribuir mensagens (bom mesmo em clusters).</li>
+</ul>
+
+
+<hr>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code>    <span class="n">ticker</span> <span class="o">:=</span> <span class="n">time</span><span class="o">.</span><span class="n">NewTicker</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+    <span class="k">defer</span> <span class="n">ticker</span><span class="o">.</span><span class="n">Stop</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="k">range</span> <span class="n">ticker</span><span class="o">.</span><span class="n">C</span> <span class="p">{</span>
+        <span class="n">data</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">fetchTicker</span><span class="p">(</span><span class="n">symbol</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"Erro ao buscar ticker:"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="p">}</span>
+        <span class="n">msg</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">json</span><span class="o">.</span><span class="n">Marshal</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">err</span> <span class="o">=</span> <span class="n">writer</span><span class="o">.</span><span class="n">WriteMessages</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Background</span><span class="p">(),</span> <span class="n">kafka</span><span class="o">.</span><span class="n">Message</span><span class="p">{</span><span class="n">Value</span><span class="o">:</span> <span class="n">msg</span><span class="p">})</span>
+        <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"Erro ao publicar:"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"Mensagem publicada: %s = %s"</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">Symbol</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">Price</span><span class="p">)</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>👉 <strong>O loop principal:</strong></p>
+
+<ul>
+<li>Executa a cada <code>interval</code> segundos.</li>
+<li>Busca o preço na Binance.</li>
+<li>Serializa para JSON.</li>
+<li>Publica no Kafka.</li>
+</ul>
+
+<blockquote>
+<p><strong>Resultado:</strong> A cada 5 segundos, temos o preço do BTC publicado no tópico.</p>
+</blockquote>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fynbmlm65dbs4rv7bkbq7.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fynbmlm65dbs4rv7bkbq7.png" alt="Tópico" loading="lazy" width="800" height="400"></a></p>
+
+
+<hr>
+
+<h2 id="passo-3-empacotando-com-docker"><strong>Passo 3 – Empacotando com Docker</strong>
+</h2>
+
+<p>Crie <code>Dockerfile</code> na raiz:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight docker"><code><span class="c"># build</span>
+<span class="k">FROM</span><span class="w"> </span><span class="s">golang:1.20-alpine</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">builder</span>
+<span class="k">WORKDIR</span><span class="s"> /app</span>
+<span class="k">COPY</span><span class="s"> go.mod go.sum ./</span>
+<span class="k">RUN </span>go mod download
+<span class="k">COPY</span><span class="s"> cmd/worker ./cmd/worker</span>
+<span class="k">RUN </span>go build <span class="nt">-o</span> worker ./cmd/worker
+
+<span class="c"># runtime</span>
+<span class="k">FROM</span><span class="s"> alpine:latest</span>
+<span class="k">WORKDIR</span><span class="s"> /app</span>
+<span class="k">COPY</span><span class="s"> --from=builder /app/worker ./</span>
+<span class="k">RUN </span>apk add <span class="nt">--no-cache</span> ca-certificates
+<span class="k">ENTRYPOINT</span><span class="s"> ["./worker"]</span>
+</code></pre>
+
+</div>
+
+
+
+<p>👉 <strong>Por que multi-stage?</strong></p>
+
+<ul>
+<li>A primeira imagem compila o binário.</li>
+<li>A segunda só carrega o executável final, leve e rápida.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="passo-4-orquestrando-tudo-com-docker-compose"><strong>Passo 4 – Orquestrando tudo com Docker Compose</strong>
+</h2>
+
+<p>Crie <code>docker-compose.yml</code>:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight yaml"><code><span class="na">services</span><span class="pi">:</span>
+  <span class="na">zookeeper</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">confluentinc/cp-zookeeper:7.7.4</span>
+    <span class="na">environment</span><span class="pi">:</span>
+      <span class="na">ZOOKEEPER_CLIENT_PORT</span><span class="pi">:</span> <span class="m">2181</span>
+
+  <span class="na">kafka</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">confluentinc/cp-kafka:7.7.4</span>
+    <span class="na">depends_on</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">zookeeper</span><span class="pi">]</span>
+    <span class="na">ports</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">9092:9092"</span><span class="pi">]</span>
+    <span class="na">environment</span><span class="pi">:</span>
+      <span class="na">KAFKA_BROKER_ID</span><span class="pi">:</span> <span class="m">1</span>
+      <span class="na">KAFKA_ZOOKEEPER_CONNECT</span><span class="pi">:</span> <span class="s">zookeeper:2181</span>
+      <span class="na">KAFKA_ADVERTISED_LISTENERS</span><span class="pi">:</span> <span class="s">PLAINTEXT://kafka:9092</span>
+      <span class="na">KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR</span><span class="pi">:</span> <span class="m">1</span>
+
+  <span class="na">elasticsearch</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">docker.elastic.co/elasticsearch/elasticsearch:7.17.28</span>
+    <span class="na">environment</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">discovery.type=single-node</span>
+      <span class="pi">-</span> <span class="s">ES_JAVA_OPTS=-Xms512m -Xmx512m</span>
+    <span class="na">ports</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">9200:9200"</span><span class="pi">]</span>
+
+  <span class="na">kafka-connect</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">confluentinc/cp-kafka-connect:7.7.4</span>
+    <span class="na">depends_on</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">kafka</span><span class="pi">]</span>
+    <span class="na">ports</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">8083:8083"</span><span class="pi">]</span>
+    <span class="na">environment</span><span class="pi">:</span>
+      <span class="na">CONNECT_BOOTSTRAP_SERVERS</span><span class="pi">:</span> <span class="s">kafka:9092</span>
+      <span class="na">CONNECT_GROUP_ID</span><span class="pi">:</span> <span class="s">connect-cluster</span>
+      <span class="na">CONNECT_CONFIG_STORAGE_TOPIC</span><span class="pi">:</span> <span class="s">connect-config</span>
+      <span class="na">CONNECT_OFFSET_STORAGE_TOPIC</span><span class="pi">:</span> <span class="s">connect-offsets</span>
+      <span class="na">CONNECT_STATUS_STORAGE_TOPIC</span><span class="pi">:</span> <span class="s">connect-status</span>
+      <span class="na">CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR</span><span class="pi">:</span> <span class="m">1</span>
+      <span class="na">CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR</span><span class="pi">:</span> <span class="m">1</span>
+      <span class="na">CONNECT_STATUS_STORAGE_REPLICATION_FACTOR</span><span class="pi">:</span> <span class="m">1</span>
+      <span class="na">CONNECT_KEY_CONVERTER</span><span class="pi">:</span> <span class="s">org.apache.kafka.connect.json.JsonConverter</span>
+      <span class="na">CONNECT_VALUE_CONVERTER</span><span class="pi">:</span> <span class="s">org.apache.kafka.connect.json.JsonConverter</span>
+      <span class="na">CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE</span><span class="pi">:</span> <span class="s1">'</span><span class="s">false'</span>
+      <span class="na">CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE</span><span class="pi">:</span> <span class="s1">'</span><span class="s">false'</span>
+      <span class="na">CONNECT_PLUGIN_PATH</span><span class="pi">:</span> <span class="s">/usr/share/java,/usr/share/confluent-hub-components</span>
+    <span class="na">command</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">bash -c</span>
+      <span class="pi">-</span> <span class="pi">|</span>
+        <span class="s">confluent-hub install --no-prompt confluentinc/kafka-connect-elasticsearch:13.0.0</span>
+        <span class="s">/etc/confluent/docker/run</span>
+
+  <span class="na">worker</span><span class="pi">:</span>
+    <span class="na">build</span><span class="pi">:</span> <span class="s">.</span>
+    <span class="na">depends_on</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">kafka</span><span class="pi">]</span>
+    <span class="na">environment</span><span class="pi">:</span>
+      <span class="na">KAFKA_BROKER</span><span class="pi">:</span> <span class="s">kafka:9092</span>
+      <span class="na">KAFKA_TOPIC</span><span class="pi">:</span> <span class="s">binance-ticker</span>
+      <span class="na">BINANCE_SYMBOL</span><span class="pi">:</span> <span class="s">BTCUSDT</span>
+      <span class="na">FETCH_INTERVAL</span><span class="pi">:</span> <span class="s">5s</span>
+
+  <span class="na">kafka-ui</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">provectuslabs/kafka-ui:v0.7.2</span>
+    <span class="na">depends_on</span><span class="pi">:</span> <span class="pi">[</span><span class="nv">kafka</span><span class="pi">,</span> <span class="nv">kafka-connect</span><span class="pi">]</span>
+    <span class="na">ports</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">8080:8080"</span><span class="pi">]</span>
+    <span class="na">environment</span><span class="pi">:</span>
+      <span class="na">KAFKA_CLUSTERS_0_NAME</span><span class="pi">:</span> <span class="s">local</span>
+      <span class="na">KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS</span><span class="pi">:</span> <span class="s">kafka:9092</span>
+      <span class="na">KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME</span><span class="pi">:</span> <span class="s">connect</span>
+      <span class="na">KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS</span><span class="pi">:</span> <span class="s">http://kafka-connect:8083</span>
+</code></pre>
+
+</div>
+
+
+
+<p>👉 <strong>O que temos aqui?</strong></p>
+
+<ul>
+<li>Kafka + Zookeeper.</li>
+<li>Elasticsearch (para receber os dados).</li>
+<li>Kafka Connect (já baixando o conector para ES).</li>
+<li>Worker em Go.</li>
+<li>Kafka UI para facilitar o debug.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="passo-5-subindo-tudo"><strong>Passo 5 – Subindo tudo</strong>
+</h2>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>docker-compose up <span class="nt">--build</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Se o Elasticsearch reclamar de memória:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code><span class="nb">sudo </span>sysctl <span class="nt">-w</span> vm.max_map_count<span class="o">=</span>262144
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="passo-6-criando-o-t%C3%B3pico"><strong>Passo 6 – Criando o tópico</strong>
+</h2>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>docker-compose <span class="nb">exec </span>kafka kafka-topics <span class="nt">--create</span> <span class="se">\</span>
+  <span class="nt">--topic</span> binance-ticker <span class="se">\</span>
+  <span class="nt">--bootstrap-server</span> kafka:9092 <span class="se">\</span>
+  <span class="nt">--replication-factor</span> 1 <span class="se">\</span>
+  <span class="nt">--partitions</span> 1
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="passo-7-configurando-o-conector"><strong>Passo 7 – Configurando o conector</strong>
+</h2>
+
+<p>Agora vem a estrela do show: <strong>Kafka Connect</strong>.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>curl <span class="nt">-X</span> POST <span class="nt">-H</span> <span class="s2">"Content-Type: application/json"</span> <span class="se">\</span>
+  <span class="nt">--data</span> <span class="s1">'{
+    "name": "es-sink",
+    "config": {
+      "connector.class":"io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
+      "tasks.max":"1",
+      "topics":"binance-ticker",
+      "connection.url":"http://elasticsearch:9200",
+      "type.name":"_doc",
+      "key.ignore":"true",
+      "schema.ignore":"true"
+    }
+  }'</span> http://localhost:8083/connectors
+</code></pre>
+
+</div>
+
+
+
+<p>Quer saber se ele subiu?<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>curl http://localhost:8083/connectors/es-sink/status
+</code></pre>
+
+</div>
+
+
+
+<h2>
+  <img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fkkyd1axxsn6ex6zw3xl3.png" alt="Status" loading="lazy" width="800" height="360">
+</h2>
+
+<h2 id="passo-8-testando-tudo"><strong>Passo 8 – Testando tudo</strong>
+</h2>
+
+<ul>
+<li>Vá no <strong>Kafka UI</strong>: <a href="http://localhost:8080" target="_blank" rel="noopener noreferrer">http://localhost:8080</a> → veja o tópico <code>binance-ticker</code> recebendo mensagens.</li>
+<li>Consulte no <strong>Elasticsearch</strong>:
+</li>
+</ul>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>  curl http://localhost:9200/binance-ticker/_search?pretty
+</code></pre>
+
+</div>
+
+
+
+<p>Saída esperada:</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fey7mr2tbbr576hat1pif.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fey7mr2tbbr576hat1pif.png" alt="Saida" loading="lazy" width="800" height="454"></a></p>
+
+<p>Pronto. <strong>Kafka Connect funcionando!</strong></p>
+
+
+<hr>
+
+<h2 id="conclus%C3%A3o"><strong>Conclusão</strong>
+</h2>
+
+<p>Neste artigo, construímos um <strong>laboratório completo para testar o Kafka Connect</strong>:</p>
+
+<ul>
+<li>Criamos um <strong>worker em Go</strong> que consome dados da API da Binance e publica no Kafka.</li>
+<li>Subimos um ambiente com <strong>Kafka, Kafka Connect, Elasticsearch e Kafka UI</strong> usando Docker Compose.</li>
+<li>Configuramos um <strong>conector Elasticsearch</strong> no Kafka Connect para consumir mensagens e indexá-las automaticamente.</li>
+<li>Validamos o pipeline via <strong>Kafka UI</strong> e consultas REST no Elasticsearch.</li>
+</ul>
+
+<p>Esse ambiente é um ótimo ponto de partida para <strong>testar outros conectores</strong>, experimentar <strong>transformações</strong> e entender o fluxo de dados em arquiteturas orientadas a eventos.</p>
+
+<p>Como próximos passos, você pode:</p>
+
+<ul>
+<li>Adicionar <strong>Kibana</strong> para visualizações.</li>
+<li>Criar um cluster Kafka com <strong>múltiplos brokers</strong>.</li>
+<li>Habilitar <strong>TLS e autenticação</strong>, aproximando o setup de produção.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="refer%C3%AAncias"><strong>Referências</strong>
+</h2>
+
+<p>Apache Software Foundation. (2024). <em>Kafka Connect documentation</em>. <a href="https://kafka.apache.org/documentation/#connect" target="_blank" rel="noopener noreferrer">https://kafka.apache.org/documentation/#connect</a></p>
+
+<p>Confluent, Inc. (2024). <em>Confluent Hub</em>. <a href="https://www.confluent.io/hub/" target="_blank" rel="noopener noreferrer">https://www.confluent.io/hub/</a></p>
+
+<p>Elastic. (2024). <em>Elasticsearch REST API documentation</em>. <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/docs.html" target="_blank" rel="noopener noreferrer">https://www.elastic.co/guide/en/elasticsearch/reference/current/docs.html</a></p>
+
+<p>LuizTools. (2023). <em>Introdução ao Kafka e como usar com Node.js</em>. <a href="https://luiztools.com.br/kafka-com-nodejs" target="_blank" rel="noopener noreferrer">https://luiztools.com.br/kafka-com-nodejs</a></p>
+
+<p>Segment.io. (2024). <em>kafka-go: Apache Kafka client for Go</em>. <a href="https://github.com/segmentio/kafka-go" target="_blank" rel="noopener noreferrer">https://github.com/segmentio/kafka-go</a></p>
+
+
+<hr>
+
+<h2 id="leitura-complementar"><strong>Leitura complementar</strong>
+</h2>
+
+<ul>
+<li>
+<strong>LuizTools</strong> – <a href="https://luiztools.com.br/kafka-com-nodejs" target="_blank" rel="noopener noreferrer">Introdução ao Kafka e como usar com Node.js</a>
+</li>
+<li>
+<strong>Confluent</strong> – <a href="https://www.confluent.io/blog/kafka-connect-deep-dive/" target="_blank" rel="noopener noreferrer">Building Data Pipelines with Kafka Connect</a>
+</li>
+<li>
+<strong>Elastic</strong> – <a href="https://www.elastic.co/blog/kafka-elasticsearch-logstash-ingest-pipeline" target="_blank" rel="noopener noreferrer">Ingestão de dados com Kafka + Elasticsearch</a>
+</li>
+<li>
+<strong>Go by Example</strong> – <a href="https://gobyexample.com/json" target="_blank" rel="noopener noreferrer">Trabalhando com JSON em Go</a>
+</li>
+</ul>
+
+
+<hr>
+
+<h2 id="curtiu">💡Curtiu?
+</h2>
+
+<p>Se quiser trocar ideia sobre IA, cloud e arquitetura, me segue nas redes:</p>
+
+<ul>
+<li><a href="https://olink.ai/sertaoseracloud" target="_blank" rel="noopener noreferrer">Redes Sociais</a></li>
+</ul>
+
+<p>Publico conteúdos técnicos direto do campo de batalha. E quando descubro uma ferramenta que economiza tempo e resolve bem, como essa, você fica sabendo também.</p>

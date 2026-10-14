@@ -1,0 +1,705 @@
+<p>Você quer proteger seus lucros sem vigiar o gráfico o dia todo. Um <strong>Trailing Stop</strong> faz exatamente isso: acompanha o movimento favorável do preço e, ao detectar uma reversão além de um percentual configurado, <strong>fecha a posição automaticamente</strong>. Mas depender de uma ordem nativa da corretora pode ser limitante (parâmetros, disponibilidade, validações). E um monólito que faz de tudo fica difícil de escalar e observar.</p>
+
+<p><strong>Nossa proposta:</strong> um sistema <strong>distribuído</strong> e <strong>desacoplado</strong>, onde cada parte cuida de uma responsabilidade única, comunicando-se <strong>por mensagens</strong>. Assim, trocamos rigidez por flexibilidade e evolutividade.</p>
+
+
+<hr>
+
+<h2 id="o-que-vamos-construir-foto-geral">O que vamos construir (foto geral)
+</h2>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fgso24wtm6xr3m05h1cnt.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fgso24wtm6xr3m05h1cnt.png" alt="Diagrama de Sequência" loading="lazy" width="800" height="328"></a></p>
+
+<ul>
+<li>
+<strong>MarketData</strong>: um serviço que ouve o WebSocket da Binance e publica preços em tempo real.</li>
+<li>
+<strong>Orchestrator</strong>: o cérebro da estratégia. Mantém topo/fundo, calcula a variação e decide quando enviar uma ordem.</li>
+<li>
+<strong>Orders</strong>: recebe comandos do orquestrador, envia a ordem à corretora (ou simula) e publica o resultado.</li>
+<li>
+<strong>RabbitMQ</strong>: nosso barramento, com três exchanges: <code>marketdata.events</code> (fanout), <code>order.commands</code> (direct) e <code>order.events</code> (fanout).</li>
+<li>
+<strong>OpenTelemetry</strong>: pronto para instrumentação e tracing (arquivo <code>internal/tracing/otel.go</code>).</li>
+</ul>
+
+<p><strong>Decisões arquiteturais-chave</strong></p>
+
+<ol>
+<li>
+<strong>Bounded contexts</strong> para <strong>separação de responsabilidades</strong> e <strong>escala independente</strong>.</li>
+<li>
+<strong>Mensageria</strong> para <strong>desacoplamento</strong> (produtores não sabem quem consome e vice-versa).</li>
+<li>
+<strong>Contratos de mensagens</strong> estáveis entre serviços (<code>PriceTick</code>, <code>PlaceOrder</code>, <code>OrderResult</code>).</li>
+<li>
+<strong>Execução simulável</strong>: sem credenciais, ainda validamos o fluxo com segurança.</li>
+</ol>
+
+
+<hr>
+
+<h2 id="pr%C3%A9requisitos">Pré-requisitos
+</h2>
+
+<ul>
+<li>Go 1.22+</li>
+<li>Docker e Docker Compose</li>
+<li>Conta na <strong>Binance Spot Testnet</strong> (opcional para simulação; obrigatório para ordens reais)</li>
+</ul>
+
+
+<hr>
+
+<h2 id="1-iniciando-o-projeto">1. Iniciando o projeto
+</h2>
+
+<p>Estrutura do repositório:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>trailingstop-bc/
+├─ .env.example
+├─ docker-compose.yml
+├─ go.mod / go.sum
+├─ cmd/
+│  ├─ marketdata/
+│  ├─ orchestrator/
+│  └─ order/
+└─ internal/
+   ├─ messaging/
+   ├─ tracing/
+   └─ types/
+</code></pre>
+
+</div>
+
+
+
+<h3 id="-raw-gomod-endraw-"><code>go.mod</code>
+</h3>
+
+<blockquote>
+<p>Define módulo e dependências. O nome do módulo acompanha o repositório.<br>
+</p>
+</blockquote>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="n">module</span> <span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">sertaoseracloud</span><span class="o">/</span><span class="n">trailingstop</span><span class="o">-</span><span class="n">bc</span>
+
+<span class="k">go</span> <span class="m">1.22</span>
+
+<span class="n">require</span> <span class="p">(</span>
+    <span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">adshao</span><span class="o">/</span><span class="k">go</span><span class="o">-</span><span class="n">binance</span><span class="o">/</span><span class="n">v2</span> <span class="n">v2</span><span class="m">.8.5</span>
+    <span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">rabbitmq</span><span class="o">/</span><span class="n">amqp091</span><span class="o">-</span><span class="k">go</span> <span class="n">v1</span><span class="m">.10.0</span>
+<span class="p">)</span>
+</code></pre>
+
+</div>
+
+
+
+<p><strong>Por quê?</strong></p>
+
+<ul>
+<li>
+<code>go-binance</code> dá acesso a REST/WS da Binance.</li>
+<li>
+<code>amqp091-go</code> é o cliente AMQP para o RabbitMQ.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="2-contratos-de-mensagens-fontes-da-verdade-entre-servi%C3%A7os">2. Contratos de mensagens (fontes da verdade entre serviços)
+</h2>
+
+<h3 id="-raw-internaltypesmessagesgo-endraw-"><code>internal/types/messages.go</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">package</span> <span class="n">types</span>
+
+<span class="k">import</span> <span class="s">"time"</span>
+
+<span class="c">// PriceTick é publicado pelo MarketData.</span>
+<span class="k">type</span> <span class="n">PriceTick</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">Symbol</span> <span class="kt">string</span>  <span class="s">`json:"symbol"`</span>
+    <span class="n">Price</span>  <span class="kt">float64</span> <span class="s">`json:"price"`</span>
+    <span class="n">Ts</span>     <span class="kt">int64</span>   <span class="s">`json:"ts"`</span>
+<span class="p">}</span>
+
+<span class="c">// PlaceOrder é comando do Orchestrator para Orders.</span>
+<span class="k">type</span> <span class="n">PlaceOrder</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">Symbol</span>   <span class="kt">string</span>  <span class="s">`json:"symbol"`</span>
+    <span class="n">Side</span>     <span class="kt">string</span>  <span class="s">`json:"side"`</span>   <span class="c">// "BUY" | "SELL"</span>
+    <span class="n">Qty</span>      <span class="kt">float64</span> <span class="s">`json:"qty"`</span>
+    <span class="n">Type</span>     <span class="kt">string</span>  <span class="s">`json:"type"`</span>   <span class="c">// "MARKET" | "LIMIT"</span>
+    <span class="n">ClientID</span> <span class="kt">string</span>  <span class="s">`json:"clientId,omitempty"`</span>
+<span class="p">}</span>
+
+<span class="c">// OrderResult é evento de confirmação/erro do Orders.</span>
+<span class="k">type</span> <span class="n">OrderResult</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">Symbol</span>    <span class="kt">string</span>  <span class="s">`json:"symbol"`</span>
+    <span class="n">Side</span>      <span class="kt">string</span>  <span class="s">`json:"side"`</span>
+    <span class="n">Status</span>    <span class="kt">string</span>  <span class="s">`json:"status"`</span>
+    <span class="n">OrderID</span>   <span class="kt">int64</span>   <span class="s">`json:"orderId"`</span>
+    <span class="n">FilledQty</span> <span class="kt">float64</span> <span class="s">`json:"filledQty"`</span>
+    <span class="n">Price</span>     <span class="kt">float64</span> <span class="s">`json:"price"`</span>
+    <span class="n">Ts</span>        <span class="kt">int64</span>   <span class="s">`json:"ts"`</span>
+    <span class="n">Error</span>     <span class="kt">string</span>  <span class="s">`json:"error,omitempty"`</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">NowMs</span><span class="p">()</span> <span class="kt">int64</span> <span class="p">{</span> <span class="k">return</span> <span class="n">time</span><span class="o">.</span><span class="n">Now</span><span class="p">()</span><span class="o">.</span><span class="n">UnixMilli</span><span class="p">()</span> <span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p><strong>Decisão</strong>: mensagens simples em JSON. Isso facilita observabilidade, reprocessamento e compatibilidade com outras linguagens.</p>
+
+
+<hr>
+
+<h2 id="3-camada-de-mensageria-encapsulando-rabbitmq">3. Camada de mensageria (encapsulando RabbitMQ)
+</h2>
+
+<h3 id="-raw-internalmessagingrabbitmqgo-endraw-"><code>internal/messaging/rabbitmq.go</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">package</span> <span class="n">messaging</span>
+
+<span class="k">import</span> <span class="p">(</span>
+    <span class="s">"context"</span>
+    <span class="s">"encoding/json"</span>
+    <span class="s">"log"</span>
+    <span class="s">"os"</span>
+    <span class="s">"time"</span>
+
+    <span class="n">amqp</span> <span class="s">"github.com/rabbitmq/amqp091-go"</span>
+<span class="p">)</span>
+
+<span class="k">const</span> <span class="p">(</span>
+    <span class="n">ExMarketData</span> <span class="o">=</span> <span class="s">"marketdata.events"</span> <span class="c">// fanout</span>
+    <span class="n">ExOrderCmds</span>  <span class="o">=</span> <span class="s">"order.commands"</span>    <span class="c">// direct</span>
+    <span class="n">ExOrderEvts</span>  <span class="o">=</span> <span class="s">"order.events"</span>      <span class="c">// fanout</span>
+<span class="p">)</span>
+
+<span class="k">type</span> <span class="n">Bus</span> <span class="k">struct</span><span class="p">{</span>
+    <span class="n">Conn</span> <span class="o">*</span><span class="n">amqp</span><span class="o">.</span><span class="n">Connection</span>
+    <span class="n">Ch</span>   <span class="o">*</span><span class="n">amqp</span><span class="o">.</span><span class="n">Channel</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">MustBus</span><span class="p">()</span> <span class="o">*</span><span class="n">Bus</span> <span class="p">{</span>
+    <span class="n">url</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"AMQP_URL"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">url</span> <span class="o">==</span> <span class="s">""</span> <span class="p">{</span> <span class="n">url</span> <span class="o">=</span> <span class="s">"amqp://guest:guest@localhost:5672/"</span> <span class="p">}</span>
+
+    <span class="n">conn</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">amqp</span><span class="o">.</span><span class="n">Dial</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span> <span class="n">log</span><span class="o">.</span><span class="n">Fatalf</span><span class="p">(</span><span class="s">"amqp dial: %v"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span> <span class="p">}</span>
+    <span class="n">ch</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">conn</span><span class="o">.</span><span class="n">Channel</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span> <span class="n">log</span><span class="o">.</span><span class="n">Fatalf</span><span class="p">(</span><span class="s">"amqp channel: %v"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span> <span class="p">}</span>
+
+    <span class="n">must</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">ExchangeDeclare</span><span class="p">(</span><span class="n">ExMarketData</span><span class="p">,</span> <span class="s">"fanout"</span><span class="p">,</span> <span class="no">true</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">nil</span><span class="p">))</span>
+    <span class="n">must</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">ExchangeDeclare</span><span class="p">(</span><span class="n">ExOrderCmds</span><span class="p">,</span>  <span class="s">"direct"</span><span class="p">,</span> <span class="no">true</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">nil</span><span class="p">))</span>
+    <span class="n">must</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">ExchangeDeclare</span><span class="p">(</span><span class="n">ExOrderEvts</span><span class="p">,</span>  <span class="s">"fanout"</span><span class="p">,</span> <span class="no">true</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">nil</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="o">&amp;</span><span class="n">Bus</span><span class="p">{</span><span class="n">Conn</span><span class="o">:</span> <span class="n">conn</span><span class="p">,</span> <span class="n">Ch</span><span class="o">:</span> <span class="n">ch</span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">must</span><span class="p">(</span><span class="n">err</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span> <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span> <span class="n">log</span><span class="o">.</span><span class="n">Fatal</span><span class="p">(</span><span class="n">err</span><span class="p">)</span> <span class="p">}</span> <span class="p">}</span>
+
+<span class="k">func</span> <span class="p">(</span><span class="n">b</span> <span class="o">*</span><span class="n">Bus</span><span class="p">)</span> <span class="n">Close</span><span class="p">()</span> <span class="p">{</span> <span class="n">_</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">Ch</span><span class="o">.</span><span class="n">Close</span><span class="p">();</span> <span class="n">_</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">Conn</span><span class="o">.</span><span class="n">Close</span><span class="p">()</span> <span class="p">}</span>
+
+<span class="k">func</span> <span class="p">(</span><span class="n">b</span> <span class="o">*</span><span class="n">Bus</span><span class="p">)</span> <span class="n">PublishJSON</span><span class="p">(</span><span class="n">ex</span><span class="p">,</span> <span class="n">key</span> <span class="kt">string</span><span class="p">,</span> <span class="n">v</span> <span class="n">any</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="n">body</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">json</span><span class="o">.</span><span class="n">Marshal</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span> <span class="k">return</span> <span class="n">err</span> <span class="p">}</span>
+    <span class="n">ctx</span><span class="p">,</span> <span class="n">cancel</span> <span class="o">:=</span> <span class="n">context</span><span class="o">.</span><span class="n">WithTimeout</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Background</span><span class="p">(),</span> <span class="m">5</span><span class="o">*</span><span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">)</span>
+    <span class="k">defer</span> <span class="n">cancel</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">b</span><span class="o">.</span><span class="n">Ch</span><span class="o">.</span><span class="n">PublishWithContext</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">ex</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="n">amqp</span><span class="o">.</span><span class="n">Publishing</span><span class="p">{</span>
+        <span class="n">ContentType</span><span class="o">:</span> <span class="s">"application/json"</span><span class="p">,</span>
+        <span class="n">DeliveryMode</span><span class="o">:</span> <span class="n">amqp</span><span class="o">.</span><span class="n">Persistent</span><span class="p">,</span>
+        <span class="n">Body</span><span class="o">:</span>         <span class="n">body</span><span class="p">,</span>
+        <span class="n">Timestamp</span><span class="o">:</span>    <span class="n">time</span><span class="o">.</span><span class="n">Now</span><span class="p">(),</span>
+    <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="c">// Consumo fanout: fila efêmera/exclusiva para broadcast (ideal para market data).</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">b</span> <span class="o">*</span><span class="n">Bus</span><span class="p">)</span> <span class="n">ConsumeFanout</span><span class="p">(</span><span class="n">ex</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="o">&lt;-</span><span class="k">chan</span> <span class="n">amqp</span><span class="o">.</span><span class="n">Delivery</span><span class="p">,</span> <span class="k">func</span><span class="p">())</span> <span class="p">{</span>
+    <span class="n">q</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">b</span><span class="o">.</span><span class="n">Ch</span><span class="o">.</span><span class="n">QueueDeclare</span><span class="p">(</span><span class="s">""</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">true</span><span class="p">,</span> <span class="no">true</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">nil</span><span class="p">)</span>
+    <span class="n">must</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="n">must</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">Ch</span><span class="o">.</span><span class="n">QueueBind</span><span class="p">(</span><span class="n">q</span><span class="o">.</span><span class="n">Name</span><span class="p">,</span> <span class="s">""</span><span class="p">,</span> <span class="n">ex</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">nil</span><span class="p">))</span>
+    <span class="n">msgs</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">b</span><span class="o">.</span><span class="n">Ch</span><span class="o">.</span><span class="n">Consume</span><span class="p">(</span><span class="n">q</span><span class="o">.</span><span class="n">Name</span><span class="p">,</span> <span class="s">""</span><span class="p">,</span> <span class="no">true</span><span class="p">,</span> <span class="no">true</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">nil</span><span class="p">)</span>
+    <span class="n">must</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="n">cancel</span> <span class="o">:=</span> <span class="k">func</span><span class="p">(){</span> <span class="n">_</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">Ch</span><span class="o">.</span><span class="n">QueueUnbind</span><span class="p">(</span><span class="n">q</span><span class="o">.</span><span class="n">Name</span><span class="p">,</span> <span class="s">""</span><span class="p">,</span> <span class="n">ex</span><span class="p">,</span> <span class="no">nil</span><span class="p">);</span> <span class="n">_</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">Ch</span><span class="o">.</span><span class="n">QueueDelete</span><span class="p">(</span><span class="n">q</span><span class="o">.</span><span class="n">Name</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">true</span><span class="p">)</span> <span class="p">}</span>
+    <span class="k">return</span> <span class="n">msgs</span><span class="p">,</span> <span class="n">cancel</span>
+<span class="p">}</span>
+
+<span class="c">// Consumo direct: fila durável com routing key (ideal para comandos de ordem).</span>
+<span class="k">func</span> <span class="p">(</span><span class="n">b</span> <span class="o">*</span><span class="n">Bus</span><span class="p">)</span> <span class="n">ConsumeDirect</span><span class="p">(</span><span class="n">ex</span><span class="p">,</span> <span class="n">queue</span><span class="p">,</span> <span class="n">key</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="o">&lt;-</span><span class="k">chan</span> <span class="n">amqp</span><span class="o">.</span><span class="n">Delivery</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">q</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">b</span><span class="o">.</span><span class="n">Ch</span><span class="o">.</span><span class="n">QueueDeclare</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="no">true</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">nil</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span> <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">err</span> <span class="p">}</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">Ch</span><span class="o">.</span><span class="n">QueueBind</span><span class="p">(</span><span class="n">q</span><span class="o">.</span><span class="n">Name</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">ex</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">nil</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span> <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">err</span> <span class="p">}</span>
+    <span class="k">return</span> <span class="n">b</span><span class="o">.</span><span class="n">Ch</span><span class="o">.</span><span class="n">Consume</span><span class="p">(</span><span class="n">q</span><span class="o">.</span><span class="n">Name</span><span class="p">,</span> <span class="s">""</span><span class="p">,</span> <span class="no">true</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">false</span><span class="p">,</span> <span class="no">nil</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p><strong>Decisão</strong>: abstrair conexão/publicação/consumo torna os serviços mais legíveis e reduz repetição.</p>
+
+
+<hr>
+
+<h2 id="4-marketdata-consumindo-a-binance-em-tempo-real">4. MarketData: consumindo a Binance em tempo real
+</h2>
+
+<h3 id="-raw-cmdmarketdatamaingo-endraw-"><code>cmd/marketdata/main.go</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">package</span> <span class="n">main</span>
+
+<span class="k">import</span> <span class="p">(</span>
+    <span class="s">"log"</span>
+    <span class="s">"os"</span>
+    <span class="s">"strconv"</span>
+
+    <span class="n">binance</span> <span class="s">"github.com/adshao/go-binance/v2"</span>
+
+    <span class="s">"github.com/sertaoseracloud/trailingstop-bc/internal/messaging"</span>
+    <span class="s">"github.com/sertaoseracloud/trailingstop-bc/internal/types"</span>
+<span class="p">)</span>
+
+<span class="k">func</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">symbol</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"SYMBOL"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">symbol</span> <span class="o">==</span> <span class="s">""</span> <span class="p">{</span> <span class="n">symbol</span> <span class="o">=</span> <span class="s">"BTCUSDT"</span> <span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"BINANCE_TESTNET"</span><span class="p">)</span> <span class="o">==</span> <span class="s">"true"</span> <span class="p">{</span>
+        <span class="n">binance</span><span class="o">.</span><span class="n">UseTestnet</span> <span class="o">=</span> <span class="no">true</span>
+    <span class="p">}</span>
+
+    <span class="n">bus</span> <span class="o">:=</span> <span class="n">messaging</span><span class="o">.</span><span class="n">MustBus</span><span class="p">()</span>
+    <span class="k">defer</span> <span class="n">bus</span><span class="o">.</span><span class="n">Close</span><span class="p">()</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"[marketdata] WS AggTrade %s (testnet=%v)"</span><span class="p">,</span> <span class="n">symbol</span><span class="p">,</span> <span class="n">binance</span><span class="o">.</span><span class="n">UseTestnet</span><span class="p">)</span>
+
+    <span class="n">handler</span> <span class="o">:=</span> <span class="k">func</span><span class="p">(</span><span class="n">e</span> <span class="o">*</span><span class="n">binance</span><span class="o">.</span><span class="n">WsAggTradeEvent</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">price</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">strconv</span><span class="o">.</span><span class="n">ParseFloat</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">Price</span><span class="p">,</span> <span class="m">64</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span> <span class="k">return</span> <span class="p">}</span>
+        <span class="n">tick</span> <span class="o">:=</span> <span class="n">types</span><span class="o">.</span><span class="n">PriceTick</span><span class="p">{</span> <span class="n">Symbol</span><span class="o">:</span> <span class="n">symbol</span><span class="p">,</span> <span class="n">Price</span><span class="o">:</span> <span class="n">price</span><span class="p">,</span> <span class="n">Ts</span><span class="o">:</span> <span class="n">types</span><span class="o">.</span><span class="n">NowMs</span><span class="p">()</span> <span class="p">}</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">PublishJSON</span><span class="p">(</span><span class="n">messaging</span><span class="o">.</span><span class="n">ExMarketData</span><span class="p">,</span> <span class="s">""</span><span class="p">,</span> <span class="n">tick</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="n">errHandler</span> <span class="o">:=</span> <span class="k">func</span><span class="p">(</span><span class="n">err</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span> <span class="n">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"ws err: %v"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span> <span class="p">}</span>
+
+    <span class="n">doneC</span><span class="p">,</span> <span class="n">stopC</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">binance</span><span class="o">.</span><span class="n">WsAggTradeServe</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">handler</span><span class="p">,</span> <span class="n">errHandler</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span> <span class="n">log</span><span class="o">.</span><span class="n">Fatal</span><span class="p">(</span><span class="n">err</span><span class="p">)</span> <span class="p">}</span>
+    <span class="o">&lt;-</span><span class="n">doneC</span><span class="p">;</span> <span class="nb">close</span><span class="p">(</span><span class="n">stopC</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p><strong>Por quê assim?</strong></p>
+
+<ul>
+<li>O canal <strong>AggTrade</strong> traz um fluxo rico de preços.</li>
+<li>Publicar em <code>marketdata.events</code> (fanout) permite múltiplos consumidores (ex.: backtests, dashboards) sem acoplamento.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="5-orchestrator-o-c%C3%A9rebro-do-trailing">5. Orchestrator: o cérebro do trailing
+</h2>
+
+<h3 id="-raw-cmdorchestratormaingo-endraw-"><code>cmd/orchestrator/main.go</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">package</span> <span class="n">main</span>
+
+<span class="k">import</span> <span class="p">(</span>
+    <span class="s">"encoding/json"</span>
+    <span class="s">"log"</span>
+    <span class="s">"math"</span>
+    <span class="s">"os"</span>
+    <span class="s">"strconv"</span>
+    <span class="s">"strings"</span>
+
+    <span class="s">"github.com/sertaoseracloud/trailingstop-bc/internal/messaging"</span>
+    <span class="s">"github.com/sertaoseracloud/trailingstop-bc/internal/types"</span>
+<span class="p">)</span>
+
+<span class="k">func</span> <span class="n">getenvf</span><span class="p">(</span><span class="n">key</span> <span class="kt">string</span><span class="p">,</span> <span class="n">def</span> <span class="kt">float64</span><span class="p">)</span> <span class="kt">float64</span> <span class="p">{</span>
+    <span class="n">v</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="n">key</span><span class="p">);</span> <span class="k">if</span> <span class="n">v</span> <span class="o">==</span> <span class="s">""</span> <span class="p">{</span> <span class="k">return</span> <span class="n">def</span> <span class="p">}</span>
+    <span class="n">f</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">strconv</span><span class="o">.</span><span class="n">ParseFloat</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="m">64</span><span class="p">);</span> <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span> <span class="k">return</span> <span class="n">def</span> <span class="p">}</span>
+    <span class="k">return</span> <span class="n">f</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">main</span><span class="p">(){</span>
+    <span class="n">symbol</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"SYMBOL"</span><span class="p">);</span> <span class="k">if</span> <span class="n">symbol</span> <span class="o">==</span> <span class="s">""</span> <span class="p">{</span> <span class="n">symbol</span> <span class="o">=</span> <span class="s">"BTCUSDT"</span> <span class="p">}</span>
+    <span class="n">side</span> <span class="o">:=</span> <span class="n">strings</span><span class="o">.</span><span class="n">ToUpper</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"SIDE"</span><span class="p">));</span> <span class="k">if</span> <span class="n">side</span> <span class="o">==</span> <span class="s">""</span> <span class="p">{</span> <span class="n">side</span> <span class="o">=</span> <span class="s">"SELL"</span> <span class="p">}</span>
+    <span class="n">qty</span> <span class="o">:=</span> <span class="n">getenvf</span><span class="p">(</span><span class="s">"QTY"</span><span class="p">,</span> <span class="m">0.001</span><span class="p">)</span>
+    <span class="n">trailing</span> <span class="o">:=</span> <span class="n">getenvf</span><span class="p">(</span><span class="s">"TRAILING_PERCENT"</span><span class="p">,</span> <span class="m">1.0</span><span class="p">)</span>
+    <span class="n">activation</span> <span class="o">:=</span> <span class="n">getenvf</span><span class="p">(</span><span class="s">"ACTIVATION_PRICE"</span><span class="p">,</span> <span class="m">0</span><span class="p">)</span>
+
+    <span class="n">bus</span> <span class="o">:=</span> <span class="n">messaging</span><span class="o">.</span><span class="n">MustBus</span><span class="p">();</span> <span class="k">defer</span> <span class="n">bus</span><span class="o">.</span><span class="n">Close</span><span class="p">()</span>
+    <span class="n">msgs</span><span class="p">,</span> <span class="n">cancel</span> <span class="o">:=</span> <span class="n">bus</span><span class="o">.</span><span class="n">ConsumeFanout</span><span class="p">(</span><span class="n">messaging</span><span class="o">.</span><span class="n">ExMarketData</span><span class="p">);</span> <span class="k">defer</span> <span class="n">cancel</span><span class="p">()</span>
+
+    <span class="n">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"[orchestrator] %s side=%s qty=%.6f trailing=%.4f%% activation=%.4f"</span><span class="p">,</span> <span class="n">symbol</span><span class="p">,</span> <span class="n">side</span><span class="p">,</span> <span class="n">qty</span><span class="p">,</span> <span class="n">trailing</span><span class="p">,</span> <span class="n">activation</span><span class="p">)</span>
+
+    <span class="n">activated</span> <span class="o">:=</span> <span class="no">false</span>
+    <span class="n">ref</span> <span class="o">:=</span> <span class="m">0.0</span> <span class="c">// topo (SELL) ou fundo (BUY)</span>
+    <span class="n">fired</span> <span class="o">:=</span> <span class="no">false</span>
+
+    <span class="k">for</span> <span class="n">d</span> <span class="o">:=</span> <span class="k">range</span> <span class="n">msgs</span> <span class="p">{</span>
+        <span class="k">var</span> <span class="n">tick</span> <span class="n">types</span><span class="o">.</span><span class="n">PriceTick</span>
+        <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">json</span><span class="o">.</span><span class="n">Unmarshal</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">Body</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">tick</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="o">||</span> <span class="n">tick</span><span class="o">.</span><span class="n">Symbol</span> <span class="o">!=</span> <span class="n">symbol</span> <span class="p">{</span> <span class="k">continue</span> <span class="p">}</span>
+        <span class="n">p</span> <span class="o">:=</span> <span class="n">tick</span><span class="o">.</span><span class="n">Price</span>
+
+        <span class="k">if</span> <span class="o">!</span><span class="n">activated</span> <span class="p">{</span>
+            <span class="k">if</span> <span class="n">activation</span> <span class="o">==</span> <span class="m">0</span> <span class="o">||</span> <span class="p">(</span><span class="n">side</span> <span class="o">==</span> <span class="s">"SELL"</span> <span class="o">&amp;&amp;</span> <span class="n">p</span> <span class="o">&gt;=</span> <span class="n">activation</span><span class="p">)</span> <span class="o">||</span> <span class="p">(</span><span class="n">side</span> <span class="o">==</span> <span class="s">"BUY"</span> <span class="o">&amp;&amp;</span> <span class="n">p</span> <span class="o">&lt;=</span> <span class="n">activation</span><span class="p">)</span> <span class="p">{</span>
+                <span class="n">activated</span><span class="p">,</span> <span class="n">ref</span> <span class="o">=</span> <span class="no">true</span><span class="p">,</span> <span class="n">p</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"[orchestrator] ativado em %.8f"</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+            <span class="p">}</span>
+            <span class="k">continue</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">side</span> <span class="o">==</span> <span class="s">"SELL"</span> <span class="p">{</span>
+            <span class="k">if</span> <span class="n">p</span> <span class="o">&gt;</span> <span class="n">ref</span> <span class="p">{</span> <span class="n">ref</span> <span class="o">=</span> <span class="n">p</span> <span class="p">}</span> <span class="c">// atualiza topo</span>
+            <span class="n">drop</span> <span class="o">:=</span> <span class="p">(</span><span class="n">ref</span> <span class="o">-</span> <span class="n">p</span><span class="p">)</span> <span class="o">/</span> <span class="n">ref</span> <span class="o">*</span> <span class="m">100</span>
+            <span class="k">if</span> <span class="o">!</span><span class="n">fired</span> <span class="o">&amp;&amp;</span> <span class="n">drop</span> <span class="o">&gt;=</span> <span class="n">trailing</span> <span class="p">{</span>
+                <span class="n">cmd</span> <span class="o">:=</span> <span class="n">types</span><span class="o">.</span><span class="n">PlaceOrder</span><span class="p">{</span> <span class="n">Symbol</span><span class="o">:</span> <span class="n">symbol</span><span class="p">,</span> <span class="n">Side</span><span class="o">:</span> <span class="s">"SELL"</span><span class="p">,</span> <span class="n">Qty</span><span class="o">:</span> <span class="n">qty</span><span class="p">,</span> <span class="n">Type</span><span class="o">:</span> <span class="s">"MARKET"</span> <span class="p">}</span>
+                <span class="n">_</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">PublishJSON</span><span class="p">(</span><span class="n">messaging</span><span class="o">.</span><span class="n">ExOrderCmds</span><span class="p">,</span> <span class="s">"place_order"</span><span class="p">,</span> <span class="n">cmd</span><span class="p">)</span>
+                <span class="n">fired</span> <span class="o">=</span> <span class="no">true</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"[orchestrator] disparo SELL: topo=%.8f atual=%.8f queda=%.4f%%"</span><span class="p">,</span> <span class="n">ref</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">drop</span><span class="p">)</span>
+            <span class="p">}</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span> <span class="c">// BUY</span>
+            <span class="k">if</span> <span class="n">ref</span> <span class="o">==</span> <span class="m">0</span> <span class="o">||</span> <span class="n">p</span> <span class="o">&lt;</span> <span class="n">ref</span> <span class="p">{</span> <span class="n">ref</span> <span class="o">=</span> <span class="n">p</span> <span class="p">}</span> <span class="c">// guarda fundo</span>
+            <span class="n">rise</span> <span class="o">:=</span> <span class="p">(</span><span class="n">p</span> <span class="o">-</span> <span class="n">ref</span><span class="p">)</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">Max</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="m">1e-9</span><span class="p">)</span> <span class="o">*</span> <span class="m">100</span>
+            <span class="k">if</span> <span class="o">!</span><span class="n">fired</span> <span class="o">&amp;&amp;</span> <span class="n">rise</span> <span class="o">&gt;=</span> <span class="n">trailing</span> <span class="p">{</span>
+                <span class="n">cmd</span> <span class="o">:=</span> <span class="n">types</span><span class="o">.</span><span class="n">PlaceOrder</span><span class="p">{</span> <span class="n">Symbol</span><span class="o">:</span> <span class="n">symbol</span><span class="p">,</span> <span class="n">Side</span><span class="o">:</span> <span class="s">"BUY"</span><span class="p">,</span> <span class="n">Qty</span><span class="o">:</span> <span class="n">qty</span><span class="p">,</span> <span class="n">Type</span><span class="o">:</span> <span class="s">"MARKET"</span> <span class="p">}</span>
+                <span class="n">_</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">PublishJSON</span><span class="p">(</span><span class="n">messaging</span><span class="o">.</span><span class="n">ExOrderCmds</span><span class="p">,</span> <span class="s">"place_order"</span><span class="p">,</span> <span class="n">cmd</span><span class="p">)</span>
+                <span class="n">fired</span> <span class="o">=</span> <span class="no">true</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"[orchestrator] disparo BUY: fundo=%.8f atual=%.8f alta=%.4f%%"</span><span class="p">,</span> <span class="n">ref</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">rise</span><span class="p">)</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p><strong>Decisão</strong>: a estratégia roda <strong>dentro do orquestrador</strong> (e não na corretora). Isso nos dá controle total, facilita simulação e permite trocar regras sem tocar em MarketData ou Orders.</p>
+
+
+<hr>
+
+<h2 id="6-orders-a-ponte-com-a-corretora">6. Orders: a ponte com a corretora
+</h2>
+
+<h3 id="-raw-cmdordermaingo-endraw-"><code>cmd/order/main.go</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">package</span> <span class="n">main</span>
+
+<span class="k">import</span> <span class="p">(</span>
+    <span class="s">"context"</span>
+    <span class="s">"encoding/json"</span>
+    <span class="s">"log"</span>
+    <span class="s">"os"</span>
+    <span class="s">"strconv"</span>
+
+    <span class="n">binance</span> <span class="s">"github.com/adshao/go-binance/v2"</span>
+
+    <span class="s">"github.com/sertaoseracloud/trailingstop-bc/internal/messaging"</span>
+    <span class="s">"github.com/sertaoseracloud/trailingstop-bc/internal/types"</span>
+<span class="p">)</span>
+
+<span class="k">func</span> <span class="n">main</span><span class="p">(){</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"BINANCE_TESTNET"</span><span class="p">)</span> <span class="o">==</span> <span class="s">"true"</span> <span class="p">{</span> <span class="n">binance</span><span class="o">.</span><span class="n">UseTestnet</span> <span class="o">=</span> <span class="no">true</span> <span class="p">}</span>
+    <span class="n">apiKey</span><span class="p">,</span> <span class="n">apiSecret</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"BINANCE_API_KEY"</span><span class="p">),</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"BINANCE_API_SECRET"</span><span class="p">)</span>
+
+    <span class="n">bus</span> <span class="o">:=</span> <span class="n">messaging</span><span class="o">.</span><span class="n">MustBus</span><span class="p">();</span> <span class="k">defer</span> <span class="n">bus</span><span class="o">.</span><span class="n">Close</span><span class="p">()</span>
+    <span class="n">msgs</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">bus</span><span class="o">.</span><span class="n">ConsumeDirect</span><span class="p">(</span><span class="n">messaging</span><span class="o">.</span><span class="n">ExOrderCmds</span><span class="p">,</span> <span class="s">"orders.place"</span><span class="p">,</span> <span class="s">"place_order"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span> <span class="n">log</span><span class="o">.</span><span class="n">Fatal</span><span class="p">(</span><span class="n">err</span><span class="p">)</span> <span class="p">}</span>
+
+    <span class="n">client</span> <span class="o">:=</span> <span class="n">binance</span><span class="o">.</span><span class="n">NewClient</span><span class="p">(</span><span class="n">apiKey</span><span class="p">,</span> <span class="n">apiSecret</span><span class="p">)</span>
+    <span class="n">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"[order] pronto (testnet=%v)"</span><span class="p">,</span> <span class="n">binance</span><span class="o">.</span><span class="n">UseTestnet</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">d</span> <span class="o">:=</span> <span class="k">range</span> <span class="n">msgs</span> <span class="p">{</span>
+        <span class="k">var</span> <span class="n">cmd</span> <span class="n">types</span><span class="o">.</span><span class="n">PlaceOrder</span>
+        <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">json</span><span class="o">.</span><span class="n">Unmarshal</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">Body</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">cmd</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span> <span class="k">continue</span> <span class="p">}</span>
+
+        <span class="n">res</span> <span class="o">:=</span> <span class="n">types</span><span class="o">.</span><span class="n">OrderResult</span><span class="p">{</span> <span class="n">Symbol</span><span class="o">:</span> <span class="n">cmd</span><span class="o">.</span><span class="n">Symbol</span><span class="p">,</span> <span class="n">Side</span><span class="o">:</span> <span class="n">cmd</span><span class="o">.</span><span class="n">Side</span><span class="p">,</span> <span class="n">Ts</span><span class="o">:</span> <span class="n">types</span><span class="o">.</span><span class="n">NowMs</span><span class="p">()</span> <span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">apiKey</span> <span class="o">==</span> <span class="s">""</span> <span class="o">||</span> <span class="n">apiSecret</span> <span class="o">==</span> <span class="s">""</span> <span class="p">{</span>
+            <span class="n">res</span><span class="o">.</span><span class="n">Status</span><span class="p">,</span> <span class="n">res</span><span class="o">.</span><span class="n">FilledQty</span> <span class="o">=</span> <span class="s">"SIMULATED"</span><span class="p">,</span> <span class="n">cmd</span><span class="o">.</span><span class="n">Qty</span>
+            <span class="n">_</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">PublishJSON</span><span class="p">(</span><span class="n">messaging</span><span class="o">.</span><span class="n">ExOrderEvts</span><span class="p">,</span> <span class="s">""</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"[order] (simulado) %s %f %s"</span><span class="p">,</span> <span class="n">cmd</span><span class="o">.</span><span class="n">Side</span><span class="p">,</span> <span class="n">cmd</span><span class="o">.</span><span class="n">Qty</span><span class="p">,</span> <span class="n">cmd</span><span class="o">.</span><span class="n">Symbol</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="p">}</span>
+
+        <span class="n">sideType</span> <span class="o">:=</span> <span class="n">binance</span><span class="o">.</span><span class="n">SideTypeSell</span><span class="p">;</span> <span class="k">if</span> <span class="n">cmd</span><span class="o">.</span><span class="n">Side</span> <span class="o">==</span> <span class="s">"BUY"</span> <span class="p">{</span> <span class="n">sideType</span> <span class="o">=</span> <span class="n">binance</span><span class="o">.</span><span class="n">SideTypeBuy</span> <span class="p">}</span>
+        <span class="n">svc</span> <span class="o">:=</span> <span class="n">client</span><span class="o">.</span><span class="n">NewCreateOrderService</span><span class="p">()</span><span class="o">.</span>
+            <span class="n">Symbol</span><span class="p">(</span><span class="n">cmd</span><span class="o">.</span><span class="n">Symbol</span><span class="p">)</span><span class="o">.</span>
+            <span class="n">Side</span><span class="p">(</span><span class="n">sideType</span><span class="p">)</span><span class="o">.</span>
+            <span class="n">Type</span><span class="p">(</span><span class="n">binance</span><span class="o">.</span><span class="n">OrderTypeMarket</span><span class="p">)</span><span class="o">.</span>
+            <span class="n">Quantity</span><span class="p">(</span><span class="n">strconv</span><span class="o">.</span><span class="n">FormatFloat</span><span class="p">(</span><span class="n">cmd</span><span class="o">.</span><span class="n">Qty</span><span class="p">,</span> <span class="sc">'f'</span><span class="p">,</span> <span class="o">-</span><span class="m">1</span><span class="p">,</span> <span class="m">64</span><span class="p">))</span>
+
+        <span class="n">ord</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">svc</span><span class="o">.</span><span class="n">Do</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Background</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+            <span class="n">res</span><span class="o">.</span><span class="n">Status</span><span class="p">,</span> <span class="n">res</span><span class="o">.</span><span class="n">Error</span> <span class="o">=</span> <span class="s">"REJECTED"</span><span class="p">,</span> <span class="n">err</span><span class="o">.</span><span class="n">Error</span><span class="p">()</span>
+            <span class="n">_</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">PublishJSON</span><span class="p">(</span><span class="n">messaging</span><span class="o">.</span><span class="n">ExOrderEvts</span><span class="p">,</span> <span class="s">""</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"[order] erro: %v"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="p">}</span>
+
+        <span class="n">res</span><span class="o">.</span><span class="n">Status</span><span class="p">,</span> <span class="n">res</span><span class="o">.</span><span class="n">OrderID</span> <span class="o">=</span> <span class="kt">string</span><span class="p">(</span><span class="n">ord</span><span class="o">.</span><span class="n">Status</span><span class="p">),</span> <span class="n">ord</span><span class="o">.</span><span class="n">OrderID</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="n">bus</span><span class="o">.</span><span class="n">PublishJSON</span><span class="p">(</span><span class="n">messaging</span><span class="o">.</span><span class="n">ExOrderEvts</span><span class="p">,</span> <span class="s">""</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"[order] enviado %s qty=%s symbol=%s id=%d status=%s"</span><span class="p">,</span> <span class="n">cmd</span><span class="o">.</span><span class="n">Side</span><span class="p">,</span> <span class="n">ord</span><span class="o">.</span><span class="n">OrigQuantity</span><span class="p">,</span> <span class="n">cmd</span><span class="o">.</span><span class="n">Symbol</span><span class="p">,</span> <span class="n">ord</span><span class="o">.</span><span class="n">OrderID</span><span class="p">,</span> <span class="n">ord</span><span class="o">.</span><span class="n">Status</span><span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p><strong>Decisões</strong></p>
+
+<ul>
+<li>
+<strong>Dry-run automático</strong>: sem chaves, o serviço publica um <code>OrderResult</code> simulado.</li>
+<li>
+<strong>MARKET por simplicidade</strong>: evita detalhes de <em>filters</em>; você pode evoluir para ordens nativas de trailing depois.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="7-observabilidade-opentelemetry">7. Observabilidade (OpenTelemetry)
+</h2>
+
+<h3 id="-raw-internaltracingotelgo-endraw-exemplo-m%C3%ADnimo"><code>internal/tracing/otel.go</code> (exemplo mínimo)
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">package</span> <span class="n">tracing</span>
+
+<span class="k">import</span> <span class="p">(</span>
+    <span class="s">"context"</span>
+    <span class="s">"log"</span>
+
+    <span class="s">"go.opentelemetry.io/otel"</span>
+    <span class="s">"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"</span>
+    <span class="n">sdktrace</span> <span class="s">"go.opentelemetry.io/otel/sdk/trace"</span>
+<span class="p">)</span>
+
+<span class="k">func</span> <span class="n">Init</span><span class="p">()</span> <span class="k">func</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="n">exp</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">stdouttrace</span><span class="o">.</span><span class="n">New</span><span class="p">(</span><span class="n">stdouttrace</span><span class="o">.</span><span class="n">WithPrettyPrint</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span> <span class="n">log</span><span class="o">.</span><span class="n">Fatalf</span><span class="p">(</span><span class="s">"otel exporter: %v"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span> <span class="p">}</span>
+
+    <span class="n">tp</span> <span class="o">:=</span> <span class="n">sdktrace</span><span class="o">.</span><span class="n">NewTracerProvider</span><span class="p">(</span>
+        <span class="n">sdktrace</span><span class="o">.</span><span class="n">WithBatcher</span><span class="p">(</span><span class="n">exp</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">otel</span><span class="o">.</span><span class="n">SetTracerProvider</span><span class="p">(</span><span class="n">tp</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">tp</span><span class="o">.</span><span class="n">Shutdown</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p><strong>Por quê?</strong></p>
+
+<ul>
+<li>Facilita acompanhar o caminho de uma ordem e diagnosticar gargalos.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="8-docker-compose-e-configura%C3%A7%C3%A3o">8. Docker Compose e configuração
+</h2>
+
+<h3 id="-raw-envexample-endraw-"><code>.env.example</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>AMQP_URL=amqp://guest:guest@rabbitmq:5672/
+SYMBOL=BTCUSDT
+BINANCE_TESTNET=true
+SIDE=SELL
+QTY=0.001
+TRAILING_PERCENT=1.0
+ACTIVATION_PRICE=0
+BINANCE_API_KEY=
+BINANCE_API_SECRET=
+</code></pre>
+
+</div>
+
+
+
+<h3 id="-raw-dockercomposeyml-endraw-"><code>docker-compose.yml</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight yaml"><code><span class="na">version</span><span class="pi">:</span> <span class="s2">"</span><span class="s">3.9"</span>
+<span class="na">services</span><span class="pi">:</span>
+  <span class="na">rabbitmq</span><span class="pi">:</span>
+    <span class="na">image</span><span class="pi">:</span> <span class="s">rabbitmq:3.12-management</span>
+    <span class="na">ports</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">5672:5672"</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">15672:15672"</span>
+    <span class="na">healthcheck</span><span class="pi">:</span>
+      <span class="na">test</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">CMD"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">rabbitmq-diagnostics"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">-q"</span><span class="pi">,</span> <span class="s2">"</span><span class="s">ping"</span><span class="pi">]</span>
+      <span class="na">interval</span><span class="pi">:</span> <span class="s">10s</span>
+      <span class="na">timeout</span><span class="pi">:</span> <span class="s">5s</span>
+      <span class="na">retries</span><span class="pi">:</span> <span class="m">5</span>
+
+  <span class="na">marketdata</span><span class="pi">:</span>
+    <span class="na">build</span><span class="pi">:</span> <span class="s">./cmd/marketdata</span>
+    <span class="na">environment</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">AMQP_URL=${AMQP_URL}</span>
+      <span class="pi">-</span> <span class="s">SYMBOL=${SYMBOL}</span>
+      <span class="pi">-</span> <span class="s">BINANCE_TESTNET=${BINANCE_TESTNET}</span>
+    <span class="na">depends_on</span><span class="pi">:</span>
+      <span class="na">rabbitmq</span><span class="pi">:</span>
+        <span class="na">condition</span><span class="pi">:</span> <span class="s">service_healthy</span>
+
+  <span class="na">orchestrator</span><span class="pi">:</span>
+    <span class="na">build</span><span class="pi">:</span> <span class="s">./cmd/orchestrator</span>
+    <span class="na">environment</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">AMQP_URL=${AMQP_URL}</span>
+      <span class="pi">-</span> <span class="s">SYMBOL=${SYMBOL}</span>
+      <span class="pi">-</span> <span class="s">SIDE=${SIDE}</span>
+      <span class="pi">-</span> <span class="s">QTY=${QTY}</span>
+      <span class="pi">-</span> <span class="s">TRAILING_PERCENT=${TRAILING_PERCENT}</span>
+      <span class="pi">-</span> <span class="s">ACTIVATION_PRICE=${ACTIVATION_PRICE}</span>
+    <span class="na">depends_on</span><span class="pi">:</span>
+      <span class="na">rabbitmq</span><span class="pi">:</span>
+        <span class="na">condition</span><span class="pi">:</span> <span class="s">service_healthy</span>
+
+  <span class="na">order</span><span class="pi">:</span>
+    <span class="na">build</span><span class="pi">:</span> <span class="s">./cmd/order</span>
+    <span class="na">environment</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">AMQP_URL=${AMQP_URL}</span>
+      <span class="pi">-</span> <span class="s">BINANCE_TESTNET=${BINANCE_TESTNET}</span>
+      <span class="pi">-</span> <span class="s">BINANCE_API_KEY=${BINANCE_API_KEY}</span>
+      <span class="pi">-</span> <span class="s">BINANCE_API_SECRET=${BINANCE_API_SECRET}</span>
+    <span class="na">depends_on</span><span class="pi">:</span>
+      <span class="na">rabbitmq</span><span class="pi">:</span>
+        <span class="na">condition</span><span class="pi">:</span> <span class="s">service_healthy</span>
+</code></pre>
+
+</div>
+
+
+
+<p><strong>Dicas rápidas</strong></p>
+
+<ul>
+<li>UI do RabbitMQ em <code>http://localhost:15672</code> (guest/guest).</li>
+<li>Escale serviços conforme a carga:
+</li>
+</ul>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>  docker compose up <span class="nt">--build</span> <span class="nt">--scale</span> <span class="nv">orchestrator</span><span class="o">=</span>2 <span class="nt">--scale</span> <span class="nv">order</span><span class="o">=</span>2
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="9-rodando-e-validando">9. Rodando e validando
+</h2>
+
+<ol>
+<li>Crie o <code>.env</code> a partir do exemplo e ajuste parâmetros.</li>
+<li>Suba tudo com <code>docker compose up --build</code>.</li>
+<li>Observe nos logs:</li>
+</ol>
+
+<ul>
+<li>
+<code>marketdata</code>: conexão WS e publicação de <code>PriceTick</code>.</li>
+<li>
+<code>orchestrator</code>: ativação da estratégia, atualização de topo/fundo e <strong>disparo</strong> quando <code>TRAILING_PERCENT</code> é atingido.</li>
+<li>
+<code>order</code>: ordem <strong>simulada</strong> (sem chaves) ou <strong>real</strong> (com chaves), seguido de <code>OrderResult</code>.</li>
+</ul>
+
+<p><strong>Sanidade</strong>: se o mercado estiver parado, ajuste <code>TRAILING_PERCENT</code> para valores menores ou teste em outro <code>SYMBOL</code>.</p>
+
+
+<hr>
+
+<h2 id="10-para-onde-ir-a-partir-daqui">10. Para onde ir a partir daqui
+</h2>
+
+<ul>
+<li>
+<strong>Trailing nativo</strong>: migrar envio para tipos de ordem que aceitam <code>trailingDelta</code>.</li>
+<li>
+<strong>Múltiplos pares</strong>: instâncias por símbolo com <em>routing key</em> específica.</li>
+<li>
+<strong>Persistência</strong>: salvar estado do trailing (Redis/Postgres) para tolerância a falhas.</li>
+<li>
+<strong>Observabilidade pro</strong>: Prometheus + Grafana, traces para latências por etapa.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="conclus%C3%A3o">Conclusão
+</h2>
+
+<p>Você construiu um bot de trailing stop <strong>moderno</strong>, <strong>desacoplado</strong> e <strong>observável</strong>. Mais importante: entendeu <strong>por que</strong> cada peça existe. A partir daqui, dá para adaptar a estratégia, integrar novas exchanges, ou evoluir para ordens nativas — tudo sem desmontar o resto do sistema. Bora operar com segurança e arquitetura bem pensada? 🙌</p>
+
+
+<hr>
+
+<h2 id="curtiu">💡Curtiu?
+</h2>
+
+<p>Se quiser trocar ideia sobre IA, cloud e arquitetura, me segue nas redes:</p>
+
+<ul>
+<li><a href="https://olink.ai/sertaoseracloud" target="_blank" rel="noopener noreferrer">Redes Sociais</a></li>
+<li><a href="https://github.com/sertaoseracloud/poc-sidecar-go" target="_blank" rel="noopener noreferrer">⭐ Repo no GitHub</a></li>
+</ul>
+
+<p>Publico conteúdos técnicos direto do campo de batalha. E quando descubro uma ferramenta que economiza tempo e resolve bem, como essa, você fica sabendo também.</p>

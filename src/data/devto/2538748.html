@@ -1,0 +1,241 @@
+<p>Modelos de linguagem como o GPT e o Claude estão cada vez mais presentes no desenvolvimento de aplicações. Mas para eles serem úteis de verdade, precisam se conectar com dados e serviços externos. A solução? <strong>Model Context Protocol (MCP)</strong>.</p>
+
+<p>Neste artigo, vou mostrar como criar um conector para o MCP usando <strong>TypeScript</strong>, <strong>Zod</strong> e a <strong>API da Binance</strong> com uma arquitetura limpa e desacoplada: <strong>hexagonal (ports &amp; adapters)</strong>. Mesmo se você está começando, vai conseguir entender e aplicar no seu projeto 🚀</p>
+
+
+<hr>
+
+<h2 id="o-que-%C3%A9-o-mcp">🤖 O que é o MCP?
+</h2>
+
+<p>O MCP é um protocolo criado pela Anthropic que padroniza como LLMs (Large Language Models) interagem com ferramentas externas. Ele é baseado em JSON-RPC 2.0 e permite integrar APIs de forma modular e segura com agentes inteligentes.</p>
+
+<p>Com o MCP, conseguimos transformar nossas APIs em "ferramentas inteligentes" que os modelos de linguagem entendem e podem usar.</p>
+
+<blockquote>
+<p>Documentação oficial: <a href="https://modelcontextprotocol.io" target="_blank" rel="noopener noreferrer">https://modelcontextprotocol.io</a></p>
+</blockquote>
+
+
+<hr>
+
+<h2 id="estrutura-do-projeto-com-arquitetura-hexagonal">🧱 Estrutura do Projeto com Arquitetura Hexagonal
+</h2>
+
+<p>A arquitetura hexagonal separa bem as responsabilidades entre domínio (regras de negócio), adaptação de dados e a interface com o usuário ou sistema externo. Isso facilita testes, manutenção e expansão no futuro.</p>
+
+<p>Veja a estrutura sugerida:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>/src
+  /domain
+    /ports
+      BinanceDataPort.ts       <span class="c"># contrato da API externa</span>
+    MarketAnalysis.ts          <span class="c"># lógica de negócio</span>
+  /adapters
+    /secondary
+      BinanceServiceAdapter.ts <span class="c"># conexão com Binance</span>
+    /primary
+      stdio-server.ts          <span class="c"># servidor MCP com STDIO</span>
+  /application
+    /methods
+      binanceMethods.ts        <span class="c"># métodos MCP usando o domínio</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="l%C3%B3gica-de-neg%C3%B3cio">📈 Lógica de Negócio
+</h2>
+
+<p>Essa é a parte do sistema que calcula se o mercado está em tendência de alta, baixa ou neutra usando médias móveis. É a regra de negócio central.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="c1">// domain/MarketAnalysis.ts</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">BinanceDataPort</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">./ports/BinanceDataPort</span><span class="dl">'</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="kd">class</span> <span class="nc">SimpleMarketAnalysis</span> <span class="p">{</span>
+  <span class="nf">constructor</span><span class="p">(</span><span class="k">private</span> <span class="k">readonly</span> <span class="nx">binancePort</span><span class="p">:</span> <span class="nx">BinanceDataPort</span><span class="p">)</span> <span class="p">{}</span>
+
+  <span class="k">async</span> <span class="nf">analyze</span><span class="p">(</span><span class="nx">symbol</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">interval</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">limit</span><span class="p">:</span> <span class="kr">number</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">prices</span> <span class="o">=</span> <span class="k">await</span> <span class="k">this</span><span class="p">.</span><span class="nx">binancePort</span><span class="p">.</span><span class="nf">getCandles</span><span class="p">(</span><span class="nx">symbol</span><span class="p">,</span> <span class="nx">interval</span><span class="p">,</span> <span class="nx">limit</span><span class="p">);</span>
+    <span class="kd">const</span> <span class="nx">shortSMA</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nf">calculateSMA</span><span class="p">(</span><span class="nx">prices</span><span class="p">,</span> <span class="mi">10</span><span class="p">);</span>
+    <span class="kd">const</span> <span class="nx">longSMA</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nf">calculateSMA</span><span class="p">(</span><span class="nx">prices</span><span class="p">,</span> <span class="mi">20</span><span class="p">);</span>
+    <span class="kd">const</span> <span class="nx">signal</span> <span class="o">=</span> <span class="nx">shortSMA</span> <span class="o">&gt;</span> <span class="nx">longSMA</span> <span class="p">?</span> <span class="dl">'</span><span class="s1">buy</span><span class="dl">'</span> <span class="p">:</span> <span class="nx">shortSMA</span> <span class="o">&lt;</span> <span class="nx">longSMA</span> <span class="p">?</span> <span class="dl">'</span><span class="s1">sell</span><span class="dl">'</span> <span class="p">:</span> <span class="dl">'</span><span class="s1">neutral</span><span class="dl">'</span><span class="p">;</span>
+    <span class="k">return</span> <span class="p">{</span> <span class="nx">shortSMA</span><span class="p">,</span> <span class="nx">longSMA</span><span class="p">,</span> <span class="nx">signal</span> <span class="p">};</span>
+  <span class="p">}</span>
+
+  <span class="k">private</span> <span class="nf">calculateSMA</span><span class="p">(</span><span class="nx">prices</span><span class="p">:</span> <span class="kr">number</span><span class="p">[],</span> <span class="nx">period</span><span class="p">:</span> <span class="kr">number</span><span class="p">):</span> <span class="kr">number</span> <span class="p">{</span>
+    <span class="k">if </span><span class="p">(</span><span class="nx">prices</span><span class="p">.</span><span class="nx">length</span> <span class="o">&lt;</span> <span class="nx">period</span><span class="p">)</span> <span class="k">throw</span> <span class="k">new</span> <span class="nc">Error</span><span class="p">(</span><span class="dl">'</span><span class="s1">Not enough data</span><span class="dl">'</span><span class="p">);</span>
+    <span class="k">return</span> <span class="nx">prices</span><span class="p">.</span><span class="nf">slice</span><span class="p">(</span><span class="o">-</span><span class="nx">period</span><span class="p">).</span><span class="nf">reduce</span><span class="p">((</span><span class="nx">a</span><span class="p">,</span> <span class="nx">b</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="nx">a</span> <span class="o">+</span> <span class="nx">b</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="nx">period</span><span class="p">;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Aqui usamos o padrão de injeção de dependência com a interface <code>BinanceDataPort</code>, que permite mudar a fonte dos dados facilmente (ex: usar dados mockados em testes).</p>
+
+
+<hr>
+
+<h2 id="porta-de-comunica%C3%A7%C3%A3o">🔌 Porta de Comunicação
+</h2>
+
+<p>A porta define um contrato. Ou seja, o que o domínio espera receber de fora. Assim, podemos mudar a implementação sem afetar as regras de negócio.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="c1">// domain/ports/BinanceDataPort.ts</span>
+<span class="k">export</span> <span class="kr">interface</span> <span class="nx">BinanceDataPort</span> <span class="p">{</span>
+  <span class="nf">getCandles</span><span class="p">(</span><span class="nx">symbol</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">interval</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">limit</span><span class="p">:</span> <span class="kr">number</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="kr">number</span><span class="p">[]</span><span class="o">&gt;</span><span class="p">;</span>
+  <span class="nf">getTickerPrice</span><span class="p">(</span><span class="nx">symbol</span><span class="p">:</span> <span class="kr">string</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span> <span class="na">symbol</span><span class="p">:</span> <span class="kr">string</span><span class="p">;</span> <span class="nl">price</span><span class="p">:</span> <span class="kr">string</span> <span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+  <span class="nf">getOrderBook</span><span class="p">(</span><span class="nx">symbol</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">limit</span><span class="p">?:</span> <span class="kr">number</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span> <span class="na">lastUpdateId</span><span class="p">:</span> <span class="kr">number</span><span class="p">;</span> <span class="nl">bids</span><span class="p">:</span> <span class="p">[</span><span class="kr">string</span><span class="p">,</span> <span class="kr">string</span><span class="p">][];</span> <span class="nl">asks</span><span class="p">:</span> <span class="p">[</span><span class="kr">string</span><span class="p">,</span> <span class="kr">string</span><span class="p">][]</span> <span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+  <span class="nf">getRecentTrades</span><span class="p">(</span><span class="nx">symbol</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">limit</span><span class="p">?:</span> <span class="kr">number</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="kr">any</span><span class="p">[]</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="adapter-para-a-binance">🌐 Adapter para a Binance
+</h2>
+
+<p>O adapter é a implementação concreta da <code>BinanceDataPort</code> que de fato acessa os dados na API pública da Binance. Aqui usamos <code>axios</code> para as requisições HTTP.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="c1">// adapters/secondary/BinanceServiceAdapter.ts</span>
+<span class="k">import</span> <span class="nx">axios</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">axios</span><span class="dl">'</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">BinanceDataPort</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">../../domain/ports/BinanceDataPort</span><span class="dl">'</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="kd">class</span> <span class="nc">BinanceServiceAdapter</span> <span class="k">implements</span> <span class="nx">BinanceDataPort</span> <span class="p">{</span>
+  <span class="k">async</span> <span class="nf">getCandles</span><span class="p">(</span><span class="nx">symbol</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">interval</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">limit</span><span class="p">:</span> <span class="kr">number</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">response</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">axios</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="dl">'</span><span class="s1">https://api.binance.com/api/v3/klines</span><span class="dl">'</span><span class="p">,</span> <span class="p">{</span> <span class="na">params</span><span class="p">:</span> <span class="p">{</span> <span class="nx">symbol</span><span class="p">,</span> <span class="nx">interval</span><span class="p">,</span> <span class="nx">limit</span> <span class="p">}</span> <span class="p">});</span>
+    <span class="k">return</span> <span class="nx">response</span><span class="p">.</span><span class="nx">data</span><span class="p">.</span><span class="nf">map</span><span class="p">((</span><span class="nx">c</span><span class="p">:</span> <span class="kr">any</span><span class="p">[])</span> <span class="o">=&gt;</span> <span class="nf">parseFloat</span><span class="p">(</span><span class="nx">c</span><span class="p">[</span><span class="mi">4</span><span class="p">]));</span>
+  <span class="p">}</span>
+  <span class="k">async</span> <span class="nf">getTickerPrice</span><span class="p">(</span><span class="nx">symbol</span><span class="p">:</span> <span class="kr">string</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return </span><span class="p">(</span><span class="k">await</span> <span class="nx">axios</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="dl">'</span><span class="s1">https://api.binance.com/api/v3/ticker/price</span><span class="dl">'</span><span class="p">,</span> <span class="p">{</span> <span class="na">params</span><span class="p">:</span> <span class="p">{</span> <span class="nx">symbol</span> <span class="p">}</span> <span class="p">})).</span><span class="nx">data</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="k">async</span> <span class="nf">getOrderBook</span><span class="p">(</span><span class="nx">symbol</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">limit</span> <span class="o">=</span> <span class="mi">100</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return </span><span class="p">(</span><span class="k">await</span> <span class="nx">axios</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="dl">'</span><span class="s1">https://api.binance.com/api/v3/depth</span><span class="dl">'</span><span class="p">,</span> <span class="p">{</span> <span class="na">params</span><span class="p">:</span> <span class="p">{</span> <span class="nx">symbol</span><span class="p">,</span> <span class="nx">limit</span> <span class="p">}</span> <span class="p">})).</span><span class="nx">data</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="k">async</span> <span class="nf">getRecentTrades</span><span class="p">(</span><span class="nx">symbol</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">limit</span> <span class="o">=</span> <span class="mi">50</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return </span><span class="p">(</span><span class="k">await</span> <span class="nx">axios</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="dl">'</span><span class="s1">https://api.binance.com/api/v3/trades</span><span class="dl">'</span><span class="p">,</span> <span class="p">{</span> <span class="na">params</span><span class="p">:</span> <span class="p">{</span> <span class="nx">symbol</span><span class="p">,</span> <span class="nx">limit</span> <span class="p">}</span> <span class="p">})).</span><span class="nx">data</span><span class="p">;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="m%C3%A9todo-mcp-com-zod">🧠 Método MCP com Zod
+</h2>
+
+<p>Aqui orquestramos o método que será exposto pelo MCP, validando os parâmetros de entrada com <code>zod</code> e reaproveitando o domínio.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="c1">// application/methods/binanceMethods.ts</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">z</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">zod</span><span class="dl">'</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">ToolMethodDefinition</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">@modelcontextprotocol/sdk</span><span class="dl">'</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">BinanceServiceAdapter</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">../../adapters/secondary/BinanceServiceAdapter</span><span class="dl">'</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">SimpleMarketAnalysis</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">../../domain/MarketAnalysis</span><span class="dl">'</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">adapter</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">BinanceServiceAdapter</span><span class="p">();</span>
+<span class="kd">const</span> <span class="nx">analysis</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">SimpleMarketAnalysis</span><span class="p">(</span><span class="nx">adapter</span><span class="p">);</span>
+
+<span class="k">export</span> <span class="kd">const</span> <span class="nx">analyzeTrend</span><span class="p">:</span> <span class="nx">ToolMethodDefinition</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="na">description</span><span class="p">:</span> <span class="dl">'</span><span class="s1">Realiza uma análise de tendência com médias móveis.</span><span class="dl">'</span><span class="p">,</span>
+  <span class="na">inputSchema</span><span class="p">:</span> <span class="nx">z</span><span class="p">.</span><span class="nf">object</span><span class="p">({</span>
+    <span class="na">symbol</span><span class="p">:</span> <span class="nx">z</span><span class="p">.</span><span class="nf">string</span><span class="p">(),</span>
+    <span class="na">interval</span><span class="p">:</span> <span class="nx">z</span><span class="p">.</span><span class="nf">string</span><span class="p">().</span><span class="k">default</span><span class="p">(</span><span class="dl">'</span><span class="s1">1h</span><span class="dl">'</span><span class="p">),</span>
+    <span class="na">limit</span><span class="p">:</span> <span class="nx">z</span><span class="p">.</span><span class="nf">number</span><span class="p">().</span><span class="nf">min</span><span class="p">(</span><span class="mi">20</span><span class="p">).</span><span class="nf">max</span><span class="p">(</span><span class="mi">1000</span><span class="p">).</span><span class="k">default</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span>
+  <span class="p">}),</span>
+  <span class="na">outputSchema</span><span class="p">:</span> <span class="nx">z</span><span class="p">.</span><span class="nf">object</span><span class="p">({</span>
+    <span class="na">shortSMA</span><span class="p">:</span> <span class="nx">z</span><span class="p">.</span><span class="nf">number</span><span class="p">(),</span>
+    <span class="na">longSMA</span><span class="p">:</span> <span class="nx">z</span><span class="p">.</span><span class="nf">number</span><span class="p">(),</span>
+    <span class="na">signal</span><span class="p">:</span> <span class="nx">z</span><span class="p">.</span><span class="nf">enum</span><span class="p">([</span><span class="dl">'</span><span class="s1">buy</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">sell</span><span class="dl">'</span><span class="p">,</span> <span class="dl">'</span><span class="s1">neutral</span><span class="dl">'</span><span class="p">]),</span>
+  <span class="p">}),</span>
+  <span class="na">handler</span><span class="p">:</span> <span class="k">async </span><span class="p">({</span> <span class="nx">symbol</span><span class="p">,</span> <span class="nx">interval</span><span class="p">,</span> <span class="nx">limit</span> <span class="p">})</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="nx">analysis</span><span class="p">.</span><span class="nf">analyze</span><span class="p">(</span><span class="nx">symbol</span><span class="p">,</span> <span class="nx">interval</span><span class="p">,</span> <span class="nx">limit</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">};</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="servidor-mcp-com-stdio">🚀 Servidor MCP com STDIO
+</h2>
+
+<p>Esse é o ponto de entrada que expõe os métodos para o LLM via o protocolo MCP. Ele escuta via entrada padrão (stdin/stdout), ideal para rodar em agentes locais.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="c1">// adapters/primary/stdio-server.ts</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">McpServer</span><span class="p">,</span> <span class="nx">ResourceTemplate</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">@modelcontextprotocol/sdk/server/mcp.js</span><span class="dl">'</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">StdioServerTransport</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">@modelcontextprotocol/sdk/server/stdio.js</span><span class="dl">'</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">analyzeTrend</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">'</span><span class="s1">../../application/methods/binanceMethods</span><span class="dl">'</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">server</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">McpServer</span><span class="p">({</span> <span class="na">name</span><span class="p">:</span> <span class="dl">'</span><span class="s1">Binance MCP</span><span class="dl">'</span><span class="p">,</span> <span class="na">version</span><span class="p">:</span> <span class="dl">'</span><span class="s1">1.0.0</span><span class="dl">'</span> <span class="p">});</span>
+
+<span class="nx">server</span><span class="p">.</span><span class="nf">tool</span><span class="p">(</span><span class="dl">'</span><span class="s1">analyzeTrend</span><span class="dl">'</span><span class="p">,</span> <span class="nx">analyzeTrend</span><span class="p">.</span><span class="nx">inputSchema</span><span class="p">,</span> <span class="k">async </span><span class="p">(</span><span class="nx">params</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="nx">result</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">analyzeTrend</span><span class="p">.</span><span class="nf">handler</span><span class="p">(</span><span class="nx">params</span><span class="p">);</span>
+  <span class="k">return</span> <span class="p">{</span>
+    <span class="na">content</span><span class="p">:</span> <span class="p">[{</span> <span class="na">type</span><span class="p">:</span> <span class="dl">'</span><span class="s1">text</span><span class="dl">'</span><span class="p">,</span> <span class="na">text</span><span class="p">:</span> <span class="nx">JSON</span><span class="p">.</span><span class="nf">stringify</span><span class="p">(</span><span class="nx">result</span><span class="p">,</span> <span class="kc">null</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="p">}],</span>
+  <span class="p">};</span>
+<span class="p">});</span>
+
+<span class="nx">server</span><span class="p">.</span><span class="nf">resource</span><span class="p">(</span>
+  <span class="dl">'</span><span class="s1">trend-resource</span><span class="dl">'</span><span class="p">,</span>
+  <span class="k">new</span> <span class="nc">ResourceTemplate</span><span class="p">(</span><span class="dl">'</span><span class="s1">trend://{symbol}</span><span class="dl">'</span><span class="p">,</span> <span class="p">{</span> <span class="na">list</span><span class="p">:</span> <span class="kc">undefined</span> <span class="p">}),</span>
+  <span class="k">async </span><span class="p">(</span><span class="nx">uri</span><span class="p">,</span> <span class="p">{</span> <span class="nx">symbol</span> <span class="p">})</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">result</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">analyzeTrend</span><span class="p">.</span><span class="nf">handler</span><span class="p">({</span> <span class="nx">symbol</span><span class="p">,</span> <span class="na">interval</span><span class="p">:</span> <span class="dl">'</span><span class="s1">1h</span><span class="dl">'</span><span class="p">,</span> <span class="na">limit</span><span class="p">:</span> <span class="mi">100</span> <span class="p">});</span>
+    <span class="k">return</span> <span class="p">{</span>
+      <span class="na">contents</span><span class="p">:</span> <span class="p">[{</span>
+        <span class="na">uri</span><span class="p">:</span> <span class="nx">uri</span><span class="p">.</span><span class="nx">href</span><span class="p">,</span>
+        <span class="na">text</span><span class="p">:</span> <span class="s2">`Trend: </span><span class="p">${</span><span class="nx">result</span><span class="p">.</span><span class="nx">signal</span><span class="p">}</span><span class="s2">\nSMA10: </span><span class="p">${</span><span class="nx">result</span><span class="p">.</span><span class="nx">shortSMA</span><span class="p">}</span><span class="s2">\nSMA20: </span><span class="p">${</span><span class="nx">result</span><span class="p">.</span><span class="nx">longSMA</span><span class="p">}</span><span class="s2">`</span><span class="p">,</span>
+      <span class="p">}]</span>
+    <span class="p">};</span>
+  <span class="p">}</span>
+<span class="p">);</span>
+
+<span class="k">await</span> <span class="nx">server</span><span class="p">.</span><span class="nf">connect</span><span class="p">(</span><span class="k">new</span> <span class="nc">StdioServerTransport</span><span class="p">());</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="conclus%C3%A3o">✅ Conclusão
+</h2>
+
+<p>O MCP é uma ferramenta poderosa para conectar LLMs com dados reais. Com TypeScript, Zod e arquitetura hexagonal, você consegue criar integrações robustas e escaláveis com APIs como a da Binance.</p>
+
+<p>Esse é só o começo. Dá pra incluir indicadores técnicos, suporte a múltiplos ativos, autenticação com API key e muito mais!</p>
+
+<p>Se curtiu o conteúdo, salva esse post, comenta com dúvidas ou sugestões, e segue pra mais artigos de back-end com IA. 🚀</p>

@@ -1,0 +1,246 @@
+<p>Você já se deparou com a necessidade de criar diferentes tipos de objetos em sua aplicação e ficou preocupado em encher o código de condicionais ou duplicações? Em desenvolvimento de software, os <strong>Padrões de Projeto</strong> surgem exatamente para oferecer soluções elegantes a problemas comuns. Um desses padrões essenciais é o <strong>padrão Factory</strong>, parte dos chamados padrões criacionais. Em essência, o padrão Factory permite criar objetos <em>sem expor ao código cliente a lógica de criação desses objetos</em>. Em outras palavras, seu principal objetivo é <strong>instanciar classes concretas sem que o cliente precise saber exatamente qual classe está sendo usada</strong>, delegando essa decisão para um componente central ou subclasses especializadas. Isso traz mais flexibilidade e mantém nosso código limpo e extensível.</p>
+
+<p>Para ilustrar de forma simples, imagine que você está desenvolvendo um sistema bancário que precisa lidar com <strong>diferentes tipos de contas</strong>, como conta corrente, conta poupança e conta salário. Cada tipo de conta possui comportamentos e regras próprias (por exemplo, a poupança pode ter cálculo de juros, a conta salário pode ter restrições de depósito, etc). Se fossemos criar manualmente cada tipo de conta espalhado pelo código, teríamos muitos condicionais <code>if/else</code> ou instâncias diretas de classes, tornando o código menos organizado. Além disso, repetir esse processo manualmente em vários lugares seria <em>repetitivo e propenso a erros</em>. É exatamente esse problema que o padrão Factory vem resolver, oferecendo uma maneira padronizada de criar esses objetos.</p>
+
+
+<hr>
+
+<h2 id="o-que-%C3%A9-e-por-que-usar-o-padr%C3%A3o-factory">🛠️ O que é e por que usar o Padrão Factory?
+</h2>
+
+<p>O padrão Factory (também conhecido como <em>Factory Method</em>, ou Método Fábrica) faz parte do conjunto dos padrões criacionais definidos pela GoF. A ideia central é simples: <strong>centralizar a lógica de instanciação de objetos em um único lugar</strong>, em vez de espalhar chamadas de construção (<code>new</code>) por todo o programa. Em vez de criar um objeto diretamente com <code>new</code> no código cliente, você chama um método fábrica dedicado, responsável por instanciar o tipo correto e devolvê-lo já abstracionado na interface comum. Essa abordagem traz diversos benefícios de design:</p>
+
+<ul>
+<li>
+<strong>Desacoplamento:</strong> o código que solicita o objeto não precisa conhecer qual classe concreta foi instanciada. A fábrica decide e fornece a instância apropriada, reduzindo dependências diretas entre partes do código.</li>
+<li>
+<strong>Reutilização de código:</strong> a lógica de criação fica <strong>encapsulada em um único lugar</strong>, evitando duplicação. Se houver alguma mudança nesse processo (por exemplo, parâmetros adicionais para criar uma conta poupança), basta alterar na fábrica e todos os chamadores se beneficiam da atualização.</li>
+<li>
+<strong>Facilidade de manutenção:</strong> adicionar ou modificar tipos de contas se torna mais simples. Quando for necessário introduzir um novo tipo de conta bancária, você pode fazê-lo implementando uma nova classe de conta e atualizando a fábrica, sem alterar o código cliente que usa essas contas. Isso segue o princípio de <em>aberto/fechado</em>, onde estendemos comportamentos sem modificar os existentes.</li>
+<li>
+<strong>Legibilidade e segurança:</strong> o uso de um método fábrica com um nome claro (por exemplo, <code>criarConta</code>) torna o código mais legível e autoexplicativo. Além disso, reduzimos a chance de erros, já que evitamos espalhar detalhes de instância (como qual classe usar) por vários locais do sistema.</li>
+</ul>
+
+<p>O padrão Factory nos ajuda a <strong>substituir a criação direta de objetos por uma chamada indireta</strong>, organizada e polimórfica. O código cliente passa a depender de uma interface ou classe abstrata, e não de implementações concretas específicas, ganhando flexibilidade.</p>
+
+
+<hr>
+
+<h2 id="exemplo-pr%C3%A1tico-criando-contas-banc%C3%A1rias-com-factory">🧪 Exemplo Prático: Criando Contas Bancárias com Factory
+</h2>
+
+<p>Vamos aplicar o padrão Factory em um exemplo prático utilizando TypeScript. Nosso cenário será a criação de diferentes tipos de contas bancárias: <strong>ContaCorrente</strong>, <strong>ContaPoupanca</strong> e <strong>ContaSalario</strong>. Primeiro, definiremos uma interface (ou classe abstrata) comum para todas as contas, estabelecendo operações básicas que cada conta deve ter. Em seguida, implementaremos cada tipo de conta concreta com suas particularidades. Por fim, construiremos uma classe fábrica que, dado um tipo de conta, <strong>decide qual classe instanciar</strong> e retorna uma referência do tipo base.</p>
+
+<p>Acompanhe o passo a passo no código abaixo, que está totalmente escrito em TypeScript e contém comentários para facilitar o entendimento:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="c1">// Classe base abstrata representando uma Conta genérica</span>
+<span class="kd">abstract</span> <span class="kd">class</span> <span class="nc">Conta</span> <span class="p">{</span>
+  <span class="c1">// Cada conta terá um saldo e métodos abstratos para operações básicas</span>
+  <span class="k">protected</span> <span class="nx">saldo</span><span class="p">:</span> <span class="kr">number</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+  <span class="kd">abstract</span> <span class="nf">getSaldo</span><span class="p">():</span> <span class="kr">number</span><span class="p">;</span>
+  <span class="kd">abstract</span> <span class="nf">sacar</span><span class="p">(</span><span class="nx">valor</span><span class="p">:</span> <span class="kr">number</span><span class="p">):</span> <span class="k">void</span><span class="p">;</span>
+  <span class="kd">abstract</span> <span class="nf">depositar</span><span class="p">(</span><span class="nx">valor</span><span class="p">:</span> <span class="kr">number</span><span class="p">):</span> <span class="k">void</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// Conta Corrente: herda de Conta e implementa as operações</span>
+<span class="kd">class</span> <span class="nc">ContaCorrente</span> <span class="kd">extends</span> <span class="nc">Conta</span> <span class="p">{</span>
+  <span class="nf">constructor</span><span class="p">(</span><span class="nx">saldoInicial</span><span class="p">:</span> <span class="kr">number</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">super</span><span class="p">();</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span> <span class="o">=</span> <span class="nx">saldoInicial</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="c1">// Retorna o saldo atual da conta corrente</span>
+  <span class="nf">getSaldo</span><span class="p">():</span> <span class="kr">number</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="c1">// Saca um valor, não permite saldo negativo</span>
+  <span class="nf">sacar</span><span class="p">(</span><span class="nx">valor</span><span class="p">:</span> <span class="kr">number</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+    <span class="k">if </span><span class="p">(</span><span class="nx">valor</span> <span class="o">&gt;</span> <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">throw</span> <span class="k">new</span> <span class="nc">Error</span><span class="p">(</span><span class="dl">"</span><span class="s2">Saldo insuficiente para saque na conta corrente</span><span class="dl">"</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span> <span class="o">-=</span> <span class="nx">valor</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="c1">// Deposita um valor na conta corrente</span>
+  <span class="nf">depositar</span><span class="p">(</span><span class="nx">valor</span><span class="p">:</span> <span class="kr">number</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span> <span class="o">+=</span> <span class="nx">valor</span><span class="p">;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// Conta Poupança: herda de Conta e tem taxa de juros</span>
+<span class="kd">class</span> <span class="nc">ContaPoupanca</span> <span class="kd">extends</span> <span class="nc">Conta</span> <span class="p">{</span>
+  <span class="k">private</span> <span class="nx">taxaJuros</span><span class="p">:</span> <span class="kr">number</span><span class="p">;</span>  <span class="c1">// taxa de juros (% ao mês, por exemplo)</span>
+  <span class="nf">constructor</span><span class="p">(</span><span class="nx">saldoInicial</span><span class="p">:</span> <span class="kr">number</span><span class="p">,</span> <span class="nx">taxaJuros</span><span class="p">:</span> <span class="kr">number</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">super</span><span class="p">();</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span> <span class="o">=</span> <span class="nx">saldoInicial</span><span class="p">;</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">taxaJuros</span> <span class="o">=</span> <span class="nx">taxaJuros</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="c1">// Retorna o saldo + juros acumulados (simulação simples de rendimento)</span>
+  <span class="nf">getSaldo</span><span class="p">():</span> <span class="kr">number</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span> <span class="o">+</span> <span class="k">this</span><span class="p">.</span><span class="nf">calcularJuros</span><span class="p">();</span>
+  <span class="p">}</span>
+  <span class="c1">// Saca um valor, similar à ContaCorrente</span>
+  <span class="nf">sacar</span><span class="p">(</span><span class="nx">valor</span><span class="p">:</span> <span class="kr">number</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+    <span class="k">if </span><span class="p">(</span><span class="nx">valor</span> <span class="o">&gt;</span> <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">throw</span> <span class="k">new</span> <span class="nc">Error</span><span class="p">(</span><span class="dl">"</span><span class="s2">Saldo insuficiente para saque na conta poupança</span><span class="dl">"</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span> <span class="o">-=</span> <span class="nx">valor</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="c1">// Deposita um valor, similar à ContaCorrente</span>
+  <span class="nf">depositar</span><span class="p">(</span><span class="nx">valor</span><span class="p">:</span> <span class="kr">number</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span> <span class="o">+=</span> <span class="nx">valor</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="c1">// Método específico da poupança para calcular juros com base no saldo atual</span>
+  <span class="k">private</span> <span class="nf">calcularJuros</span><span class="p">():</span> <span class="kr">number</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span> <span class="o">*</span> <span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">taxaJuros</span> <span class="o">/</span> <span class="mi">100</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// Conta Salário: herda de Conta, geralmente apenas recebe depósitos de empregador</span>
+<span class="kd">class</span> <span class="nc">ContaSalario</span> <span class="kd">extends</span> <span class="nc">Conta</span> <span class="p">{</span>
+  <span class="nf">constructor</span><span class="p">(</span><span class="nx">saldoInicial</span><span class="p">:</span> <span class="kr">number</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">super</span><span class="p">();</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span> <span class="o">=</span> <span class="nx">saldoInicial</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="nf">getSaldo</span><span class="p">():</span> <span class="kr">number</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="nf">sacar</span><span class="p">(</span><span class="nx">valor</span><span class="p">:</span> <span class="kr">number</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+    <span class="k">if </span><span class="p">(</span><span class="nx">valor</span> <span class="o">&gt;</span> <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">throw</span> <span class="k">new</span> <span class="nc">Error</span><span class="p">(</span><span class="dl">"</span><span class="s2">Saldo insuficiente para saque na conta salário</span><span class="dl">"</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span> <span class="o">-=</span> <span class="nx">valor</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="nf">depositar</span><span class="p">(</span><span class="nx">valor</span><span class="p">:</span> <span class="kr">number</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+    <span class="c1">// Em uma conta salário real, depósitos podem ser restritos ao empregador.</span>
+    <span class="c1">// Aqui, permitimos depositar normalmente para simplificar.</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span> <span class="o">+=</span> <span class="nx">valor</span><span class="p">;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// FabricaContas: classe fábrica que cria contas de acordo com o tipo solicitado</span>
+<span class="kd">class</span> <span class="nc">FabricaContas</span> <span class="p">{</span>
+  <span class="k">static</span> <span class="nf">criarConta</span><span class="p">(</span><span class="nx">tipo</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">saldoInicial</span><span class="p">:</span> <span class="kr">number</span><span class="p">,</span> <span class="nx">taxaJuros</span><span class="p">?:</span> <span class="kr">number</span><span class="p">):</span> <span class="nx">Conta</span> <span class="p">{</span>
+    <span class="k">switch </span><span class="p">(</span><span class="nx">tipo</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="dl">"</span><span class="s2">corrente</span><span class="dl">"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="nc">ContaCorrente</span><span class="p">(</span><span class="nx">saldoInicial</span><span class="p">);</span>
+      <span class="k">case</span> <span class="dl">"</span><span class="s2">poupanca</span><span class="dl">"</span><span class="p">:</span>
+        <span class="c1">// Conta poupança requer informar a taxa de juros</span>
+        <span class="k">if </span><span class="p">(</span><span class="nx">taxaJuros</span> <span class="o">===</span> <span class="kc">undefined</span><span class="p">)</span> <span class="p">{</span>
+          <span class="k">throw</span> <span class="k">new</span> <span class="nc">Error</span><span class="p">(</span><span class="dl">"</span><span class="s2">Taxa de juros deve ser fornecida para conta poupança</span><span class="dl">"</span><span class="p">);</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="nc">ContaPoupanca</span><span class="p">(</span><span class="nx">saldoInicial</span><span class="p">,</span> <span class="nx">taxaJuros</span><span class="p">);</span>
+      <span class="k">case</span> <span class="dl">"</span><span class="s2">salario</span><span class="dl">"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="nc">ContaSalario</span><span class="p">(</span><span class="nx">saldoInicial</span><span class="p">);</span>
+      <span class="nl">default</span><span class="p">:</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nc">Error</span><span class="p">(</span><span class="dl">"</span><span class="s2">Tipo de conta inválido</span><span class="dl">"</span><span class="p">);</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// --- Código de uso (cliente) ---</span>
+<span class="c1">// Agora vamos usar a FabricaContas para criar diferentes contas:</span>
+
+<span class="kd">const</span> <span class="nx">contaCorrente</span> <span class="o">=</span> <span class="nx">FabricaContas</span><span class="p">.</span><span class="nf">criarConta</span><span class="p">(</span><span class="dl">"</span><span class="s2">corrente</span><span class="dl">"</span><span class="p">,</span> <span class="mi">1000</span><span class="p">);</span>
+<span class="nx">contaCorrente</span><span class="p">.</span><span class="nf">depositar</span><span class="p">(</span><span class="mi">500</span><span class="p">);</span>  <span class="c1">// depositando em conta corrente</span>
+<span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">Saldo conta corrente:</span><span class="dl">"</span><span class="p">,</span> <span class="nx">contaCorrente</span><span class="p">.</span><span class="nf">getSaldo</span><span class="p">());</span>  
+<span class="c1">// Saída esperada: Saldo conta corrente: 1500</span>
+
+<span class="kd">const</span> <span class="nx">contaPoupanca</span> <span class="o">=</span> <span class="nx">FabricaContas</span><span class="p">.</span><span class="nf">criarConta</span><span class="p">(</span><span class="dl">"</span><span class="s2">poupanca</span><span class="dl">"</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>  <span class="c1">// 1% de juros</span>
+<span class="nx">contaPoupanca</span><span class="p">.</span><span class="nf">sacar</span><span class="p">(</span><span class="mi">100</span><span class="p">);</span>  <span class="c1">// sacando da conta poupança</span>
+<span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">Saldo conta poupança:</span><span class="dl">"</span><span class="p">,</span> <span class="nx">contaPoupanca</span><span class="p">.</span><span class="nf">getSaldo</span><span class="p">());</span>  
+<span class="c1">// Saída: Saldo conta poupança: 404 (por exemplo, 400 saldo + 4 de juros)</span>
+
+<span class="kd">const</span> <span class="nx">contaSalario</span> <span class="o">=</span> <span class="nx">FabricaContas</span><span class="p">.</span><span class="nf">criarConta</span><span class="p">(</span><span class="dl">"</span><span class="s2">salario</span><span class="dl">"</span><span class="p">,</span> <span class="mi">3000</span><span class="p">);</span>
+<span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">Saldo conta salário:</span><span class="dl">"</span><span class="p">,</span> <span class="nx">contaSalario</span><span class="p">.</span><span class="nf">getSaldo</span><span class="p">());</span>  
+<span class="c1">// Saída: Saldo conta salário: 3000 (depósitos apenas do empregador, neste exemplo)</span>
+</code></pre>
+
+</div>
+
+
+
+<p>No código acima, podemos observar passo a passo a aplicação do padrão Factory:</p>
+
+<ul>
+<li>Definimos uma <strong>classe base abstrata <code>Conta</code></strong>, que declara métodos que todas as contas concretas devem implementar (<code>getSaldo()</code>, <code>sacar()</code>, <code>depositar()</code>). Essa é a interface comum que permite ao código cliente tratar diferentes contas de forma genérica.</li>
+<li>Em seguida, implementamos as <strong>classes concretas</strong>: <code>ContaCorrente</code>, <code>ContaPoupanca</code> e <code>ContaSalario</code>. Cada uma estende <code>Conta</code> e fornece sua própria lógica para saque, depósito e cálculo de saldo. Note que a conta poupança possui um atributo adicional <code>taxaJuros</code> e um método privado <code>calcularJuros()</code> para exemplificar um comportamento específico (acréscimo de juros sobre o saldo). Já a conta salário, neste exemplo simplificado, funciona de forma similar à conta corrente, mas poderíamos restringir depósitos diretos nela.</li>
+<li>Criamos então a classe <strong><code>FabricaContas</code></strong>, que contém o método estático <code>criarConta()</code>. É aqui que acontece a "mágica" do Factory: esse método recebe um parâmetro indicando o tipo de conta desejado (uma string, no nosso caso) e, através de um simples <code>switch</code>, instancia a classe apropriada para aquele tipo. Se o tipo for <code>"corrente"</code>, cria <code>ContaCorrente</code>; se for <code>"poupanca"</code>, cria <code>ContaPoupanca</code> (exigindo também o parâmetro da taxa de juros); se for <code>"salario"</code>, cria <code>ContaSalario</code>. Caso um tipo inválido seja passado, lançamos um erro – assim o cliente sabe que aquele tipo não é suportado. Toda a lógica de decisão de <strong>qual classe instanciar</strong> está encapsulada dentro de <code>FabricaContas</code>.</li>
+<li>Por fim, no <strong>código cliente</strong> (a parte "<code>// --- Código de uso (cliente) ---</code>"), vemos como é simples utilizar a fábrica. Basta chamar <code>FabricaContas.criarConta()</code> passando o tipo desejado e os parâmetros necessários, e ele nos retorna uma instância de <code>Conta</code>. Repare que, do ponto de vista do código cliente, não estamos usando <code>new ContaCorrente()</code> ou <code>new ContaPoupanca()</code> diretamente – quem faz isso é a fábrica. Nós apenas recebemos de volta um objeto do tipo abstrato <code>Conta</code> e o utilizamos chamando métodos como <code>depositar</code>, <code>sacar</code> ou <code>getSaldo()</code>. <strong>O cliente não se importa se por trás é uma <code>ContaCorrente</code> ou <code>ContaPoupanca</code>; ele só lida com <code>Conta</code></strong>, o que demonstra o baixo acoplamento. Se amanhã adicionarmos uma <code>ContaInvestimento</code>, por exemplo, basta criar a nova classe e ajustar o método fábrica, sem alterar nada no código que usa <code>FabricaContas</code> para obter as contas.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="diagrama-de-sequ%C3%AAncia-do-factory-pattern">🧾 Diagrama de Sequência do Factory Pattern
+</h2>
+
+<p>Para deixar ainda mais claro como funciona o padrão Factory, vamos visualizar um <strong>diagrama de sequência</strong>. Ele mostra o passo a passo da interação entre o código cliente, a fábrica e a conta que será criada (neste caso, uma conta poupança).</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F9ajh2a57vadk0gjd6c6r.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F9ajh2a57vadk0gjd6c6r.png" alt="Factory Pattern" loading="lazy" width="800" height="450"></a></p>
+
+<h3 id="o-que-acontece-nesse-fluxo">O que acontece nesse fluxo:
+</h3>
+
+<ol>
+<li>O <strong>cliente</strong> solicita à <code>FabricaContas</code> a criação de uma conta poupança.</li>
+<li>A <strong>fábrica</strong> instancia internamente uma <code>ContaPoupanca</code> com os parâmetros informados.</li>
+<li>A instância é retornada ao cliente como uma abstração do tipo <code>Conta</code>.</li>
+<li>O <strong>cliente</strong> interage com a conta criada sem precisar saber que se trata de uma <code>ContaPoupanca</code>.</li>
+</ol>
+
+<p>Esse encapsulamento da criação e a separação entre o código que usa e o que cria os objetos é justamente o que torna o padrão Factory tão útil e poderoso.</p>
+
+<p>Como vimos, o padrão Factory nos permite <strong>encapsular a criação de objetos</strong> e delegar essa responsabilidade a uma única classe (ou método), facilitando a vida do desenvolvedor. Isso traz várias vantagens práticas, já destacadas anteriormente e resumidas a seguir:</p>
+
+<ul>
+<li>
+<strong>Baixo acoplamento:</strong> o código cliente não precisa conhecer as classes concretas das contas. Ele pede uma conta para a fábrica e usa através da interface comum (<code>Conta</code>), tornando o sistema mais flexível a mudanças.</li>
+<li>
+<strong>Centralização da lógica de criação (Reutilização):</strong> toda a lógica para instanciar diferentes tipos de conta está em um único método (<code>criarConta</code>). Isso evita duplicação de código de criação espalhada pelo sistema, facilitando reutilização e garantindo consistência.</li>
+<li>
+<strong>Facilidade de manutenção:</strong> se for necessário modificar como uma conta é criada (por exemplo, exigir mais parâmetros) ou adicionar um novo tipo de conta, fazemos a alteração somente na fábrica. O impacto é isolado, reduzindo a chance de erros e tornando a manutenção mais simples.</li>
+<li>
+<strong>Extensibilidade:</strong> novos tipos de contas podem ser adicionados com impacto mínimo. O padrão Factory segue o princípio <strong>Open/Closed</strong> (aberto para extensão, fechado para modificação) em boa parte do código – o núcleo do programa não precisa ser alterado para acomodar novos produtos, apenas a fábrica é estendida ou adaptada para conhecê-los.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="conclus%C3%A3o">🏁 Conclusão
+</h2>
+
+<p>Neste artigo, exploramos o padrão de projeto Factory de maneira didática, usando um exemplo do mundo bancário para facilitar o entendimento. Vimos o problema de criar objetos manualmente e como o Factory oferece uma solução elegante ao <strong>abstrair o processo de criação</strong> e centralizá-lo. Com uma implementação prática em TypeScript, ficou claro como o código cliente passa a depender apenas de uma interface genérica (<code>Conta</code>), enquanto uma classe fábrica se encarrega de instanciar os objetos corretos de acordo com a necessidade.</p>
+
+<p>O resultado é um código mais <strong>robusto, flexível e fácil de manter</strong>, especialmente em cenários que lidam com vários tipos de objetos com comportamentos distintos. O padrão Factory é uma ferramenta valiosa no arsenal de um desenvolvedor e, embora simples de aplicar, traz um grande ganho em organização do código. Como qualquer padrão de projeto, deve ser usado com bom senso – nem todo caso de instanciamento requer uma fábrica – mas em sistemas maiores ou em evolução, ele certamente ajuda a reduzir acoplamento e melhorar a escalabilidade das soluções.</p>
+
+
+<hr>
+
+<h2 id="refer%C3%AAncias">📚 Referências
+</h2>
+
+<ul>
+<li>Mendes, L. (2023, 6 de novembro). <em>Desvendando o Padrão de Projeto Factory: Uma Abordagem Fundamental para o Desenvolvimento de Software</em>. LinkedIn Articles. Disponível em: <a href="https://pt.linkedin.com/pulse/desvendando-o-padr%C3%A3o-de-projeto-factory-uma-abordagem-mendes-djacf" target="_blank" rel="noopener noreferrer">https://pt.linkedin.com/pulse/desvendando-o-padr%C3%A3o-de-projeto-factory-uma-abordagem-mendes-djacf</a>
+</li>
+<li>dos Santos, T. (2024, 11 de maio). <em>Padrão de Design: Factory Method em TypeScript – Um Exemplo Detalhado</em>. Medium. Disponível em: <a href="https://beater.medium.com/padr%C3%A3o-de-design-factory-method-em-typescript-um-exemplo-detalhado-91605680806d" target="_blank" rel="noopener noreferrer">https://beater.medium.com/padr%C3%A3o-de-design-factory-method-em-typescript-um-exemplo-detalhado-91605680806d</a>
+</li>
+<li>Pirani, G. (2022, 5 de abril). <em>Design Pattern: Factory Method</em>. DEV Community. Disponível em: <a href="https://dev.to/vaivoa/design-pattern-factory-method-5580">https://dev.to/vaivoa/design-pattern-factory-method-5580</a>
+</li>
+<li>Refactoring.Guru. (n.d.). <em>Factory Method – Padrão de Projeto Criacional</em>. Disponível em: <a href="https://refactoring.guru/pt-br/design-patterns/factory-method" target="_blank" rel="noopener noreferrer">https://refactoring.guru/pt-br/design-patterns/factory-method</a>
+</li>
+</ul>
+
+
+<hr>
+
+<h2 id="curtiu">💡Curtiu?
+</h2>
+
+<p>Se quiser trocar ideia sobre IA, cloud e arquitetura, me segue nas redes:</p>
+
+<ul>
+<li><a href="https://olink.ai/sertaoseracloud" target="_blank" rel="noopener noreferrer">Redes Sociais</a></li>
+</ul>
+
+<p>Publico conteúdos técnicos direto do campo de batalha. E quando descubro uma ferramenta que economiza tempo e resolve bem, como essa, você fica sabendo também.</p>

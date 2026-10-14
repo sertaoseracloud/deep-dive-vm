@@ -115,7 +115,7 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
     expect(canonicalMatch![1].length).toBeGreaterThan(0);
   });
 
-  it("10. All <img> tags have a non-empty alt attribute", () => {
+  it("10. All <img> tags have alt; empty alt only on decorative blog covers", () => {
     // Find all <img> tags
     const imgTags = html.match(/<img[^>]*>/gi) ?? [];
 
@@ -124,8 +124,10 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
 
     for (const tag of imgTags) {
       const altMatch = tag.match(/alt=["']([^"']*)["']/i);
-      expect(altMatch).not.toBeNull();
-      expect(altMatch![1].trim().length).toBeGreaterThan(0);
+      expect(altMatch, tag).not.toBeNull();
+      // A capa do card do blog repete o título ao lado: é decorativa (alt="", WCAG H67).
+      if (/class=["'][^"']*\bpost-capa\b/.test(tag)) continue;
+      expect(altMatch![1].trim().length, tag).toBeGreaterThan(0);
     }
   });
 
@@ -195,5 +197,43 @@ describe("Sitemap content assertions (dist/sitemap-0.xml)", () => {
     for (const rota of ["deep-dive-vm", "deep-dive-ec2", "deep-dive-python-neurodivergentes"]) {
       expect(existsSync(join(DIST_DIR, rota, "index.html")), rota).toBe(false);
     }
+  });
+});
+
+describe("Blog: artigos dentro do site com canonical no dev.to", () => {
+  const artigos: { id: number; slug: string; title: string; canonical: string; url: string; language: string }[] = JSON.parse(
+    readFileSync(join(__dirname, "../../src/data/devto-artigos.json"), "utf-8")
+  );
+
+  it("17. cada artigo vira /blog/<slug>/ com canonical = canonical_url do dev.to", () => {
+    expect(artigos.length).toBeGreaterThan(0);
+    for (const artigo of artigos) {
+      const pagina = join(DIST_DIR, "blog", artigo.slug, "index.html");
+      expect(existsSync(pagina), pagina).toBe(true);
+      const h = readFileSync(pagina, "utf-8");
+      const canonical = h.match(/<link[^>]+rel=["']canonical["'][^>]*href=["']([^"']+)["']/i)?.[1];
+      expect(canonical, artigo.slug).toBe(artigo.canonical);
+      expect(canonical).toMatch(/^https:\/\/dev\.to\/sertaoseracloud\//);
+    }
+  });
+
+  it("18. página do artigo: um único <h1>, texto completo, JSON-LD BlogPosting e lang nos artigos em inglês", () => {
+    for (const artigo of artigos.slice(0, 10)) {
+      const h = readFileSync(join(DIST_DIR, "blog", artigo.slug, "index.html"), "utf-8");
+      expect(countMatches(h, /<h1[\s>]/gi), artigo.slug).toBe(1);
+      expect(h).toContain('class="artigo-corpo"');
+      expect(h.length).toBeGreaterThan(2000);
+      const ld = JSON.parse(h.match(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/i)![1]);
+      expect(ld["@type"]).toBe("BlogPosting");
+      expect(ld.mainEntityOfPage).toBe(artigo.canonical);
+      if (artigo.language !== "pt") expect(h).toMatch(new RegExp(`<article class="artigo"[^>]*lang="${artigo.language}"`));
+      // Sem os botões de tela cheia do dev.to (só funcionam lá).
+      expect(h).not.toContain("js-fullscreen-code-action");
+    }
+  });
+
+  it("19. o sitemap não lista as páginas do blog (a página oficial é a do dev.to)", () => {
+    const sitemap = readFileSync(join(DIST_DIR, "sitemap-0.xml"), "utf-8");
+    expect(sitemap).not.toContain("/blog/");
   });
 });

@@ -1,0 +1,496 @@
+<p>O <strong>Microsoft Graph</strong> é a porta de entrada para os serviços da Microsoft 365. Ele permite acessar informações como:</p>
+
+<ul>
+<li>Dados de <strong>usuários</strong> e <strong>grupos</strong>.</li>
+<li>
+<strong>Emails</strong> e <strong>calendários</strong> do Outlook.</li>
+<li>
+<strong>Arquivos</strong> no OneDrive.</li>
+<li>
+<strong>Mensagens</strong> no Teams.</li>
+</ul>
+
+<p>Mas para chamar o Graph, não basta fazer um <code>GET</code> com <code>http.Client</code>.<br>
+É necessário <strong>autenticar</strong> via <strong>Microsoft Entra ID</strong> (antigo Azure Active Directory), obter um <strong>Access Token OAuth2</strong>, e então usá-lo em cada requisição.</p>
+
+<p>👉 Isso pode complicar a aplicação principal, que precisa conhecer detalhes de autenticação.<br>
+Uma solução elegante é usar o <strong>padrão Sidecar</strong>: um serviço auxiliar, rodando ao lado da aplicação, que cuida dessa complexidade.</p>
+
+<hr>
+<h2 id="1-o-que-%C3%A9-um-sidecar">1. O que é um Sidecar?
+</h2>
+
+<p>Imagine que você tem uma aplicação (em Go, .NET, Python, etc) que precisa acessar o Graph.</p>
+
+<p>Você pode embutir a lógica de autenticação dentro dela. Mas, se várias aplicações precisarem fazer isso, você terá código duplicado em todos os lugares.</p>
+
+<p>O <strong>sidecar</strong> resolve esse problema:</p>
+
+<ul>
+<li>É um pequeno serviço separado (nesse caso em Go) que fica rodando ao lado da aplicação.</li>
+<li>Ele <strong>fala com o Microsoft Entra ID</strong> para buscar tokens.</li>
+<li>Ele <strong>chama o Microsoft Graph</strong>.</li>
+<li>Ele expõe uma API simples (via gRPC) para que a aplicação principal possa apenas pedir:</li>
+</ul>
+
+<blockquote>
+<p>"Me dê os dados do usuário X"<br>
+E o sidecar cuida do resto.</p>
+</blockquote>
+
+<p>📌 Em arquiteturas <strong>Kubernetes</strong>, o sidecar roda no mesmo pod da aplicação principal.</p>
+
+<p>Isso significa que a aplicação acessa o sidecar por <code>localhost</code>, sem depender da rede externa.</p>
+
+<hr>
+<h2 id="2-arquitetura">2. Arquitetura
+</h2>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F1b40giqk7wh6b2orclic.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F1b40giqk7wh6b2orclic.png" alt="Diagrama de Sequência" loading="lazy" width="800" height="518"></a></p>
+
+<p>📌 O que acontece:</p>
+
+<ol>
+<li>A aplicação chama <code>GetUser</code> no sidecar.</li>
+<li>O sidecar verifica se já tem um <strong>Access Token válido em cache</strong>.</li>
+</ol>
+
+<ul>
+<li>Se não tiver, pede um novo ao <strong>Microsoft Entra ID</strong>.
+
+<ol>
+<li>O sidecar chama o <strong>Microsoft Graph</strong> passando o token no header.</li>
+<li>O Graph devolve os dados do usuário.</li>
+<li>O sidecar converte para <code>UserResponse</code> e devolve para a aplicação via gRPC.</li>
+</ol>
+</li>
+</ul>
+
+<hr>
+<h2 id="3-definindo-o-contrato-grpc">3. Definindo o contrato gRPC
+</h2>
+
+<p>Antes do código Go, precisamos definir o <strong>contrato de comunicação</strong>.</p>
+
+<p>Crie o arquivo <code>graph.proto</code>:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight protobuf"><code><span class="na">syntax</span> <span class="o">=</span> <span class="s">"proto3"</span><span class="p">;</span>
+
+<span class="kn">package</span> <span class="nn">graph</span><span class="p">;</span>
+
+<span class="c1">// Serviço que o sidecar vai expor</span>
+<span class="kd">service</span> <span class="n">GraphService</span> <span class="p">{</span>
+  <span class="k">rpc</span> <span class="n">GetUser</span> <span class="p">(</span><span class="n">UserRequest</span><span class="p">)</span> <span class="k">returns</span> <span class="p">(</span><span class="n">UserResponse</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="c1">// Requisição: o cliente pode passar um user_id</span>
+<span class="c1">// Se vazio, o sidecar consulta o "me" (usuário atual)</span>
+<span class="kd">message</span> <span class="nc">UserRequest</span> <span class="p">{</span>
+  <span class="kt">string</span> <span class="na">user_id</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// Resposta: dados básicos do usuário no Graph</span>
+<span class="kd">message</span> <span class="nc">UserResponse</span> <span class="p">{</span>
+  <span class="kt">string</span> <span class="na">id</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+  <span class="kt">string</span> <span class="na">display_name</span> <span class="o">=</span> <span class="mi">2</span><span class="p">;</span>
+  <span class="kt">string</span> <span class="na">given_name</span> <span class="o">=</span> <span class="mi">3</span><span class="p">;</span>
+  <span class="kt">string</span> <span class="na">surname</span> <span class="o">=</span> <span class="mi">4</span><span class="p">;</span>
+  <span class="kt">string</span> <span class="na">user_principal_name</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="explicando">Explicando
+</h3>
+
+<ul>
+<li>O serviço <code>GraphService</code> expõe o método <code>GetUser</code>.</li>
+<li>
+<code>UserRequest</code> permite consultar um usuário específico (<code>users/{id}</code>) ou o próprio usuário (<code>me</code>).</li>
+<li>
+<code>UserResponse</code> retorna alguns campos comuns do Graph.</li>
+</ul>
+
+<h3 id="gerando-c%C3%B3digo-go">Gerando código Go
+</h3>
+
+<p>Com o <code>protoc</code> instalado, rode:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>protoc <span class="nt">--go_out</span><span class="o">=</span><span class="nb">.</span> <span class="nt">--go-grpc_out</span><span class="o">=</span><span class="nb">.</span> graph.proto
+</code></pre>
+
+</div>
+
+
+
+<p>Isso gera os arquivos <code>.pb.go</code>, que contêm as interfaces gRPC que implementaremos.</p>
+
+
+<hr>
+
+<h2 id="4-implementando-o-sidecar-em-go">4. Implementando o sidecar em Go
+</h2>
+
+<h3 id="41-estrutura-base">4.1 Estrutura base
+</h3>
+
+<p>Crie um arquivo <code>sidecar.go</code>:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">package</span> <span class="n">main</span>
+
+<span class="k">import</span> <span class="p">(</span>
+    <span class="s">"bytes"</span>
+    <span class="s">"context"</span>
+    <span class="s">"encoding/json"</span>
+    <span class="s">"fmt"</span>
+    <span class="s">"io"</span>
+    <span class="s">"net"</span>
+    <span class="s">"net/http"</span>
+    <span class="s">"os"</span>
+    <span class="s">"sync"</span>
+    <span class="s">"time"</span>
+
+    <span class="n">pb</span> <span class="s">"example.com/graph/proto"</span> <span class="c">// ajuste para o caminho correto</span>
+    <span class="s">"google.golang.org/grpc"</span>
+<span class="p">)</span>
+
+<span class="k">const</span> <span class="p">(</span>
+    <span class="n">tokenURL</span> <span class="o">=</span> <span class="s">"https://login.microsoftonline.com/%s/oauth2/v2.0/token"</span>
+    <span class="n">graphURL</span> <span class="o">=</span> <span class="s">"https://graph.microsoft.com/v1.0/%s"</span>
+<span class="p">)</span>
+
+<span class="c">// Servidor gRPC que vai rodar como sidecar</span>
+<span class="k">type</span> <span class="n">server</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">pb</span><span class="o">.</span><span class="n">UnimplementedGraphServiceServer</span>
+    <span class="n">mu</span>          <span class="n">sync</span><span class="o">.</span><span class="n">Mutex</span>
+    <span class="n">accessToken</span> <span class="kt">string</span>
+    <span class="n">expiration</span>  <span class="n">time</span><span class="o">.</span><span class="n">Time</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>📌 Aqui definimos:</p>
+
+<ul>
+<li>As constantes com os endpoints de autenticação (Entra ID) e do Graph.</li>
+<li>
+<p>Uma struct <code>server</code> que:</p>
+
+<ul>
+<li>Implementa nosso serviço gRPC.</li>
+<li>Guarda em memória (<code>accessToken</code>, <code>expiration</code>) o último token obtido.</li>
+</ul>
+
+
+</li>
+
+</ul>
+
+
+<hr>
+
+<h3 id="42-gerenciamento-de-token">4.2 Gerenciamento de Token
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">func</span> <span class="p">(</span><span class="n">s</span> <span class="o">*</span><span class="n">server</span><span class="p">)</span> <span class="n">getToken</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">)</span> <span class="p">(</span><span class="kt">string</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">s</span><span class="o">.</span><span class="n">mu</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+    <span class="k">defer</span> <span class="n">s</span><span class="o">.</span><span class="n">mu</span><span class="o">.</span><span class="n">Unlock</span><span class="p">()</span>
+
+    <span class="c">// Se já temos token válido, reutiliza</span>
+    <span class="k">if</span> <span class="n">time</span><span class="o">.</span><span class="n">Now</span><span class="p">()</span><span class="o">.</span><span class="n">Before</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">expiration</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">s</span><span class="o">.</span><span class="n">accessToken</span> <span class="o">!=</span> <span class="s">""</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">s</span><span class="o">.</span><span class="n">accessToken</span><span class="p">,</span> <span class="no">nil</span>
+    <span class="p">}</span>
+
+    <span class="c">// Senão, pede um novo token ao Entra ID</span>
+    <span class="n">tenantID</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"ENTRA_TENANT_ID"</span><span class="p">)</span>
+    <span class="n">clientID</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"ENTRA_CLIENT_ID"</span><span class="p">)</span>
+    <span class="n">clientSecret</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"ENTRA_CLIENT_SECRET"</span><span class="p">)</span>
+
+    <span class="n">url</span> <span class="o">:=</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Sprintf</span><span class="p">(</span><span class="n">tokenURL</span><span class="p">,</span> <span class="n">tenantID</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">:=</span> <span class="p">[]</span><span class="kt">byte</span><span class="p">(</span><span class="n">fmt</span><span class="o">.</span><span class="n">Sprintf</span><span class="p">(</span>
+        <span class="s">"client_id=%s&amp;scope=https%%3A%%2F%%2Fgraph.microsoft.com%%2F.default&amp;client_secret=%s&amp;grant_type=client_credentials"</span><span class="p">,</span>
+        <span class="n">clientID</span><span class="p">,</span> <span class="n">clientSecret</span><span class="p">,</span>
+    <span class="p">))</span>
+
+    <span class="n">req</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">http</span><span class="o">.</span><span class="n">NewRequestWithContext</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="s">"POST"</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">bytes</span><span class="o">.</span><span class="n">NewBuffer</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
+    <span class="n">req</span><span class="o">.</span><span class="n">Header</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="s">"Content-Type"</span><span class="p">,</span> <span class="s">"application/x-www-form-urlencoded"</span><span class="p">)</span>
+
+    <span class="n">resp</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">http</span><span class="o">.</span><span class="n">DefaultClient</span><span class="o">.</span><span class="n">Do</span><span class="p">(</span><span class="n">req</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="s">""</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="k">defer</span> <span class="n">resp</span><span class="o">.</span><span class="n">Body</span><span class="o">.</span><span class="n">Close</span><span class="p">()</span>
+
+    <span class="n">body</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">io</span><span class="o">.</span><span class="n">ReadAll</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">Body</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">StatusCode</span> <span class="o">!=</span> <span class="n">http</span><span class="o">.</span><span class="n">StatusOK</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="s">""</span><span class="p">,</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"erro ao obter token: %s"</span><span class="p">,</span> <span class="kt">string</span><span class="p">(</span><span class="n">body</span><span class="p">))</span>
+    <span class="p">}</span>
+
+    <span class="k">var</span> <span class="n">token</span> <span class="k">struct</span> <span class="p">{</span>
+        <span class="n">AccessToken</span> <span class="kt">string</span> <span class="s">`json:"access_token"`</span>
+        <span class="n">ExpiresIn</span>   <span class="kt">int</span>    <span class="s">`json:"expires_in"`</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">json</span><span class="o">.</span><span class="n">Unmarshal</span><span class="p">(</span><span class="n">body</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">token</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="s">""</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+
+    <span class="c">// Atualiza cache (renova 1 min antes do vencimento)</span>
+    <span class="n">s</span><span class="o">.</span><span class="n">accessToken</span> <span class="o">=</span> <span class="n">token</span><span class="o">.</span><span class="n">AccessToken</span>
+    <span class="n">s</span><span class="o">.</span><span class="n">expiration</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">Now</span><span class="p">()</span><span class="o">.</span><span class="n">Add</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">Duration</span><span class="p">(</span><span class="n">token</span><span class="o">.</span><span class="n">ExpiresIn</span><span class="o">-</span><span class="m">60</span><span class="p">)</span> <span class="o">*</span> <span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">s</span><span class="o">.</span><span class="n">accessToken</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="explicando">Explicando
+</h3>
+
+<ul>
+<li>
+<strong>Cache de token</strong>: o sidecar não pede token toda hora → economiza requisições.</li>
+<li>
+<strong>Mutex (<code>mu</code>)</strong>: garante que múltiplas chamadas concorrentes não façam <code>POST</code> ao mesmo tempo.</li>
+<li>
+<strong>Renovação antecipada</strong>: 1 minuto antes de expirar, o sidecar já pede um novo.</li>
+</ul>
+
+
+<hr>
+
+<h3 id="43-implementando-raw-getuser-endraw-">4.3 Implementando <code>GetUser</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">func</span> <span class="p">(</span><span class="n">s</span> <span class="o">*</span><span class="n">server</span><span class="p">)</span> <span class="n">GetUser</span><span class="p">(</span><span class="n">ctx</span> <span class="n">context</span><span class="o">.</span><span class="n">Context</span><span class="p">,</span> <span class="n">req</span> <span class="o">*</span><span class="n">pb</span><span class="o">.</span><span class="n">UserRequest</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">pb</span><span class="o">.</span><span class="n">UserResponse</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c">// 1. Garantir token válido</span>
+    <span class="n">token</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">s</span><span class="o">.</span><span class="n">getToken</span><span class="p">(</span><span class="n">ctx</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+
+    <span class="c">// 2. Montar endpoint</span>
+    <span class="n">userEndpoint</span> <span class="o">:=</span> <span class="s">"me"</span>
+    <span class="k">if</span> <span class="n">req</span><span class="o">.</span><span class="n">UserId</span> <span class="o">!=</span> <span class="s">""</span> <span class="p">{</span>
+        <span class="n">userEndpoint</span> <span class="o">=</span> <span class="s">"users/"</span> <span class="o">+</span> <span class="n">req</span><span class="o">.</span><span class="n">UserId</span>
+    <span class="p">}</span>
+
+    <span class="n">url</span> <span class="o">:=</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Sprintf</span><span class="p">(</span><span class="n">graphURL</span><span class="p">,</span> <span class="n">userEndpoint</span><span class="p">)</span>
+    <span class="n">httpReq</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">http</span><span class="o">.</span><span class="n">NewRequestWithContext</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="s">"GET"</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="no">nil</span><span class="p">)</span>
+    <span class="n">httpReq</span><span class="o">.</span><span class="n">Header</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="s">"Authorization"</span><span class="p">,</span> <span class="s">"Bearer "</span><span class="o">+</span><span class="n">token</span><span class="p">)</span>
+
+    <span class="c">// 3. Fazer requisição ao Microsoft Graph</span>
+    <span class="n">resp</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">http</span><span class="o">.</span><span class="n">DefaultClient</span><span class="o">.</span><span class="n">Do</span><span class="p">(</span><span class="n">httpReq</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="k">defer</span> <span class="n">resp</span><span class="o">.</span><span class="n">Body</span><span class="o">.</span><span class="n">Close</span><span class="p">()</span>
+
+    <span class="n">body</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">io</span><span class="o">.</span><span class="n">ReadAll</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">Body</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">resp</span><span class="o">.</span><span class="n">StatusCode</span> <span class="o">!=</span> <span class="n">http</span><span class="o">.</span><span class="n">StatusOK</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"erro ao buscar usuário: %s"</span><span class="p">,</span> <span class="kt">string</span><span class="p">(</span><span class="n">body</span><span class="p">))</span>
+    <span class="p">}</span>
+
+    <span class="c">// 4. Mapear resposta para nosso UserResponse</span>
+    <span class="k">var</span> <span class="n">user</span> <span class="k">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="k">interface</span><span class="p">{}</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">json</span><span class="o">.</span><span class="n">Unmarshal</span><span class="p">(</span><span class="n">body</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">user</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="o">&amp;</span><span class="n">pb</span><span class="o">.</span><span class="n">UserResponse</span><span class="p">{</span>
+        <span class="n">Id</span><span class="o">:</span>                <span class="n">user</span><span class="p">[</span><span class="s">"id"</span><span class="p">]</span><span class="o">.</span><span class="p">(</span><span class="kt">string</span><span class="p">),</span>
+        <span class="n">DisplayName</span><span class="o">:</span>       <span class="n">user</span><span class="p">[</span><span class="s">"displayName"</span><span class="p">]</span><span class="o">.</span><span class="p">(</span><span class="kt">string</span><span class="p">),</span>
+        <span class="n">GivenName</span><span class="o">:</span>         <span class="n">user</span><span class="p">[</span><span class="s">"givenName"</span><span class="p">]</span><span class="o">.</span><span class="p">(</span><span class="kt">string</span><span class="p">),</span>
+        <span class="n">Surname</span><span class="o">:</span>           <span class="n">user</span><span class="p">[</span><span class="s">"surname"</span><span class="p">]</span><span class="o">.</span><span class="p">(</span><span class="kt">string</span><span class="p">),</span>
+        <span class="n">UserPrincipalName</span><span class="o">:</span> <span class="n">user</span><span class="p">[</span><span class="s">"userPrincipalName"</span><span class="p">]</span><span class="o">.</span><span class="p">(</span><span class="kt">string</span><span class="p">),</span>
+    <span class="p">},</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="explicando">Explicando
+</h3>
+
+<ol>
+<li>Pega o token em cache (ou renova).</li>
+<li>Define o endpoint (<code>/me</code> ou <code>/users/{id}</code>).</li>
+<li>Faz um <code>GET</code> no Microsoft Graph.</li>
+<li>Converte a resposta JSON para a struct <code>UserResponse</code>.</li>
+</ol>
+
+
+<hr>
+
+<h3 id="44-subindo-o-servidor-grpc">4.4 Subindo o servidor gRPC
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">func</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">lis</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">net</span><span class="o">.</span><span class="n">Listen</span><span class="p">(</span><span class="s">"tcp"</span><span class="p">,</span> <span class="s">":50051"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="nb">panic</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="n">grpcServer</span> <span class="o">:=</span> <span class="n">grpc</span><span class="o">.</span><span class="n">NewServer</span><span class="p">()</span>
+    <span class="n">pb</span><span class="o">.</span><span class="n">RegisterGraphServiceServer</span><span class="p">(</span><span class="n">grpcServer</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">server</span><span class="p">{})</span>
+    <span class="n">fmt</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"Sidecar Microsoft Graph rodando em :50051"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">grpcServer</span><span class="o">.</span><span class="n">Serve</span><span class="p">(</span><span class="n">lis</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="nb">panic</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="explicando">Explicando
+</h3>
+
+<ul>
+<li>O sidecar ouve na porta <code>50051</code>.</li>
+<li>Ele registra o serviço <code>GraphService</code>.</li>
+<li>Ele fica rodando, pronto para responder às chamadas gRPC da aplicação principal.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="5-executando">5. Executando
+</h2>
+
+<ol>
+<li>Configure variáveis de ambiente:
+</li>
+</ol>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>   <span class="nb">export </span><span class="nv">ENTRA_CLIENT_ID</span><span class="o">=</span><span class="s2">"seu-client-id"</span>
+   <span class="nb">export </span><span class="nv">ENTRA_CLIENT_SECRET</span><span class="o">=</span><span class="s2">"seu-client-secret"</span>
+   <span class="nb">export </span><span class="nv">ENTRA_TENANT_ID</span><span class="o">=</span><span class="s2">"seu-tenant-id"</span>
+</code></pre>
+
+</div>
+
+
+
+<ol>
+<li>Rode o sidecar:
+</li>
+</ol>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>   go run sidecar.go
+</code></pre>
+
+</div>
+
+
+
+<ol>
+<li>Teste com <code>grpcurl</code>:
+</li>
+</ol>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>   grpcurl <span class="nt">-plaintext</span> <span class="nt">-d</span> <span class="s1">'{}'</span> localhost:50051 graph.GraphService/GetUser
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="6-exemplo-de-resposta">6. Exemplo de resposta
+</h2>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1234abcd-..."</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"display_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"João Silva"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"given_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"João"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"surname"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Silva"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"user_principal_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"joao@empresa.com"</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="7-por-que-usar-sidecar">7. Por que usar Sidecar?
+</h2>
+
+<ul>
+<li>
+<strong>Simplicidade</strong>: a aplicação só chama gRPC, sem se preocupar com OAuth2.</li>
+<li>
+<strong>Reuso</strong>: múltiplos serviços podem compartilhar o mesmo sidecar.</li>
+<li>
+<strong>Segurança</strong>: credenciais ficam apenas no sidecar.</li>
+<li>
+<strong>Escalabilidade</strong>: sidecars podem ser replicados em pods diferentes.</li>
+<li>
+<strong>Observabilidade</strong>: métricas e logs podem ser centralizados no sidecar.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="conclus%C3%A3o">Conclusão
+</h2>
+
+<p>Criamos um <strong>sidecar em Go</strong> que:</p>
+
+<ol>
+<li>Autentica no <strong>Microsoft Entra ID</strong> via <strong>Client Credentials Flow</strong>.</li>
+<li>Usa o <strong>Microsoft Graph</strong> para consultar usuários.</li>
+<li>Exponde um serviço gRPC simples para a aplicação principal.</li>
+</ol>
+
+<p>Com isso, conseguimos um <strong>design mais limpo, seguro e escalável</strong>, separando responsabilidades e aproveitando os benefícios do padrão Sidecar.</p>
+
+
+<hr>
+
+<h2 id="curtiu">💡Curtiu?
+</h2>
+
+<p>Se quiser trocar ideia sobre IA, cloud e arquitetura, me segue nas redes:</p>
+
+<ul>
+<li><a href="https://olink.ai/sertaoseracloud" target="_blank" rel="noopener noreferrer">Redes Sociais</a></li>
+</ul>
+
+<p>Publico conteúdos técnicos direto do campo de batalha. E quando descubro uma ferramenta que economiza tempo e resolve bem, como essa, você fica sabendo também.</p>

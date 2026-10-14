@@ -1,0 +1,13 @@
+<p>to commit, inspect the MTU (Maximum Transmission Unit) sizes across the cross-cloud VPN or Direct Connect circuits. Standard Ethernet uses an MTU of 1500 bytes, but encapsulation protocols within IPsec tunnels often reduce the effective payload space to 1420 bytes or lower. If the consensus packets exceed this limit, the network layer fragments the packets, doubling the round-trip time for every log replication entry. Ensure that explicit Path MTU Discovery is active and clamp the TCP Maximum Segment Size (MSS) to 1380 bytes within your network firewall rules to ensure unfragmented packet delivery.</p>
+
+<h3 id="conclusion">Conclusion
+</h3>
+
+<p>Constructing a federated consensus backbone across AWS and Azure using a neutral third-party Arbitrator eliminates the threat of split-brain data corruption during severe network partitions. By combining odd-node quorum topologies with time-bounded lease read management, engineering teams guarantee that transactional consistency remains uncompromised when network boundaries collapse. As data throughput scales across this multicloud matrix, architectures should evaluate the implementation of localized read-replicas configured with raft learner states. This configuration optimization permits the system to scale read operations across multiple geographical zones without expanding the voting quorum size, preserving rapid consensus negotiation speeds while satisfying rigorous global availability requirements.</p>
+
+<h3 id="references">References
+</h3>
+
+<p>Lamport, L. (1998). <em>The part-time parliament</em>. ACM Transactions on Computer Systems, 16(2), 133-169.</p>
+
+<p>Ongaro, D., &amp; Ousterhout, J. (2014). <em>In search of an understandable consensus algorithm</em>. USENIX Association.</p>

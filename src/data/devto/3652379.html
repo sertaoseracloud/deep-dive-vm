@@ -1,0 +1,189 @@
+<p>Managing long-lived credentials in a multicloud environment is a primary source of architectural fragility and security debt. When an application hosted on Microsoft Azure needs to access a private Amazon Web Services resource, such as an S3 bucket or a DynamoDB table, engineering teams often resort to creating IAM users with static access keys. These keys are frequently hardcoded, inadequately rotated, or leaked through insecure CI/CD pipelines, leading to unauthorized data egress and compromised compliance postures (Humble &amp; Farley, 2010). The definitive solution to this vulnerability is Workload Identity Federation using OpenID Connect (OIDC). By establishing a trust relationship between the Azure Active Directory (now Microsoft Entra ID) and the AWS Identity and Access Management (IAM) control plane, we eliminate the need for static secrets entirely. This article details the engineering process of implementing a secretless, short-lived credential exchange mechanism that leverages the native identity of the Azure workload to assume granular roles within AWS.</p>
+
+<h3 id="prerequisites">Prerequisites
+</h3>
+
+<p>Implementing this federation requires Terraform version 1.7.0 or higher to manage cross-provider identity resources. You must have administrative access to an Azure Subscription and an AWS Account. The implementation utilizes the AWS provider (version 5.40.0+) and the AzureRM provider (version 3.90.0+). For the application-side logic, Python 3.12 is required along with the <code>boto3</code> and <code>azure-identity</code> libraries. You should also possess a working knowledge of the JWT (JSON Web Token) structure and the OIDC protocol flow. Ensure that your Azure resources are assigned a System-Assigned or User-Assigned Managed Identity, as this provides the initial cryptographic proof of identity needed for the federation process.</p>
+
+<h3 id="stepbystep">Step-by-Step
+</h3>
+
+<h4 id="step-1-establishing-the-oidc-trust-anchor-in-aws">Step 1: Establishing the OIDC Trust Anchor in AWS
+</h4>
+
+<p>The first architectural requirement is to configure AWS to recognize Azure as a valid identity provider. We accomplish this by creating an IAM OIDC Provider that points to the unique issuer URL of the Azure tenant. This configuration allows the AWS Security Token Service (STS) to validate tokens signed by Microsoft. We use Terraform to automate this setup, specifying the client ID (the audience) that the Azure tokens will contain. By narrowing the audience to a specific application ID in Azure, we ensure that only tokens intended for this federation are accepted. This step is a critical implementation of the Least Privilege principle at the infrastructure level, as it prevents any arbitrary Azure token from being used as a baseline for identity in the AWS environment (Wardley, 2016).<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight terraform"><code><span class="c1"># identity_federation/aws_side.tf</span>
+
+<span class="k">data</span> <span class="s2">"azuread_client_config"</span> <span class="s2">"current"</span> <span class="p">{}</span>
+
+<span class="c1"># The issuer URL is tenant-specific in Azure</span>
+<span class="nx">locals</span> <span class="p">{</span>
+  <span class="nx">azure_issuer_url</span> <span class="p">=</span> <span class="s2">"https://sts.windows.net/</span><span class="k">${data</span><span class="p">.</span><span class="nx">azuread_client_config</span><span class="p">.</span><span class="nx">current</span><span class="p">.</span><span class="nx">tenant_id</span><span class="k">}</span><span class="s2">/"</span>
+<span class="p">}</span>
+
+<span class="k">resource</span> <span class="s2">"aws_iam_openid_connect_provider"</span> <span class="s2">"azure_provider"</span> <span class="p">{</span>
+  <span class="nx">url</span>             <span class="p">=</span> <span class="kd">local</span><span class="p">.</span><span class="nx">azure_issuer_url</span>
+  <span class="nx">client_id_list</span>  <span class="p">=</span> <span class="p">[</span><span class="s2">"api://aws-federation-client"</span><span class="p">]</span> <span class="c1"># Audience in Azure JWT</span>
+  <span class="nx">thumbprint_list</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"9e99a48a9960b14926bb7f3b02e22da2b0ab7280"</span><span class="p">]</span> <span class="c1"># Microsoft Root CA</span>
+<span class="p">}</span>
+
+<span class="k">resource</span> <span class="s2">"aws_iam_role"</span> <span class="s2">"cross_cloud_access"</span> <span class="p">{</span>
+  <span class="nx">name</span> <span class="p">=</span> <span class="s2">"AzureWorkloadAccessRole"</span>
+
+  <span class="nx">assume_role_policy</span> <span class="p">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
+    <span class="nx">Version</span> <span class="p">=</span> <span class="s2">"2012-10-17"</span>
+    <span class="nx">Statement</span> <span class="p">=</span> <span class="p">[</span>
+      <span class="p">{</span>
+        <span class="nx">Effect</span> <span class="p">=</span> <span class="s2">"Allow"</span>
+        <span class="nx">Principal</span> <span class="p">=</span> <span class="p">{</span>
+          <span class="nx">Federated</span> <span class="p">=</span> <span class="nx">aws_iam_openid_connect_provider</span><span class="p">.</span><span class="nx">azure_provider</span><span class="p">.</span><span class="nx">arn</span>
+        <span class="p">}</span>
+        <span class="nx">Action</span> <span class="p">=</span> <span class="s2">"sts:AssumeRoleWithWebIdentity"</span>
+        <span class="nx">Condition</span> <span class="p">=</span> <span class="p">{</span>
+          <span class="nx">StringEquals</span> <span class="p">=</span> <span class="p">{</span>
+            <span class="s2">"</span><span class="k">${</span><span class="nx">replace</span><span class="p">(</span><span class="kd">local</span><span class="p">.</span><span class="nx">azure_issuer_url</span><span class="p">,</span> <span class="s2">"https://"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span><span class="k">}</span><span class="s2">:aud"</span><span class="err">:</span> <span class="s2">"api://aws-federation-client"</span>
+          <span class="p">}</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">]</span>
+  <span class="p">})</span>
+<span class="p">}</span>
+
+</code></pre>
+
+</div>
+
+
+
+<p>This configuration creates a secure gateway for Azure identities. How do we ensure that a specific Azure Managed Identity is mapped to this AWS role while preventing other services in the same Azure tenant from assuming the same permissions?</p>
+
+<h4 id="step-2-implementing-attributebased-access-control-abac-mapping">Step 2: Implementing Attribute-Based Access Control (ABAC) Mapping
+</h4>
+
+<p>We address the risk of lateral movement by implementing Attribute-Based Access Control (ABAC) within the trust policy. Instead of a broad trust relationship with the entire Azure tenant, we refine the <code>Condition</code> block in the AWS IAM role to validate specific claims within the Azure JWT, such as the <code>sub</code> (subject) or custom roles. In our Python logic, we utilize the <code>azure-identity</code> library to acquire an access token for the specified audience. This token is then passed to the AWS STS <code>assume_role_with_web_identity</code> method. By enforcing a match between the <code>sub</code> claim (which contains the Azure Object ID) and the IAM policy, we guarantee that only the authorized microservice can assume the role. This pattern adheres to Hexagonal Architecture by treating the identity exchange as an external adapter, keeping the core domain logic clean of authentication mechanics.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="c1"># identity_service/federation_adapter.py
+</span>
+<span class="kn">import</span> <span class="n">boto3</span>
+<span class="kn">from</span> <span class="n">azure.identity</span> <span class="kn">import</span> <span class="n">ManagedIdentityCredential</span>
+<span class="kn">from</span> <span class="n">botocore.exceptions</span> <span class="kn">import</span> <span class="n">ClientError</span>
+
+<span class="k">class</span> <span class="nc">MulticloudIdentityAdapter</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">aws_role_arn</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">azure_client_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">aws_role_arn</span> <span class="o">=</span> <span class="n">aws_role_arn</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">azure_client_id</span> <span class="o">=</span> <span class="n">azure_client_id</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">azure_credential</span> <span class="o">=</span> <span class="nc">ManagedIdentityCredential</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">get_aws_session</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">boto3</span><span class="p">.</span><span class="n">Session</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">
+        Exchanges Azure Managed Identity token for AWS STS temporary credentials.
+        </span><span class="sh">"""</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># 1. Get OIDC token from Azure for the specific AWS audience
+</span>            <span class="n">azure_token</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">azure_credential</span><span class="p">.</span><span class="nf">get_token</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">api://</span><span class="si">{</span><span class="n">self</span><span class="p">.</span><span class="n">azure_client_id</span><span class="si">}</span><span class="s">/.default</span><span class="sh">"</span><span class="p">)</span>
+
+            <span class="c1"># 2. Initialize AWS STS Client
+</span>            <span class="n">sts_client</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">sts</span><span class="sh">'</span><span class="p">,</span> <span class="n">region_name</span><span class="o">=</span><span class="sh">'</span><span class="s">us-east-1</span><span class="sh">'</span><span class="p">)</span>
+
+            <span class="c1"># 3. Exchange for temporary AWS credentials
+</span>            <span class="n">response</span> <span class="o">=</span> <span class="n">sts_client</span><span class="p">.</span><span class="nf">assume_role_with_web_identity</span><span class="p">(</span>
+                <span class="n">RoleArn</span><span class="o">=</span><span class="n">self</span><span class="p">.</span><span class="n">aws_role_arn</span><span class="p">,</span>
+                <span class="n">RoleSessionName</span><span class="o">=</span><span class="sh">"</span><span class="s">AzureWorkloadSession</span><span class="sh">"</span><span class="p">,</span>
+                <span class="n">WebIdentityToken</span><span class="o">=</span><span class="n">azure_token</span><span class="p">.</span><span class="n">token</span>
+            <span class="p">)</span>
+
+            <span class="n">creds</span> <span class="o">=</span> <span class="n">response</span><span class="p">[</span><span class="sh">'</span><span class="s">Credentials</span><span class="sh">'</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">boto3</span><span class="p">.</span><span class="nc">Session</span><span class="p">(</span>
+                <span class="n">aws_access_key_id</span><span class="o">=</span><span class="n">creds</span><span class="p">[</span><span class="sh">'</span><span class="s">AccessKeyId</span><span class="sh">'</span><span class="p">],</span>
+                <span class="n">aws_secret_access_key</span><span class="o">=</span><span class="n">creds</span><span class="p">[</span><span class="sh">'</span><span class="s">SecretAccessKey</span><span class="sh">'</span><span class="p">],</span>
+                <span class="n">aws_session_token</span><span class="o">=</span><span class="n">creds</span><span class="p">[</span><span class="sh">'</span><span class="s">SessionToken</span><span class="sh">'</span><span class="p">]</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="n">ClientError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Federation failed: </span><span class="si">{</span><span class="n">e</span><span class="p">.</span><span class="n">response</span><span class="p">[</span><span class="sh">'</span><span class="s">Error</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">Message</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+            <span class="k">raise</span>
+
+</code></pre>
+
+</div>
+
+
+
+<p>This identity exchange provides the necessary credentials for cross-cloud operations. However, if the Azure workload needs to perform frequent operations, how do we optimize the token exchange to avoid hitting AWS STS rate limits or introducing unnecessary latency?</p>
+
+<h4 id="step-3-optimizing-credential-caching-and-refresh-cycles">Step 3: Optimizing Credential Caching and Refresh Cycles
+</h4>
+
+<p>High-performance architectures must minimize the overhead of the identity federation process by implementing an intelligent credential caching layer. Since the AWS STS credentials have a defined expiration period (typically one hour), requesting a new token for every individual API call is inefficient and introduces a single point of failure. We implement a wrapper that caches the <code>boto3.Session</code> object and only triggers a refresh when the current credentials are within a five-minute grace period of expiring. This strategy ensures that the application always has a valid session ready for use. By integrating this into the Hexagonal Architecture as a singleton adapter, we provide the domain services with a seamless interface to AWS resources while maintaining the security benefits of short-lived tokens and strictly avoiding local storage of secrets.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="c1"># identity_service/session_manager.py
+</span>
+<span class="kn">import</span> <span class="n">time</span>
+<span class="kn">from</span> <span class="n">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
+
+<span class="k">class</span> <span class="nc">CachedSessionManager</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">adapter</span><span class="p">:</span> <span class="n">MulticloudIdentityAdapter</span><span class="p">):</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">adapter</span> <span class="o">=</span> <span class="n">adapter</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">_current_session</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">_expiry_time</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="k">def</span> <span class="nf">get_session</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">boto3</span><span class="p">.</span><span class="n">Session</span><span class="p">:</span>
+        <span class="sh">"""</span><span class="s">
+        Returns a cached session or refreshes it if near expiration.
+        </span><span class="sh">"""</span>
+        <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">(</span><span class="n">timezone</span><span class="p">.</span><span class="n">utc</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">self</span><span class="p">.</span><span class="n">_current_session</span> <span class="ow">or</span> <span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">_expiry_time</span> <span class="ow">and</span> <span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">_expiry_time</span> <span class="o">-</span> <span class="n">now</span><span class="p">).</span><span class="n">seconds</span> <span class="o">&lt;</span> <span class="mi">300</span><span class="p">):</span>
+            <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Refreshing multicloud session...</span><span class="sh">"</span><span class="p">)</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">_current_session</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="n">adapter</span><span class="p">.</span><span class="nf">get_aws_session</span><span class="p">()</span>
+            <span class="c1"># We fetch the expiry from the first client call or STS response
+</span>            <span class="c1"># Simplified for implementation demonstration
+</span>            <span class="n">self</span><span class="p">.</span><span class="n">_expiry_time</span> <span class="o">=</span> <span class="n">self</span><span class="p">.</span><span class="nf">_extract_expiry</span><span class="p">(</span><span class="n">self</span><span class="p">.</span><span class="n">_current_session</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">self</span><span class="p">.</span><span class="n">_current_session</span>
+
+    <span class="k">def</span> <span class="nf">_extract_expiry</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">session</span><span class="p">:</span> <span class="n">boto3</span><span class="p">.</span><span class="n">Session</span><span class="p">):</span>
+        <span class="c1"># In a real implementation, extract the 'Expiration' from the STS response
+</span>        <span class="c1"># stored during the get_aws_session call.
+</span>        <span class="k">return</span> <span class="n">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">(</span><span class="n">timezone</span><span class="p">.</span><span class="n">utc</span><span class="p">).</span><span class="nf">replace</span><span class="p">(</span><span class="n">hour</span><span class="o">=</span><span class="n">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">().</span><span class="n">hour</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+</code></pre>
+
+</div>
+
+
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fdigk0j0nj77dw2lus4jt.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fdigk0j0nj77dw2lus4jt.png" alt="Sequence Diagram" loading="lazy" width="799" height="450"></a></p>
+
+<p>The credential lifecycle management ensures reliable access across cloud providers. What architectural safeguards are required to maintain security when an Azure Managed Identity is decommissioned but its associated AWS IAM role remains active?</p>
+
+<h3 id="common-troubleshooting">Common Troubleshooting
+</h3>
+
+<p>A frequent issue when configuring OIDC federation is a <code>Signature Verification Failed</code> error during the AWS STS call. This typically occurs because the OIDC thumbprint in the AWS OIDC Provider resource is outdated. Microsoft rotates its root CA certificates periodically. Ensure your Terraform configuration uses a dynamic thumbprint retrieval mechanism or includes the current root thumbprint for the Microsoft identity platform to prevent service disruption during rotation events.</p>
+
+<p>Another common failure is the <code>InvalidIdentityToken</code> exception. This often indicates a mismatch between the <code>aud</code> (audience) claim in the Azure token and the <code>client_id</code> configured in the AWS OIDC Provider. Verify that the scope requested in the Azure Python code precisely matches the <code>client_id_list</code> in Terraform. Note that Azure often prefixes the audience with <code>api://</code>, and this must be consistently reflected across both cloud configurations.</p>
+
+<p>Finally, verify that the Azure Managed Identity has the <code>Sign-in</code> permission for the specific application registration. Without the correct service principal permissions in Azure, the <code>get_token</code> call will return a <code>403 Forbidden</code> error before the request even reaches the AWS boundary. Use the Azure CLI to validate the token content manually during the initial debugging phase to ensure all required claims are present.</p>
+
+<h3 id="conclusion">Conclusion
+</h3>
+
+<p>Implementing OIDC Workload Identity Federation is the most robust method for securing service-to-service communication between AWS and Azure. By eliminating static keys and leveraging short-lived, cryptographically verified tokens, you significantly reduce the risk of credential compromise. The use of Hexagonal adapters and intelligent caching ensures that this security posture does not come at the cost of performance or code maintainability. As a next step, consider implementing AWS IAM Access Analyzer to continuously monitor the federation trust policies, ensuring that your multicloud identity perimeter remains hardened against unauthorized changes or overly permissive configurations.</p>
+
+<h3 id="references">References
+</h3>
+
+<p>Humble, J., &amp; Farley, D. (2010). <em>Continuous delivery: Reliable software releases through build, test, and deployment automation</em>. Pearson Education.</p>
+
+<p>Microsoft. (2024). <em>Workload identity federation</em>. Microsoft Entra Documentation. <a href="">https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation</a></p>
+
+<p>National Institute of Standards and Technology. (2020). <em>Attribute-based access control</em>. NIST Special Publication 800-162.</p>
+
+<p>Wardley, S. (2016). <em>Wardley maps: Topographical intelligence in business strategy</em>. Medium. <a href="">https://medium.com/wardleymaps</a></p>

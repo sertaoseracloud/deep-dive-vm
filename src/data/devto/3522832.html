@@ -1,0 +1,293 @@
+<h2 id="1-introduction">1. Introduction
+</h2>
+
+<p>Event-driven architectures transform the way systems communicate by replacing direct synchronous calls with a highly decoupled publish-subscribe model. By the end of this tutorial, you will be able to provision a complete event-based infrastructure on AWS, using Amazon EventBridge as the central router, Amazon SQS for queuing, and AWS Lambda for computational processing. </p>
+
+<p>This approach is fundamental for creating scalable and resilient systems. Decoupling ensures that a failure in one component does not take down the entire application, and it allows different parts of the system to scale independently. Although the technical focus here is AWS, mastering event routing and asynchronous processing is a core structural skill for strategies in multicloud environments, where similar architectural patterns are applied using corresponding services from each provider within a unified landing zone.</p>
+
+<h2 id="2-prerequisites">2. Prerequisites
+</h2>
+
+<p>To follow this tutorial and execute the proposed configurations, you need the following resources and prior knowledge:</p>
+
+<ul>
+<li>An active Amazon Web Services (AWS) account with administrative permissions to create IAM, Lambda, SQS, and EventBridge resources.</li>
+<li>Terraform installed on your local machine (version 1.0 or higher) for provisioning the Infrastructure as Code (IaC).</li>
+<li>Python (version 3.9 or higher) installed locally to package the Lambda function code.</li>
+<li>AWS credentials configured in your local environment (via AWS CLI or environment variables).</li>
+<li>Basic knowledge of terminal navigation and Terraform HCL syntax.</li>
+</ul>
+
+<h2 id="3-stepbystep">3. Step-by-Step
+</h2>
+
+<p>Before writing the code, it is important to visualize the event lifecycle in our infrastructure. The sequence diagram below illustrates the flow of information between the provisioned services.</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F468cuf84sj0jebfx7lfj.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F468cuf84sj0jebfx7lfj.png" alt="Sequence Diagram" loading="lazy" width="800" height="348"></a></p>
+
+<h3 id="31-configuring-the-provider-and-main-file">3.1 Configuring the Provider and Main File
+</h3>
+
+<p><strong>What to do:</strong> Create the initial Terraform configuration file to define AWS as the cloud provider and establish the deployment region.</p>
+
+<p><strong>Why do it:</strong> Terraform needs to know which cloud API it will interact with and the default region to allocate resources. This centralizes the basic configuration and prepares the infrastructure state.</p>
+
+<p><strong>Example:</strong><br>
+Create a file named <code>main.tf</code> and add the following block:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">terraform</span> <span class="p">{</span>
+  <span class="nx">required_providers</span> <span class="p">{</span>
+    <span class="nx">aws</span> <span class="p">=</span> <span class="p">{</span>
+      <span class="nx">source</span>  <span class="p">=</span> <span class="s2">"hashicorp/aws"</span>
+      <span class="nx">version</span> <span class="p">=</span> <span class="s2">"~&gt; 5.0"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">provider</span> <span class="s2">"aws"</span> <span class="p">{</span>
+  <span class="nx">region</span> <span class="p">=</span> <span class="s2">"us-east-1"</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="32-creating-the-event-bus-eventbridge">3.2 Creating the Event Bus (EventBridge)
+</h3>
+
+<p><strong>What to do:</strong> Provision a customized event bus in Amazon EventBridge.</p>
+
+<p><strong>Why do it:</strong> Although AWS provides a default bus, creating a custom bus for applications is an excellent domain isolation practice. This prevents mixing AWS infrastructure events with your application's business events.</p>
+
+<p><strong>Example:</strong><br>
+Add to your <code>main.tf</code> file:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_bus"</span> <span class="s2">"custom_bus"</span> <span class="p">{</span>
+  <span class="nx">name</span> <span class="p">=</span> <span class="s2">"app-domain-events"</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="33-creating-the-sqs-queue-for-load-absorption">3.3 Creating the SQS Queue for Load Absorption
+</h3>
+
+<p><strong>What to do:</strong> Create a queue in Amazon SQS and configure the access policy to allow EventBridge to send messages to it.</p>
+
+<p><strong>Why do it:</strong> Sending events directly from EventBridge to Lambda can cause data loss in case of failures or traffic spikes. The SQS queue acts as a buffer, ensuring message delivery and allowing reprocessing in case of temporary errors.</p>
+
+<p><strong>Example:</strong><br>
+Add the queue configurations and its respective policy:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">resource</span> <span class="s2">"aws_sqs_queue"</span> <span class="s2">"event_queue"</span> <span class="p">{</span>
+  <span class="nx">name</span> <span class="p">=</span> <span class="s2">"event-processing-queue"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_sqs_queue_policy"</span> <span class="s2">"event_queue_policy"</span> <span class="p">{</span>
+  <span class="nx">queue_url</span> <span class="p">=</span> <span class="nx">aws_sqs_queue</span><span class="p">.</span><span class="nx">event_queue</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">policy</span>    <span class="p">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_iam_policy_document</span><span class="p">.</span><span class="nx">sqs_policy</span><span class="p">.</span><span class="nx">json</span>
+<span class="p">}</span>
+
+<span class="nx">data</span> <span class="s2">"aws_iam_policy_document"</span> <span class="s2">"sqs_policy"</span> <span class="p">{</span>
+  <span class="nx">statement</span> <span class="p">{</span>
+    <span class="nx">effect</span>    <span class="p">=</span> <span class="s2">"Allow"</span>
+    <span class="nx">actions</span>   <span class="p">=</span> <span class="p">[</span><span class="s2">"sqs:SendMessage"</span><span class="p">]</span>
+    <span class="nx">resources</span> <span class="p">=</span> <span class="p">[</span><span class="nx">aws_sqs_queue</span><span class="p">.</span><span class="nx">event_queue</span><span class="p">.</span><span class="nx">arn</span><span class="p">]</span>
+
+    <span class="nx">principals</span> <span class="p">{</span>
+      <span class="nx">type</span>        <span class="p">=</span> <span class="s2">"Service"</span>
+      <span class="nx">identifiers</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"events.amazonaws.com"</span><span class="p">]</span>
+    <span class="p">}</span>
+
+    <span class="nx">condition</span> <span class="p">{</span>
+      <span class="nx">test</span>     <span class="p">=</span> <span class="s2">"ArnEquals"</span>
+      <span class="nx">variable</span> <span class="p">=</span> <span class="s2">"aws:SourceArn"</span>
+      <span class="nx">values</span>   <span class="p">=</span> <span class="p">[</span><span class="nx">aws_cloudwatch_event_rule</span><span class="p">.</span><span class="nx">event_rule</span><span class="p">.</span><span class="nx">arn</span><span class="p">]</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="34-developing-the-lambda-function-in-python">3.4 Developing the Lambda Function in Python
+</h3>
+
+<p><strong>What to do:</strong> Write the Python source code that will be executed when an event arrives in the queue.</p>
+
+<p><strong>Why do it:</strong> The Python code represents the business or computational logic that reacts to the event. In this example, we will iterate over the SQS queue records and log the details for visual validation of the architecture's functionality.</p>
+
+<p><strong>Example:</strong><br>
+Create a file named <code>processor.py</code> in the same directory:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="kn">import</span> <span class="n">json</span>
+<span class="kn">import</span> <span class="n">logging</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="p">.</span><span class="nf">getLogger</span><span class="p">()</span>
+<span class="n">logger</span><span class="p">.</span><span class="nf">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="p">.</span><span class="n">INFO</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">lambda_handler</span><span class="p">(</span><span class="n">event</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+    <span class="n">logger</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sh">"</span><span class="s">Starting processing of SQS event batch.</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">event</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">Records</span><span class="sh">'</span><span class="p">,</span> <span class="p">[]):</span>
+        <span class="n">body_string</span> <span class="o">=</span> <span class="n">record</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">,</span> <span class="sh">'</span><span class="s">{}</span><span class="sh">'</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">event_detail</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">body_string</span><span class="p">)</span>
+            <span class="n">logger</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Received event detail: </span><span class="si">{</span><span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">event_detail</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+
+            <span class="c1"># Extracting the payload from EventBridge
+</span>            <span class="n">detail</span> <span class="o">=</span> <span class="n">event_detail</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">detail</span><span class="sh">'</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="n">order_id</span> <span class="o">=</span> <span class="n">detail</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">order_id</span><span class="sh">'</span><span class="p">)</span>
+
+            <span class="n">logger</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Successfully processed order: </span><span class="si">{</span><span class="n">order_id</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="n">json</span><span class="p">.</span><span class="n">JSONDecodeError</span><span class="p">:</span>
+            <span class="n">logger</span><span class="p">.</span><span class="nf">error</span><span class="p">(</span><span class="sh">"</span><span class="s">Error decoding message body as JSON.</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="sh">'</span><span class="s">statusCode</span><span class="sh">'</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span>
+        <span class="sh">'</span><span class="s">body</span><span class="sh">'</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="sh">'</span><span class="s">Processing completed successfully</span><span class="sh">'</span><span class="p">)</span>
+    <span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="35-provisioning-lambda-with-terraform-and-connecting-to-the-queue">3.5 Provisioning Lambda with Terraform and Connecting to the Queue
+</h3>
+
+<p><strong>What to do:</strong> Create the ZIP package of the Python code, define the Lambda function in Terraform, create the execution permission (IAM Role), and map the SQS queue as the Lambda event source.</p>
+
+<p><strong>Why do it:</strong> The infrastructure needs to allocate the code in AWS and provide the exact permissions so the Lambda can read messages from the queue and write logs to CloudWatch, following the principle of least privilege.</p>
+
+<p><strong>Example:</strong><br>
+Add the following code to your <code>main.tf</code>:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">data</span> <span class="s2">"archive_file"</span> <span class="s2">"lambda_zip"</span> <span class="p">{</span>
+  <span class="nx">type</span>        <span class="p">=</span> <span class="s2">"zip"</span>
+  <span class="nx">source_file</span> <span class="p">=</span> <span class="s2">"processor.py"</span>
+  <span class="nx">output_path</span> <span class="p">=</span> <span class="s2">"processor.zip"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_iam_role"</span> <span class="s2">"lambda_exec_role"</span> <span class="p">{</span>
+  <span class="nx">name</span> <span class="p">=</span> <span class="s2">"lambda_sqs_execution_role"</span>
+
+  <span class="nx">assume_role_policy</span> <span class="p">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
+    <span class="nx">Version</span> <span class="p">=</span> <span class="s2">"2012-10-17"</span>
+    <span class="nx">Statement</span> <span class="p">=</span> <span class="p">[{</span>
+      <span class="nx">Action</span> <span class="p">=</span> <span class="s2">"sts:AssumeRole"</span>
+      <span class="nx">Effect</span> <span class="p">=</span> <span class="s2">"Allow"</span>
+      <span class="nx">Principal</span> <span class="p">=</span> <span class="p">{</span>
+        <span class="nx">Service</span> <span class="p">=</span> <span class="s2">"lambda.amazonaws.com"</span>
+      <span class="p">}</span>
+    <span class="p">}]</span>
+  <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_iam_role_policy_attachment"</span> <span class="s2">"lambda_basic_execution"</span> <span class="p">{</span>
+  <span class="nx">role</span>       <span class="p">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">lambda_exec_role</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">policy_arn</span> <span class="p">=</span> <span class="s2">"arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_iam_role_policy_attachment"</span> <span class="s2">"lambda_sqs_execution"</span> <span class="p">{</span>
+  <span class="nx">role</span>       <span class="p">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">lambda_exec_role</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">policy_arn</span> <span class="p">=</span> <span class="s2">"arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"event_processor"</span> <span class="p">{</span>
+  <span class="nx">filename</span>         <span class="p">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">archive_file</span><span class="p">.</span><span class="nx">lambda_zip</span><span class="p">.</span><span class="nx">output_path</span>
+  <span class="nx">function_name</span>    <span class="p">=</span> <span class="s2">"OrderEventProcessor"</span>
+  <span class="nx">role</span>             <span class="p">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">lambda_exec_role</span><span class="p">.</span><span class="nx">arn</span>
+  <span class="nx">handler</span>          <span class="p">=</span> <span class="s2">"processor.lambda_handler"</span>
+  <span class="nx">source_code_hash</span> <span class="p">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">archive_file</span><span class="p">.</span><span class="nx">lambda_zip</span><span class="p">.</span><span class="nx">output_file_base64sha256</span>
+  <span class="nx">runtime</span>          <span class="p">=</span> <span class="s2">"python3.11"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_lambda_event_source_mapping"</span> <span class="s2">"sqs_trigger"</span> <span class="p">{</span>
+  <span class="nx">event_source_arn</span> <span class="p">=</span> <span class="nx">aws_sqs_queue</span><span class="p">.</span><span class="nx">event_queue</span><span class="p">.</span><span class="nx">arn</span>
+  <span class="nx">function_name</span>    <span class="p">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">event_processor</span><span class="p">.</span><span class="nx">arn</span>
+  <span class="nx">batch_size</span>       <span class="p">=</span> <span class="mi">10</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="36-creating-the-routing-rule-in-eventbridge">3.6 Creating the Routing Rule in EventBridge
+</h3>
+
+<p><strong>What to do:</strong> Configure a rule that filters specific events published on the bus and directs them to the SQS queue.</p>
+
+<p><strong>Why do it:</strong> The bus can receive thousands of different events. Rules ensure that the target system (your SQS queue) receives only the events that matter to it, optimizing processing and reducing costs.</p>
+
+<p><strong>Example:</strong><br>
+Complete the <code>main.tf</code> file with the routing configurations:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_rule"</span> <span class="s2">"event_rule"</span> <span class="p">{</span>
+  <span class="nx">name</span>           <span class="p">=</span> <span class="s2">"capture-order-created"</span>
+  <span class="nx">event_bus_name</span> <span class="p">=</span> <span class="nx">aws_cloudwatch_event_bus</span><span class="p">.</span><span class="nx">custom_bus</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">description</span>    <span class="p">=</span> <span class="s2">"Captures order created events"</span>
+
+  <span class="nx">event_pattern</span> <span class="p">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
+    <span class="nx">source</span>      <span class="p">=</span> <span class="p">[</span><span class="s2">"com.mycompany.orders"</span><span class="p">]</span>
+    <span class="nx">detail-type</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"OrderCreated"</span><span class="p">]</span>
+  <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_cloudwatch_event_target"</span> <span class="s2">"sqs_target"</span> <span class="p">{</span>
+  <span class="nx">rule</span>           <span class="p">=</span> <span class="nx">aws_cloudwatch_event_rule</span><span class="p">.</span><span class="nx">event_rule</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">event_bus_name</span> <span class="p">=</span> <span class="nx">aws_cloudwatch_event_bus</span><span class="p">.</span><span class="nx">custom_bus</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">target_id</span>      <span class="p">=</span> <span class="s2">"SendToSQS"</span>
+  <span class="nx">arn</span>            <span class="p">=</span> <span class="nx">aws_sqs_queue</span><span class="p">.</span><span class="nx">event_queue</span><span class="p">.</span><span class="nx">arn</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>To deploy the entire infrastructure, run the commands <code>terraform init</code>, <code>terraform plan</code>, and <code>terraform apply</code> in your terminal.</p>
+
+<h2 id="4-common-troubleshooting">4. Common Troubleshooting
+</h2>
+
+<p>Even with a well-defined script, infrastructure provisioning can encounter obstacles. Below are the most frequent problems and their solutions:</p>
+
+<ol>
+<li><p><strong>Access Denied Permissions on the SQS Queue:</strong><br>
+What is happening: EventBridge cannot deliver messages to the queue.<br>
+How to solve it: Check the <code>aws_sqs_queue_policy</code>. Ensure the EventBridge rule ARN is correct in the security condition. A misconfigured policy will result in the silent discard of events.</p></li>
+<li><p><strong>Lambda is not triggered by SQS messages:</strong><br>
+What is happening: Messages arrive in the queue, but the Python function is not executed.<br>
+How to solve it: Validate if the IAM Role linked to the Lambda (<code>lambda_sqs_execution_role</code>) has the <code>AWSLambdaSQSQueueExecutionRole</code> policy properly attached. Lambda needs read permissions (<code>sqs:ReceiveMessage</code>, <code>sqs:DeleteMessage</code>, <code>sqs:GetQueueAttributes</code>) to consume the data.</p></li>
+<li><p><strong>Event Pattern Incompatibility:</strong><br>
+What is happening: You publish an event to the bus, but it does not appear in the queue.<br>
+How to solve it: Verify the accuracy of the injected JSON. The <code>source</code> and <code>detail-type</code> fields sent by the message producer must perfectly match the values stipulated in the <code>event_pattern</code> block of the Terraform rule. EventBridge is case-sensitive.</p></li>
+</ol>
+
+<h2 id="5-conclusion">5. Conclusion
+</h2>
+
+<p>In this tutorial, we built a robust backbone for an event-driven architecture. We configured the structure in code using Terraform, establishing EventBridge as the intelligent traffic router, SQS as the fault-tolerance layer, and Python Lambda as the scalable processing unit. </p>
+
+<p>Mastering this topology empowers you to integrate microservices safely and cleanly. As next steps, I recommend diving into the implementation of Dead Letter Queues (DLQ) for advanced handling of unresolved failures and exploring how this decoupling architectural pattern translates into the design of complex systems in multicloud scenarios.</p>

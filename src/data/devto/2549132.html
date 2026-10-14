@@ -1,0 +1,184 @@
+<h2 id="o-que-%C3%A9-o-docker-model-runner">🚀 O que é o Docker Model Runner?
+</h2>
+
+<p>O Docker Model Runner é uma funcionalidade introduzida no Docker Desktop (a partir da versão 4.40) que permite executar modelos de IA localmente, utilizando o comando <code>docker model</code>. Ele integra-se diretamente ao ecossistema Docker, oferecendo uma experiência simplificada para desenvolvedores que desejam testar e iterar modelos de IA em seus próprios ambientes.</p>
+
+
+<hr>
+
+<h2 id="como-o-docker-model-runner-pode-ajudar-nas-decis%C3%B5es-de-solu%C3%A7%C3%B5es">🛠️ Como o Docker Model Runner Pode Ajudar nas Decisões de Soluções
+</h2>
+
+<h3 id="1-testes-locais-de-modelos-de-ia">1. <strong>Testes Locais de Modelos de IA</strong>
+</h3>
+
+<p>Com o Docker Model Runner, é possível executar modelos de linguagem localmente, permitindo que desenvolvedores testem e validem soluções de IA sem depender de serviços externos. Isso é particularmente útil para avaliar o comportamento de modelos em diferentes cenários e ajustar parâmetros conforme necessário.</p>
+
+<h3 id="2-integra%C3%A7%C3%A3o-com-fluxos-de-trabalho-existentes">2. <strong>Integração com Fluxos de Trabalho Existentes</strong>
+</h3>
+
+<p>A ferramenta se integra perfeitamente ao Docker Compose, permitindo que modelos de IA sejam executados como parte de aplicações multi-contêiner. Isso facilita a criação de ambientes de desenvolvimento consistentes e reproduzíveis, onde diferentes componentes da aplicação podem interagir com os modelos de IA de forma coordenada.</p>
+
+<h3 id="3-api-compat%C3%ADvel-com-openai">3. <strong>API Compatível com OpenAI</strong>
+</h3>
+
+<p>O Docker Model Runner expõe endpoints compatíveis com a API da OpenAI, permitindo que aplicações existentes que utilizam essa API sejam facilmente adaptadas para interagir com modelos executados localmente. Isso proporciona flexibilidade na escolha entre execução local e serviços em nuvem, dependendo das necessidades específicas do projeto.</p>
+
+<h3 id="4-execu%C3%A7%C3%A3o-sob-demanda-e-gerenciamento-eficiente-de-recursos">4. <strong>Execução Sob Demanda e Gerenciamento Eficiente de Recursos</strong>
+</h3>
+
+<p>Os modelos são carregados na memória apenas quando solicitados e descarregados após um período de inatividade, otimizando o uso de recursos do sistema. Isso permite que desenvolvedores executem modelos de IA em máquinas locais sem comprometer significativamente o desempenho geral do sistema.</p>
+
+<h3 id="resumindo-quando-faz-sentido-usar">Resumindo, Quando faz sentido usar?
+</h3>
+
+<ul>
+<li>Testar e prototipar LLMs sem pagar API externa</li>
+<li>Trabalhar offline (útil pra eventos, workshops, segurança, etc.)</li>
+<li>Integrar IA no seu fluxo local via Docker Compose</li>
+<li>Explorar modelos como se fossem imagens Docker, mas de IA</li>
+</ul>
+
+
+<hr>
+
+<h2 id="integrando-o-docker-model-runner-com-langchain">🔧 Integrando o Docker Model Runner com LangChain
+</h2>
+
+<h3 id="1-pr%C3%A9requisitos">1. <strong>Pré-requisitos</strong>
+</h3>
+
+<ul>
+<li>Docker Desktop 4.40+ (macOS, Windows ou Linux)</li>
+<li>Python 3.8+</li>
+<li><code>pip install langchain_openai</code></li>
+</ul>
+
+<blockquote>
+<p>💡 No Windows é preciso ter uma GPU NVIDIA com CUDA. No macOS, Apple Silicon (M1, M2, etc.). No Linux ainda está em preview (requer <code>docker model</code> via CLI, sem interface).</p>
+</blockquote>
+
+<h3 id="2-ativar-o-docker-model-runner">2. <strong>Ativar o Docker Model Runner</strong>
+</h3>
+
+<p>No Docker Desktop:(<a href="https://m.youtube.com/watch?pp=0gcJCX4JAYcqIYzv&amp;v=3p2uWjFyI1U&amp;utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">YouTube</a>)</p>
+
+<ol>
+<li><p>Abra o <strong>Docker Desktop</strong>.(<a href="https://dev.to/docker/think-fast-code-faster-local-ai-development-with-docker-model-runner-2878?utm_source=chatgpt.com">DEV Community</a>)</p></li>
+<li><p>Vá para <strong>Settings</strong> (Configurações).</p></li>
+<li><p>Clique na aba <strong>Features in development</strong> (Recursos em desenvolvimento).</p></li>
+<li><p>Ative a opção <strong>Enable Docker Model Runner</strong>.</p></li>
+<li><p>Ative também a opção <strong>Enable host-side TCP support</strong> e configure a porta para <strong>12434</strong>.</p></li>
+<li><p>Clique em <strong>Apply &amp; Restart</strong> (Aplicar e Reiniciar).</p></li>
+</ol>
+
+<p>Ou via linha de comando:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>docker desktop <span class="nb">enable </span>model-runner <span class="nt">--tcp</span> 12434
+</code></pre>
+
+</div>
+
+
+
+<h3 id="3-baixar-um-modelo">3. <strong>Baixar um modelo</strong>
+</h3>
+
+<p>Utilize o comando <code>docker model pull</code> para baixar um modelo disponível. Por exemplo:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>docker model pull ai/llama3.2:3B-Q4_K_M
+</code></pre>
+
+</div>
+
+
+
+<h3 id="4-instalar-o-langchain">4. <strong>Instalar o LangChain</strong>
+</h3>
+
+<p>Instale o pacote <code>langchain_openai</code> utilizando o <code>pip</code>:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>pip <span class="nb">install </span>langchain_openai
+</code></pre>
+
+</div>
+
+
+
+<h3 id="5-integrar-o-langchain-com-o-docker-model-runner">5. <strong>Integrar o LangChain com o Docker Model Runner</strong>
+</h3>
+
+<p>Crie um script Python para interagir com o modelo local:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="kn">from</span> <span class="n">langchain_openai</span> <span class="kn">import</span> <span class="n">ChatOpenAI</span>
+
+<span class="n">llm</span> <span class="o">=</span> <span class="nc">ChatOpenAI</span><span class="p">(</span>
+    <span class="n">model</span><span class="o">=</span><span class="sh">"</span><span class="s">ai/llama3.2:3B-Q4_K_M</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">base_url</span><span class="o">=</span><span class="sh">"</span><span class="s">http://localhost:12434/engines/v1</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">api_key</span><span class="o">=</span><span class="sh">"</span><span class="s">ignored</span><span class="sh">"</span>
+<span class="p">)</span>
+
+<span class="n">response</span> <span class="o">=</span> <span class="n">llm</span><span class="p">.</span><span class="nf">invoke</span><span class="p">(</span><span class="sh">"</span><span class="s">Explique o efeito Doppler de forma simples.</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Este script configura o LangChain para se comunicar com o Docker Model Runner através de uma API compatível com a da OpenAI.</p>
+
+<h3 id="6-executar-o-script">6. <strong>Executar o script</strong>
+</h3>
+
+<p>Salve o script acima em um arquivo, por exemplo, <code>teste_modelo.py</code>, e execute-o:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>python teste_modelo.py
+</code></pre>
+
+</div>
+
+
+
+<p>Você verá a resposta gerada pelo modelo diretamente no terminal.</p>
+
+
+<hr>
+
+<h2 id="recursos-adicionais">📚 Recursos Adicionais
+</h2>
+
+<ul>
+<li><p><a href="https://docs.docker.com/model-runner/" target="_blank" rel="noopener noreferrer">Documentação oficial do Docker Model Runner</a></p></li>
+<li><p><a href="https://docs.docker.com/compose/how-tos/model-runner/" target="_blank" rel="noopener noreferrer">Guia de Integração com Docker Compose</a></p></li>
+<li><p><a href="https://dev.to/docker/from-zero-to-local-llm-a-developers-guide-to-docker-model-runner-4oi2">Artigo: From Zero to Local LLM: A Developer's Guide to Docker Model Runner</a></p></li>
+</ul>
+
+
+<hr>
+
+<p>Utilizar o Docker Model Runner em conjunto com o LangChain permite que desenvolvedores testem e integrem modelos de linguagem localmente, facilitando a prototipação e o desenvolvimento de soluções baseadas em IA sem depender de serviços em nuvem.</p>
+
+
+<hr>
+
+<h2 id="curtiu">Curtiu?
+</h2>
+
+<p>Se quiser trocar ideia sobre IA, cloud e arquitetura, me segue nas redes:</p>
+
+<ul>
+<li><a href="https://olink.ai/sertaoseracloud" target="_blank" rel="noopener noreferrer">Redes Sociais</a></li>
+</ul>
+
+<p>Publico conteúdos técnicos direto do campo de batalha. E quando descubro uma ferramenta que economiza tempo e resolve bem, como essa, você fica sabendo também.</p>

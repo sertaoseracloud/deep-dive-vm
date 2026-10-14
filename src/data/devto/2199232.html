@@ -1,0 +1,123 @@
+<h2 id="contexto-a-vis%C3%A3o-geral-do-sistema-original">Contexto: A Visão Geral do Sistema Original
+</h2>
+
+<p>Em um dos meus trabalhos atuei em um sistema de gerenciamento robusto, desenvolvido em Java, integrado ao RabbitMQ e PostgreSQL, com a missão de controlar pagamentos, fretes e estoques de uma plataforma de e-commerce de grande porte. O sistema original, que operava localmente em um data center on-premise, já não estava mais atendendo às crescentes demandas de escalabilidade e confiabilidade. Esse sistema estava enfrentando desafios como alta latência em transações críticas, dificuldades de manutenção e um aumento nos custos operacionais com o crescimento das cargas de trabalho.</p>
+
+<p>O objetivo dessa migração era não apenas mover o sistema para a nuvem, mas também melhorar a arquitetura para torná-la mais escalável, resiliente e eficiente. A escolha da Azure como plataforma de nuvem foi motivada pela sua capacidade de atender às necessidades específicas de uma arquitetura moderna e robusta, ao mesmo tempo, em que oferece suporte às melhores práticas de segurança, governança e otimização de custos, conforme descrito no Azure Well-Architected Framework.</p>
+
+<h2 id="contexto-do-sistema-o-novo-modelo-na-azure">Contexto do Sistema: O Novo Modelo na Azure
+</h2>
+
+<h2 id="vis%C3%A3o-geral">Visão Geral
+</h2>
+
+<p>O novo sistema foi concebido para ser altamente escalável, resiliente e fácil de gerenciar, utilizando os princípios do Azure Well-Architected Framework. A arquitetura foi projetada para lidar com o aumento do tráfego, garantir alta disponibilidade e reduzir custos operacionais. A migração para a Azure não significava apenas mover os componentes existentes, mas também revisar e modernizar a arquitetura para garantir que o sistema fosse ágil, seguro e eficiente.</p>
+
+<p>A arquitetura foi planejada em quatro níveis do C4 Model, com ênfase em uma visão clara do contexto, dos contêineres, dos componentes e do código. Isso garantiria que todos os stakeholders – de engenheiros a gestores – estivessem alinhados em relação aos objetivos de escalabilidade e confiabilidade do novo sistema.</p>
+
+<h2 id="contexto-context-diagram">Contexto (Context Diagram)
+</h2>
+
+<p>O diagrama de contexto ilustra o sistema de gerenciamento de pagamentos, fretes e estoques como um todo. O sistema interage com vários componentes externos, como clientes, sistemas de pagamento e plataformas de transporte. Este diagrama foca em como os usuários e sistemas externos interagem com o sistema.</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fhgyrd56qy819h69sgngm.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fhgyrd56qy819h69sgngm.png" alt="Contexto" loading="lazy" width="800" height="458"></a></p>
+
+<p>O novo sistema foi dividido em três áreas principais de negócios:</p>
+
+<ol>
+<li>Gestão de Pagamentos: Processa transações financeiras utilizando uma integração com gateways de pagamento e outros serviços financeiros externos.</li>
+<li>Gestão de Frete: Interage com provedores de logística para calcular e monitorar o status de entrega de pedidos.</li>
+<li>Gestão de Estoques: Monitora os níveis de estoque e gera alertas automáticos quando os itens estão próximos da escassez.</li>
+</ol>
+
+<p>Cada uma dessas áreas foi tratada como um microserviço separado, facilitando a escalabilidade independente e o gerenciamento simplificado. O diagrama de contexto se concentra nas interações entre esses serviços e as plataformas externas, como os sistemas de pagamento, de frete e os serviços do usuário.</p>
+
+<h2 id="cont%C3%AAineres-container-diagram">Contêineres (Container Diagram)
+</h2>
+
+<p>O diagrama de contêiner foca nos principais contêineres de software dentro da arquitetura. Cada serviço foi transformado em um contêiner de aplicação separado, aproveitando os recursos de containerização do Kubernetes na Azure. O RabbitMQ foi substituído por um Azure Service Bus para melhorar a comunicação assíncrona, enquanto o PostgreSQL foi migrado para Azure Database for PostgreSQL, com otimizações para garantir maior disponibilidade e escalabilidade.</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fk38mvf9gzsburlqip0l0.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fk38mvf9gzsburlqip0l0.png" alt="Contêineres" loading="lazy" width="800" height="483"></a></p>
+
+<p>Os principais contêineres incluem:</p>
+
+<ol>
+<li>Frontend Web (App): Uma aplicação web que interage com os usuários para gerenciar pedidos, pagamentos, fretes e estoque. Essa aplicação foi movida para o Azure App Service.</li>
+<li>API Gateway: Um serviço que gerencia o roteamento das requisições para os microserviços específicos de pagamento, frete e estoque. Utiliza o Azure API Management para gerenciar a segurança, autenticação e controle de tráfego.</li>
+<li>Microserviço de Pagamento: Responsável por processar e validar transações financeiras. Ele foi reestruturado para se comunicar com os gateways de pagamento e realizar transações de forma segura. Foi hospedado no Azure Kubernetes Service (AKS).</li>
+<li>Microserviço de Frete: Responsável por calcular o custo de frete e acompanhar o status das entregas. Este serviço se comunica com provedores externos de logística via APIs RESTful e foi hospedado em contêineres no AKS.</li>
+<li>Microserviço de Estoque: Responsável por controlar o inventário, emitir alertas de estoque baixo e comunicar-se com os sistemas de vendas para garantir que os produtos estejam disponíveis para os clientes. Este serviço também foi movido para o AKS.</li>
+<li>Banco de Dados PostgreSQL: O banco de dados foi migrado para Azure Database for PostgreSQL, oferecendo alta disponibilidade e backup automático. A migração foi realizada com a ajuda da ferramenta Azure Database Migration Service.</li>
+<li>Service Bus (RabbitMQ substituído por Azure Service Bus): Gerencia as filas de mensagens assíncronas entre os microsserviços, garantindo que as transações e os processos de negócios ocorram de maneira eficiente e resiliente.</li>
+</ol>
+
+<h2 id="componente-component-diagram">Componente (Component Diagram)
+</h2>
+
+<p>O diagrama de componentes foca na arquitetura interna de cada um dos microserviços. Cada componente é representado como uma unidade de software autônoma e de fácil escalabilidade.</p>
+
+<h2 id="microsservi%C3%A7o-de-pagamento">Microsserviço de Pagamento
+</h2>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F4lc8gd1b542wiz8rnjx5.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F4lc8gd1b542wiz8rnjx5.png" alt="Microsserviço de Pagamento" loading="lazy" width="800" height="575"></a></p>
+
+<p>Os principais componentes incluem:</p>
+
+<ol>
+<li>Componente de Processamento de Pagamentos: Responsável por se comunicar com o gateway de pagamento, validando e processando os pagamentos. Utiliza o Azure Key Vault para armazenar credenciais e informações sensíveis de forma segura.</li>
+<li>Componente de Notificação: Envia notificações ao cliente e ao administrador sobre o status do pagamento.</li>
+</ol>
+
+<h2 id="microservi%C3%A7o-de-frete">Microserviço de Frete
+</h2>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Ftkv12xl576yxl3mj4q80.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Ftkv12xl576yxl3mj4q80.png" alt="Microserviço de Frete" loading="lazy" width="800" height="692"></a></p>
+
+<p>Os principais componentes incluem:</p>
+
+<ol>
+<li>Componente de Cálculo de Frete: Interage com APIs externas para calcular o custo do frete com base no peso, destino e outras variáveis. Foi adaptado para utilizar o Azure Logic Apps para integrar-se com os serviços de terceiros.</li>
+<li>Componente de Rastreamento: Monitora o status de entrega dos pedidos e atualiza os clientes automaticamente via Azure Functions.</li>
+</ol>
+
+<h2 id="microservi%C3%A7o-de-estoque">Microserviço de Estoque
+</h2>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fzya9nttr3a35k8x4lucp.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fzya9nttr3a35k8x4lucp.png" alt="Microserviço de Estoque" loading="lazy" width="800" height="691"></a></p>
+
+<p>Os principais componentes incluem:</p>
+
+<p>Componente de Controle de Inventário: Responsável por monitorar e ajustar os níveis de estoque. Integra-se com os sistemas de vendas para garantir que os produtos não se esgotem sem uma reposição programada.<br>
+Componente de Alertas: Gera alertas para os responsáveis de reposição de estoque quando os níveis atingem o mínimo.</p>
+
+<h2 id="c%C3%B3digo-code-diagram">Código (Code Diagram)
+</h2>
+
+<h2 id="microservi%C3%A7o-de-pagamento">Microserviço de Pagamento:
+</h2>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fo0rl7v75p1kt1ew0rax6.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fo0rl7v75p1kt1ew0rax6.png" alt="Microserviço de Pagamento" loading="lazy" width="800" height="484"></a></p>
+
+<h2 id="microservi%C3%A7o-de-frete">Microserviço de Frete:
+</h2>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fqkijljsfepzmnbazmcge.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fqkijljsfepzmnbazmcge.png" alt="Microserviço de Frete" loading="lazy" width="800" height="529"></a></p>
+
+<h2 id="microservi%C3%A7o-de-estoque">Microserviço de Estoque:
+</h2>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F9hv30cfloodl08kn9uxc.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F9hv30cfloodl08kn9uxc.png" alt="Microserviço de Estoque" loading="lazy" width="800" height="516"></a></p>
+
+<h2 id="conclus%C3%A3o-melhorias-e-resultados-da-migra%C3%A7%C3%A3o">Conclusão: Melhorias e Resultados da Migração
+</h2>
+
+<p>A migração do sistema para a Azure trouxe várias melhorias significativas:</p>
+
+<ol>
+<li>Escalabilidade: O uso de Azure Kubernetes Service (AKS) e Azure App Service permitiu que cada microserviço fosse escalado independentemente, de acordo com a carga de trabalho, garantindo que o sistema pudesse lidar com picos de tráfego sem problemas.</li>
+<li>Resiliência: A utilização do Azure Service Bus para mensagens assíncronas e o Azure Database for PostgreSQL com alta disponibilidade garantiram que o sistema fosse mais resiliente a falhas e quedas.</li>
+<li>Custos Otimizados: A migração para a nuvem permitiu a otimização de custos por meio do modelo de pagamento conforme o uso, além de reduzir os custos de infraestrutura e manutenção de servidores físicos.</li>
+<li>Segurança: O uso de Azure Key Vault para o armazenamento seguro de credenciais e a implementação de práticas de segurança como autenticação multifatorial (MFA) e controle de acesso rigoroso aumentaram a segurança geral do sistema.</li>
+</ol>
+
+<p>Com o uso das melhores práticas do Azure Well-Architected Framework e a implementação do C4 Model, a migração não apenas modernizou a arquitetura, mas também garantiu um sistema mais confiável, escalável e seguro.</p>

@@ -1,0 +1,342 @@
+<p>A autenticação baseada em códigos de uso único (OTPs) é uma estratégia eficaz para reforçar a segurança das aplicações. Neste artigo, vamos desenvolver uma solução simples utilizando a infraestrutura serverless da Azure e o poder do TypeScript para gerar e validar OTPs. A proposta é mostrar, passo a passo, a criação das funções, a integração com serviços de envio de mensagens e o deploy na Azure.</p>
+
+
+<hr>
+
+<h2 id="1-arquitetura-da-solu%C3%A7%C3%A3o">1. Arquitetura da Solução
+</h2>
+
+<p>A solução é composta pelos seguintes componentes:</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F30rk94rcecyz30ktpdv7.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F30rk94rcecyz30ktpdv7.png" alt="Diagrama de Sequência" loading="lazy" width="800" height="450"></a></p>
+
+<ul>
+<li>
+<strong>Azure Functions (TypeScript):</strong> Responsáveis por gerar e validar os códigos via HTTP Trigger.
+</li>
+<li>
+<strong>Azure Key Vault (ou variáveis de ambiente):</strong> Armazena de forma segura o segredo utilizado na criação dos OTPs.
+</li>
+<li>
+<strong>Serviço de Envio de Mensagens:</strong> Utilizado para disparar o OTP por e-mail (por exemplo, via SendGrid).
+</li>
+<li>
+<strong>Armazenamento (opcional):</strong> Pode ser usado para registrar tentativas e controlar expirações, com Azure Table Storage ou Cosmos DB.
+</li>
+<li>
+<strong>Frontend (opcional):</strong> Uma interface simples para solicitar e validar o OTP.</li>
+</ul>
+
+<p>Essa arquitetura permite a escalabilidade automática e o gerenciamento simplificado da infraestrutura.</p>
+
+
+<hr>
+
+<h2 id="2-configura%C3%A7%C3%A3o-do-ambiente-de-desenvolvimento">2. Configuração do Ambiente de Desenvolvimento
+</h2>
+
+<p>Para iniciar, siga estes passos:</p>
+
+<ol>
+<li>Instale o <a href="https://nodejs.org" target="_blank" rel="noopener noreferrer">Node.js</a> e o <a href="https://learn.microsoft.com/azure/azure-functions/functions-run-local" target="_blank" rel="noopener noreferrer">Azure Functions Core Tools</a>.
+</li>
+<li>Crie um novo projeto de Azure Functions com TypeScript:
+</li>
+</ol>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>   func init meu-projeto-otp <span class="nt">--typescript</span>
+   <span class="nb">cd </span>meu-projeto-otp
+   func new <span class="nt">--name</span> gerarOtp <span class="nt">--template</span> <span class="s2">"HTTP trigger"</span> <span class="nt">--authlevel</span> <span class="s2">"anonymous"</span>
+   func new <span class="nt">--name</span> validarOtp <span class="nt">--template</span> <span class="s2">"HTTP trigger"</span> <span class="nt">--authlevel</span> <span class="s2">"anonymous"</span>
+</code></pre>
+
+</div>
+
+
+
+<ol>
+<li>Instale as dependências necessárias:
+</li>
+</ol>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>   npm <span class="nb">install </span>otplib @sendgrid/mail
+</code></pre>
+
+</div>
+
+
+
+<ol>
+<li>Configure as variáveis de ambiente (utilize o arquivo <code>local.settings.json</code> ou defina-as no portal da Azure). Por exemplo:
+</li>
+</ol>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json"><code><span class="w">   </span><span class="p">{</span><span class="w">
+     </span><span class="nl">"IsEncrypted"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w">
+     </span><span class="nl">"Values"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+       </span><span class="nl">"AzureWebJobsStorage"</span><span class="p">:</span><span class="w"> </span><span class="s2">"UseDevelopmentStorage=true"</span><span class="p">,</span><span class="w">
+       </span><span class="nl">"FUNCTIONS_WORKER_RUNTIME"</span><span class="p">:</span><span class="w"> </span><span class="s2">"node"</span><span class="p">,</span><span class="w">
+       </span><span class="nl">"OTP_SECRET"</span><span class="p">:</span><span class="w"> </span><span class="s2">"seuSegredoSuperSeguro"</span><span class="p">,</span><span class="w">
+       </span><span class="nl">"SENDGRID_API_KEY"</span><span class="p">:</span><span class="w"> </span><span class="s2">"suaChaveSendGrid"</span><span class="w">
+     </span><span class="p">}</span><span class="w">
+   </span><span class="p">}</span><span class="w">
+</span></code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="3-fun%C3%A7%C3%A3o-para-gera%C3%A7%C3%A3o-de-otp">3. Função para Geração de OTP
+</h2>
+
+<p>Nesta função, a biblioteca <code>otplib</code> é utilizada para gerar um código OTP com validade de 5 minutos, enquanto o SendGrid é acionado para enviar o código por e-mail. O código foi escrito de forma clara e objetiva.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="c1">// src/gerarOtp/index.ts</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">AzureFunction</span><span class="p">,</span> <span class="nx">Context</span><span class="p">,</span> <span class="nx">HttpRequest</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@azure/functions</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">totp</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">otplib</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="nx">sgMail</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@sendgrid/mail</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">gerarOtp</span><span class="p">:</span> <span class="nx">AzureFunction</span> <span class="o">=</span> <span class="k">async </span><span class="p">(</span><span class="nx">context</span><span class="p">:</span> <span class="nx">Context</span><span class="p">,</span> <span class="nx">req</span><span class="p">:</span> <span class="nx">HttpRequest</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="na">email</span><span class="p">:</span> <span class="kr">string</span> <span class="o">|</span> <span class="kc">undefined</span> <span class="o">=</span> <span class="nx">req</span><span class="p">.</span><span class="nx">body</span><span class="p">?.</span><span class="nx">email</span><span class="p">;</span>
+  <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">email</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span> <span class="na">status</span><span class="p">:</span> <span class="mi">400</span><span class="p">,</span> <span class="na">body</span><span class="p">:</span> <span class="dl">"</span><span class="s2">E-mail é obrigatório.</span><span class="dl">"</span> <span class="p">};</span>
+    <span class="k">return</span><span class="p">;</span>
+  <span class="p">}</span>
+
+  <span class="c1">// Recupera o segredo para geração do OTP</span>
+  <span class="kd">const</span> <span class="na">secret</span><span class="p">:</span> <span class="kr">string</span> <span class="o">=</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">OTP_SECRET</span> <span class="o">||</span> <span class="dl">""</span><span class="p">;</span>
+  <span class="nx">totp</span><span class="p">.</span><span class="nx">options</span> <span class="o">=</span> <span class="p">{</span> <span class="na">step</span><span class="p">:</span> <span class="mi">300</span> <span class="p">};</span> <span class="c1">// Código válido por 5 minutos</span>
+  <span class="kd">const</span> <span class="na">token</span><span class="p">:</span> <span class="kr">string</span> <span class="o">=</span> <span class="nx">totp</span><span class="p">.</span><span class="nf">generate</span><span class="p">(</span><span class="nx">secret</span><span class="p">);</span>
+
+  <span class="c1">// Configura o SendGrid com a API key</span>
+  <span class="nx">sgMail</span><span class="p">.</span><span class="nf">setApiKey</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">SENDGRID_API_KEY</span> <span class="o">||</span> <span class="dl">""</span><span class="p">);</span>
+  <span class="kd">const</span> <span class="nx">msg</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="na">to</span><span class="p">:</span> <span class="nx">email</span><span class="p">,</span>
+    <span class="na">from</span><span class="p">:</span> <span class="dl">"</span><span class="s2">nao-responda@seusistema.com</span><span class="dl">"</span><span class="p">,</span>
+    <span class="na">subject</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Seu código OTP</span><span class="dl">"</span><span class="p">,</span>
+    <span class="na">text</span><span class="p">:</span> <span class="s2">`Seu OTP é: </span><span class="p">${</span><span class="nx">token</span><span class="p">}</span><span class="s2">\nExpira em 5 minutos.`</span>
+  <span class="p">};</span>
+
+  <span class="k">try</span> <span class="p">{</span>
+    <span class="k">await</span> <span class="nx">sgMail</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="nx">msg</span><span class="p">);</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span> <span class="na">status</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span> <span class="na">body</span><span class="p">:</span> <span class="dl">"</span><span class="s2">OTP enviado com sucesso.</span><span class="dl">"</span> <span class="p">};</span>
+  <span class="p">}</span> <span class="k">catch </span><span class="p">(</span><span class="nx">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">Erro ao enviar OTP:</span><span class="dl">"</span><span class="p">,</span> <span class="nx">error</span><span class="p">);</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span> <span class="na">status</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span> <span class="na">body</span><span class="p">:</span> <span class="s2">`Erro ao enviar OTP: </span><span class="p">${</span><span class="nx">error</span><span class="p">}</span><span class="s2">`</span> <span class="p">};</span>
+  <span class="p">}</span>
+<span class="p">};</span>
+
+<span class="k">export</span> <span class="k">default</span> <span class="nx">gerarOtp</span><span class="p">;</span>
+</code></pre>
+
+</div>
+
+
+
+<h2 id="4-fun%C3%A7%C3%A3o-para-valida%C3%A7%C3%A3o-de-otp">4. Função para Validação de OTP
+</h2>
+
+<p>Nesta função de validação, o código informado pelo usuário é comparado com o código gerado com o mesmo segredo. A resposta é enviada de acordo com o resultado da validação.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="c1">// src/validarOtp/index.ts</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">AzureFunction</span><span class="p">,</span> <span class="nx">Context</span><span class="p">,</span> <span class="nx">HttpRequest</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@azure/functions</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">totp</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">otplib</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">validarOtp</span><span class="p">:</span> <span class="nx">AzureFunction</span> <span class="o">=</span> <span class="k">async </span><span class="p">(</span><span class="nx">context</span><span class="p">:</span> <span class="nx">Context</span><span class="p">,</span> <span class="nx">req</span><span class="p">:</span> <span class="nx">HttpRequest</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="p">{</span> <span class="nx">email</span><span class="p">,</span> <span class="nx">codigo</span> <span class="p">}</span> <span class="o">=</span> <span class="nx">req</span><span class="p">.</span><span class="nx">body</span><span class="p">;</span>
+  <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">email</span> <span class="o">||</span> <span class="o">!</span><span class="nx">codigo</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span> <span class="na">status</span><span class="p">:</span> <span class="mi">400</span><span class="p">,</span> <span class="na">body</span><span class="p">:</span> <span class="dl">"</span><span class="s2">E-mail e código são obrigatórios.</span><span class="dl">"</span> <span class="p">};</span>
+    <span class="k">return</span><span class="p">;</span>
+  <span class="p">}</span>
+
+  <span class="kd">const</span> <span class="na">secret</span><span class="p">:</span> <span class="kr">string</span> <span class="o">=</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">OTP_SECRET</span> <span class="o">||</span> <span class="dl">""</span><span class="p">;</span>
+  <span class="kd">const</span> <span class="na">isValid</span><span class="p">:</span> <span class="nx">boolean</span> <span class="o">=</span> <span class="nx">totp</span><span class="p">.</span><span class="nf">check</span><span class="p">(</span><span class="nx">codigo</span><span class="p">,</span> <span class="nx">secret</span><span class="p">);</span>
+
+  <span class="k">if </span><span class="p">(</span><span class="nx">isValid</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span> <span class="na">status</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span> <span class="na">body</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Código validado com sucesso. Acesso autorizado!</span><span class="dl">"</span> <span class="p">};</span>
+  <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span> <span class="na">status</span><span class="p">:</span> <span class="mi">401</span><span class="p">,</span> <span class="na">body</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Código inválido ou expirado.</span><span class="dl">"</span> <span class="p">};</span>
+  <span class="p">}</span>
+<span class="p">};</span>
+
+<span class="k">export</span> <span class="k">default</span> <span class="nx">validarOtp</span><span class="p">;</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="5-exemplo-de-frontend-para-teste">5. Exemplo de Frontend para Teste
+</h2>
+
+<p>A seguir, um exemplo simples de interface em HTML e TypeScript para testar as funções de geração e validação do OTP.</p>
+
+<h3 id="html-indexhtml">HTML (index.html)
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight html"><code><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="nt">&lt;html</span> <span class="na">lang=</span><span class="s">"pt-BR"</span><span class="nt">&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+  <span class="nt">&lt;meta</span> <span class="na">charset=</span><span class="s">"UTF-8"</span> <span class="nt">/&gt;</span>
+  <span class="nt">&lt;title&gt;</span>Teste OTP<span class="nt">&lt;/title&gt;</span>
+  <span class="nt">&lt;style&gt;</span>
+    <span class="nt">body</span> <span class="p">{</span> <span class="nl">font-family</span><span class="p">:</span> <span class="n">Arial</span><span class="p">,</span> <span class="nb">sans-serif</span><span class="p">;</span> <span class="nl">max-width</span><span class="p">:</span> <span class="m">600px</span><span class="p">;</span> <span class="nl">margin</span><span class="p">:</span> <span class="m">40px</span> <span class="nb">auto</span><span class="p">;</span> <span class="p">}</span>
+    <span class="nt">form</span> <span class="p">{</span> <span class="nl">margin-bottom</span><span class="p">:</span> <span class="m">20px</span><span class="p">;</span> <span class="p">}</span>
+    <span class="nt">input</span> <span class="p">{</span> <span class="nl">padding</span><span class="p">:</span> <span class="m">8px</span><span class="p">;</span> <span class="nl">margin</span><span class="p">:</span> <span class="m">4px</span> <span class="m">0</span><span class="p">;</span> <span class="nl">width</span><span class="p">:</span> <span class="m">100%</span><span class="p">;</span> <span class="p">}</span>
+    <span class="nt">button</span> <span class="p">{</span> <span class="nl">padding</span><span class="p">:</span> <span class="m">10px</span> <span class="m">20px</span><span class="p">;</span> <span class="p">}</span>
+  <span class="nt">&lt;/style&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;body&gt;</span>
+  <span class="nt">&lt;h2&gt;</span>Solicitar OTP<span class="nt">&lt;/h2&gt;</span>
+  <span class="nt">&lt;form</span> <span class="na">id=</span><span class="s">"otpForm"</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"email"</span> <span class="na">id=</span><span class="s">"email"</span> <span class="na">placeholder=</span><span class="s">"Seu e-mail"</span> <span class="na">required</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;button</span> <span class="na">type=</span><span class="s">"submit"</span><span class="nt">&gt;</span>Enviar OTP<span class="nt">&lt;/button&gt;</span>
+  <span class="nt">&lt;/form&gt;</span>
+
+  <span class="nt">&lt;h2&gt;</span>Validar OTP<span class="nt">&lt;/h2&gt;</span>
+  <span class="nt">&lt;form</span> <span class="na">id=</span><span class="s">"validarForm"</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"text"</span> <span class="na">id=</span><span class="s">"codigo"</span> <span class="na">placeholder=</span><span class="s">"Digite o OTP"</span> <span class="na">required</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;button</span> <span class="na">type=</span><span class="s">"submit"</span><span class="nt">&gt;</span>Validar<span class="nt">&lt;/button&gt;</span>
+  <span class="nt">&lt;/form&gt;</span>
+
+  <span class="nt">&lt;script </span><span class="na">type=</span><span class="s">"module"</span> <span class="na">src=</span><span class="s">"main.js"</span><span class="nt">&gt;&lt;/script&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+
+</code></pre>
+
+</div>
+
+
+
+<h3 id="typescript-maints">TypeScript (main.ts)
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="kd">const</span> <span class="nx">requestOTP</span> <span class="o">=</span> <span class="k">async </span><span class="p">(</span><span class="nx">email</span><span class="p">:</span> <span class="kr">string</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="nx">response</span> <span class="o">=</span> <span class="k">await</span> <span class="nf">fetch</span><span class="p">(</span><span class="dl">"</span><span class="s2">/api/gerarOtp</span><span class="dl">"</span><span class="p">,</span> <span class="p">{</span>
+    <span class="na">method</span><span class="p">:</span> <span class="dl">"</span><span class="s2">POST</span><span class="dl">"</span><span class="p">,</span>
+    <span class="na">headers</span><span class="p">:</span> <span class="p">{</span> <span class="dl">"</span><span class="s2">Content-Type</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">application/json</span><span class="dl">"</span> <span class="p">},</span>
+    <span class="na">body</span><span class="p">:</span> <span class="nx">JSON</span><span class="p">.</span><span class="nf">stringify</span><span class="p">({</span> <span class="nx">email</span> <span class="p">})</span>
+  <span class="p">});</span>
+  <span class="kd">const</span> <span class="nx">result</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">response</span><span class="p">.</span><span class="nf">text</span><span class="p">();</span>
+  <span class="nf">alert</span><span class="p">(</span><span class="nx">result</span><span class="p">);</span>
+<span class="p">};</span>
+
+<span class="kd">const</span> <span class="nx">validarOTP</span> <span class="o">=</span> <span class="k">async </span><span class="p">(</span><span class="nx">email</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">codigo</span><span class="p">:</span> <span class="kr">string</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="nx">response</span> <span class="o">=</span> <span class="k">await</span> <span class="nf">fetch</span><span class="p">(</span><span class="dl">"</span><span class="s2">/api/validarOtp</span><span class="dl">"</span><span class="p">,</span> <span class="p">{</span>
+    <span class="na">method</span><span class="p">:</span> <span class="dl">"</span><span class="s2">POST</span><span class="dl">"</span><span class="p">,</span>
+    <span class="na">headers</span><span class="p">:</span> <span class="p">{</span> <span class="dl">"</span><span class="s2">Content-Type</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">application/json</span><span class="dl">"</span> <span class="p">},</span>
+    <span class="na">body</span><span class="p">:</span> <span class="nx">JSON</span><span class="p">.</span><span class="nf">stringify</span><span class="p">({</span> <span class="nx">email</span><span class="p">,</span> <span class="nx">codigo</span> <span class="p">})</span>
+  <span class="p">});</span>
+  <span class="kd">const</span> <span class="nx">result</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">response</span><span class="p">.</span><span class="nf">text</span><span class="p">();</span>
+  <span class="nf">alert</span><span class="p">(</span><span class="nx">result</span><span class="p">);</span>
+<span class="p">};</span>
+
+<span class="nb">document</span><span class="p">.</span><span class="nf">getElementById</span><span class="p">(</span><span class="dl">"</span><span class="s2">otpForm</span><span class="dl">"</span><span class="p">)?.</span><span class="nf">addEventListener</span><span class="p">(</span><span class="dl">"</span><span class="s2">submit</span><span class="dl">"</span><span class="p">,</span> <span class="p">(</span><span class="nx">event</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="nx">event</span><span class="p">.</span><span class="nf">preventDefault</span><span class="p">();</span>
+  <span class="kd">const</span> <span class="nx">email</span> <span class="o">=</span> <span class="p">(</span><span class="nb">document</span><span class="p">.</span><span class="nf">getElementById</span><span class="p">(</span><span class="dl">"</span><span class="s2">email</span><span class="dl">"</span><span class="p">)</span> <span class="k">as</span> <span class="nx">HTMLInputElement</span><span class="p">).</span><span class="nx">value</span><span class="p">;</span>
+  <span class="nf">requestOTP</span><span class="p">(</span><span class="nx">email</span><span class="p">);</span>
+<span class="p">});</span>
+
+<span class="nb">document</span><span class="p">.</span><span class="nf">getElementById</span><span class="p">(</span><span class="dl">"</span><span class="s2">validarForm</span><span class="dl">"</span><span class="p">)?.</span><span class="nf">addEventListener</span><span class="p">(</span><span class="dl">"</span><span class="s2">submit</span><span class="dl">"</span><span class="p">,</span> <span class="p">(</span><span class="nx">event</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="nx">event</span><span class="p">.</span><span class="nf">preventDefault</span><span class="p">();</span>
+  <span class="kd">const</span> <span class="nx">email</span> <span class="o">=</span> <span class="p">(</span><span class="nb">document</span><span class="p">.</span><span class="nf">getElementById</span><span class="p">(</span><span class="dl">"</span><span class="s2">email</span><span class="dl">"</span><span class="p">)</span> <span class="k">as</span> <span class="nx">HTMLInputElement</span><span class="p">).</span><span class="nx">value</span><span class="p">;</span>
+  <span class="kd">const</span> <span class="nx">codigo</span> <span class="o">=</span> <span class="p">(</span><span class="nb">document</span><span class="p">.</span><span class="nf">getElementById</span><span class="p">(</span><span class="dl">"</span><span class="s2">codigo</span><span class="dl">"</span><span class="p">)</span> <span class="k">as</span> <span class="nx">HTMLInputElement</span><span class="p">).</span><span class="nx">value</span><span class="p">;</span>
+  <span class="nf">validarOTP</span><span class="p">(</span><span class="nx">email</span><span class="p">,</span> <span class="nx">codigo</span><span class="p">);</span>
+<span class="p">});</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Compile o arquivo TypeScript usando o compilador (<code>tsc</code>) para gerar o <code>main.js</code> que será referenciado pelo HTML.</p>
+
+
+<hr>
+
+<h2 id="6-deploy-com-azure-cli">6. Deploy com Azure CLI
+</h2>
+
+<p>Para realizar o deploy da aplicação, utilize os seguintes comandos com o Azure CLI:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code><span class="c"># Cria o grupo de recursos</span>
+az group create <span class="nt">--name</span> otp-rg <span class="nt">--location</span> eastus
+
+<span class="c"># Cria a conta de armazenamento (lembre-se de utilizar um nome único)</span>
+az storage account create <span class="nt">--name</span> otparmazem <span class="nt">--location</span> eastus <span class="nt">--resource-group</span> otp-rg <span class="nt">--sku</span> Standard_LRS
+
+<span class="c"># Cria a Function App utilizando o runtime Node.js</span>
+az functionapp create <span class="se">\</span>
+  <span class="nt">--resource-group</span> otp-rg <span class="se">\</span>
+  <span class="nt">--consumption-plan-location</span> eastus <span class="se">\</span>
+  <span class="nt">--runtime</span> node <span class="se">\</span>
+  <span class="nt">--functions-version</span> 4 <span class="se">\</span>
+  <span class="nt">--name</span> otp-func-app <span class="se">\</span>
+  <span class="nt">--storage-account</span> otparmazem
+
+<span class="c"># Configure as variáveis de ambiente</span>
+az functionapp config appsettings <span class="nb">set</span> <span class="se">\</span>
+  <span class="nt">--name</span> otp-func-app <span class="se">\</span>
+  <span class="nt">--resource-group</span> otp-rg <span class="se">\</span>
+  <span class="nt">--settings</span> <span class="nv">OTP_SECRET</span><span class="o">=</span>seuSegredo <span class="nv">SENDGRID_API_KEY</span><span class="o">=</span>suaChave
+</code></pre>
+
+</div>
+
+
+
+<p>Esses comandos automatizam a criação dos recursos e a configuração do ambiente de forma segura.</p>
+
+
+<hr>
+
+<h2 id="7-considera%C3%A7%C3%B5es-finais">7. Considerações Finais
+</h2>
+
+<ul>
+<li>Utilize HTTPS em todas as comunicações.
+</li>
+<li>Gerencie os segredos com cuidado, preferencialmente usando o Azure Key Vault.
+</li>
+<li>Implemente limites para o número de tentativas de validação para evitar ataques de força bruta.
+</li>
+<li>Considere integrar soluções de monitoramento, como o Application Insights, para acompanhar o desempenho e registrar eventuais falhas.</li>
+</ul>
+
+<p>A implementação apresentada demonstra como um sistema de OTP pode ser construído de forma simples e segura utilizando Azure Functions com TypeScript. Essa abordagem permite a criação de soluções escaláveis sem sobrecarregar a infraestrutura. Experimente expandir este exemplo, integrando recursos adicionais conforme as necessidades do seu projeto.</p>
+
+
+<hr>
+
+<h2 id="curtiu">Curtiu?
+</h2>
+
+<p>Se quiser trocar ideia sobre IA, cloud e arquitetura, me segue nas redes:</p>
+
+<ul>
+<li><a href="https://olink.ai/sertaoseracloud" target="_blank" rel="noopener noreferrer">Redes Sociais</a></li>
+</ul>
+
+<p>Publico conteúdos técnicos direto do campo de batalha. E quando descubro uma ferramenta que economiza tempo e resolve bem, como essa, você fica sabendo também.</p>

@@ -1,0 +1,295 @@
+/* Página de um artigo do blog (src/pages/blog/[slug].astro). Usa só os
+   tokens do Layout, para valer nos 4 temas do painel ♿. */
+
+.artigo {
+  position: relative;
+  z-index: 1;
+  max-width: 76ch;
+  margin: 0 auto;
+  padding: 32px 24px 96px;
+  color: var(--texto-secundario);
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+
+.artigo-trilha a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--texto-terciario);
+  font-size: 0.9375rem;
+  text-decoration: none;
+}
+
+.artigo-trilha a:hover {
+  color: var(--nucleo-eletrico);
+}
+
+.artigo-cabecalho {
+  margin: 8px 0 24px;
+}
+
+.artigo-meta {
+  margin: 0 0 8px;
+  font-size: 0.875rem;
+  color: var(--texto-terciario);
+}
+
+.artigo h1 {
+  margin: 0 0 16px;
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  line-height: 1.15;
+  color: var(--texto-principal);
+}
+
+.artigo-resumo {
+  margin: 0 0 16px;
+  font-size: 1.1875rem;
+  line-height: 1.6;
+}
+
+.artigo-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.artigo-tags li {
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.artigo-origem {
+  margin: 0;
+  padding: 12px 16px;
+  border-left: 3px solid var(--nucleo-eletrico);
+  background: rgb(var(--rgb-cartao) / 0.6);
+  border-radius: 0 8px 8px 0;
+  font-size: 0.9375rem;
+}
+
+.artigo a {
+  color: var(--nucleo-eletrico);
+  text-underline-offset: 3px;
+}
+
+.artigo-capa {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1000 / 420;
+  object-fit: cover;
+  margin: 0 0 32px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+}
+
+/* ── Corpo do artigo (HTML do dev.to) ── */
+.artigo-corpo > :first-child {
+  margin-top: 0;
+}
+
+.artigo-corpo :is(h2, h3, h4, h5) {
+  margin: 2em 0 0.5em;
+  font-family: var(--font-body);
+  line-height: 1.3;
+  color: var(--texto-principal);
+}
+
+.artigo-corpo h2 { font-size: 1.5rem; }
+.artigo-corpo h3 { font-size: 1.25rem; }
+.artigo-corpo :is(h4, h5) { font-size: 1.0625rem; }
+
+.artigo-corpo :is(p, ul, ol, blockquote, table, .highlight) {
+  margin: 0 0 1.25em;
+}
+
+.artigo-corpo :is(ul, ol) {
+  padding-left: 1.5em;
+}
+
+.artigo-corpo li + li {
+  margin-top: 0.35em;
+}
+
+.artigo-corpo strong {
+  color: var(--texto-principal);
+}
+
+.artigo-corpo hr {
+  margin: 2.5em 0;
+  border: 0;
+  border-top: 1px solid var(--hairline-strong);
+}
+
+.artigo-corpo blockquote {
+  padding: 4px 16px;
+  border-left: 3px solid var(--hairline-strong);
+  color: var(--texto-secundario);
+  font-style: italic;
+}
+
+.artigo-corpo img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 6px;
+}
+
+.artigo-corpo .article-body-image-wrapper {
+  display: block;
+}
+
+/* Código em linha */
+.artigo-corpo :not(pre) > code {
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+  background: rgb(var(--rgb-cartao) / 0.9);
+  border: 1px solid var(--hairline);
+  color: var(--texto-principal);
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  overflow-wrap: anywhere;
+}
+
+/* Blocos de código (rolam na horizontal; têm tabindex="0" para o teclado) */
+.artigo-corpo pre {
+  margin: 0;
+  padding: 16px 20px;
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  background: rgb(var(--rgb-cartao) / 0.95);
+  color: var(--texto-principal);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+.artigo-corpo pre code {
+  font-family: inherit;
+  white-space: pre;
+}
+
+/* Realce de sintaxe (classes do Rouge, que o dev.to usa), com as cores dos temas */
+.artigo-corpo .highlight :is(.k, .kd, .kn, .kc, .kr, .kt, .kp, .ow, .nt) { color: var(--nucleo-eletrico); }
+.artigo-corpo .highlight :is(.s, .s1, .s2, .sb, .sc, .sd, .se, .sh, .si, .sr, .ss, .sx, .dl) { color: var(--sucesso); }
+.artigo-corpo .highlight :is(.mi, .mf, .mh, .mo, .il, .m, .kc) { color: var(--alerta); }
+.artigo-corpo .highlight :is(.c, .c1, .cm, .cp, .cpf, .cs, .ch) { color: var(--texto-terciario); font-style: italic; }
+.artigo-corpo .highlight :is(.nf, .fm, .nc, .nn, .nb, .bp) { color: var(--texto-principal); font-weight: 600; }
+
+/* Tabelas */
+.artigo-corpo table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.artigo-corpo :is(th, td) {
+  padding: 8px 12px;
+  border: 1px solid var(--hairline);
+  text-align: left;
+  vertical-align: top;
+}
+
+.artigo-corpo th {
+  color: var(--texto-principal);
+  background: rgb(var(--rgb-cartao) / 0.8);
+}
+
+.artigo-corpo iframe {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  border: 0;
+}
+
+/* ── Rodapé do artigo ── */
+.artigo-rodape {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--hairline-strong);
+}
+
+.artigo-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  margin: 0 0 32px;
+}
+
+.artigo-acoes a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.artigo .artigo-botao {
+  padding: 0 18px;
+  border-radius: 4px;
+  background: var(--chama-primaria);
+  color: #ffffff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.artigo .artigo-botao:hover {
+  background: var(--chama-hover);
+}
+
+.artigo-vizinhos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 16px;
+}
+
+.artigo-vizinhos a {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: rgb(var(--rgb-cartao) / 0.6);
+  color: var(--texto-principal);
+  text-decoration: none;
+  line-height: 1.4;
+}
+
+.artigo-vizinhos a:hover {
+  border-color: var(--nucleo-eletrico);
+}
+
+.artigo-vizinho-rotulo {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--texto-terciario);
+}
+
+@media (max-width: 480px) {
+  .artigo {
+    padding: 24px 16px 96px;
+    font-size: 1rem;
+  }
+
+  .artigo-corpo pre {
+    padding: 12px 14px;
+    font-size: 0.8125rem;
+  }
+}

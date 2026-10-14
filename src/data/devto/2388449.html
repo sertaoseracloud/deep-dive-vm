@@ -1,0 +1,375 @@
+<p>Na <a href="https://dev.to/sertaoseracloud/criando-uma-api-ocr-com-faas-na-azure-parte-1-arquitetura-e-upload-seguro-3616">primeira parte dessa série</a>, a gente construiu uma Function App que recebe uma imagem por HTTP e salva no Azure Blob Storage de forma segura, usando identidade gerenciada.</p>
+
+<p>Agora vamos dar o próximo passo e registrar no banco de dados os metadados dessas imagens. Spoiler: vamos usar Azure Postgres SQL, arquitetura em camadas e boas práticas como SOLID e separação de responsabilidades.</p>
+
+
+<hr>
+
+<h2 id="por-que-salvar-no-banco">Por que salvar no banco?
+</h2>
+
+<p>O Blob Storage é ótimo para guardar arquivos, mas e se você quiser saber:</p>
+
+<ul>
+<li>Quando um arquivo foi enviado?</li>
+<li>Qual é a URL pública da imagem?</li>
+<li>Qual é o status de processamento OCR (pendente, processado, com erro)?</li>
+<li>Quais imagens são receitas médicas, por exemplo?</li>
+</ul>
+
+<p>Paara isso que entra o <strong>Azure Postgres SQL</strong> no jogo. A ideia aqui é manter o controle de tudo o que está rolando com cada imagem.</p>
+
+
+<hr>
+
+<h2 id="atualiza%C3%A7%C3%A3o-da-arquitetura-do-projeto">Atualização da arquitetura do projeto
+</h2>
+
+<p>Adicionei o <code>IImageRepository.ts</code> para ajustar o dominio relacionado ao banco de dados e sua implementação em <code>OcrImageRepository.ts</code>:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>/ocr-function-app
+├── application/
+│   └── UploadImageService.ts
+├── domain/
+│   └── IImageStorage.ts
+│   └── IImageRepository.ts
+├── infrastructure/
+│   └── AzureBlobStorage.ts
+│   └── OcrImageRepository.ts
+├── validations/
+│   └── ContentTypeValidator.ts
+├── HttpAddToBlob/
+│   └── index.ts
+│   └── function.json
+├── constants.ts
+├── host.json
+├── local.settings.json
+└── package.json
+</code></pre>
+
+</div>
+
+
+
+<p>A ideia é manter a pegada de DDD light, delegando responsabilidades para camadas mais específicas.</p>
+
+
+<hr>
+
+<h2 id="validando-o-tipo-de-conte%C3%BAdo">Validando o tipo de conteúdo
+</h2>
+
+<p>Antes de sair processando tudo o que chega na Function, bora validar se o conteúdo é uma <strong>imagem de verdade</strong>.</p>
+
+<p>primeiro criamos um enum para guardar os tipos utilizados:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">export</span> <span class="kr">enum</span> <span class="nx">AllowedContentTypes</span> <span class="p">{</span>
+    <span class="nx">JPEG</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">image/jpeg</span><span class="dl">'</span><span class="p">,</span>
+    <span class="nx">PNG</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">image/png</span><span class="dl">'</span><span class="p">,</span>
+    <span class="nx">JPG</span> <span class="o">=</span> <span class="dl">'</span><span class="s1">image/jpg</span><span class="dl">'</span><span class="p">,</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>E criamos uma classe simples para isso:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">AllowedContentTypes</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">../constants</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="kd">class</span> <span class="nc">ContentTypeValidator</span> <span class="p">{</span>
+    <span class="k">private</span> <span class="k">static</span> <span class="nx">allowedTypes</span> <span class="o">=</span> <span class="nb">Object</span><span class="p">.</span><span class="nf">values</span><span class="p">(</span><span class="nx">AllowedContentTypes</span><span class="p">);</span>
+
+    <span class="k">static</span> <span class="nf">validate</span><span class="p">(</span><span class="nx">contentType</span><span class="p">?:</span> <span class="nx">AllowedContentTypes</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+        <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">contentType</span> <span class="o">||</span> <span class="o">!</span><span class="k">this</span><span class="p">.</span><span class="nx">allowedTypes</span><span class="p">.</span><span class="nf">includes</span><span class="p">(</span><span class="nx">contentType</span><span class="p">))</span> <span class="p">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nc">Error</span><span class="p">(</span><span class="dl">'</span><span class="s1">Tipo de conteúdo não suportado. Envie uma imagem JPEG ou PNG.</span><span class="dl">'</span><span class="p">);</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>E lá dentro da Function:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="kd">const</span> <span class="nx">contentType</span> <span class="o">=</span> <span class="nx">req</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="dl">'</span><span class="s1">content-type</span><span class="dl">'</span><span class="p">];</span>
+<span class="nx">ContentTypeValidator</span><span class="p">.</span><span class="nf">validate</span><span class="p">(</span><span class="nx">contentType</span><span class="p">);</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="criando-a-tabela-no-banco">Criando a tabela no banco
+</h2>
+
+<p>Com o banco de dados criado, execute esse script via Azure Data Studio ou SSMS pra criar a tabela:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight sql"><code><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="n">OcrImages</span> <span class="p">(</span>
+    <span class="n">Id</span> <span class="nb">INT</span> <span class="k">IDENTITY</span> <span class="k">PRIMARY</span> <span class="k">KEY</span><span class="p">,</span>
+    <span class="n">FileName</span> <span class="n">NVARCHAR</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">Url</span> <span class="n">NVARCHAR</span><span class="p">(</span><span class="k">MAX</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">UploadDate</span> <span class="nb">DATETIME</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="n">GETDATE</span><span class="p">(),</span>
+    <span class="n">Status</span> <span class="n">NVARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="s1">'pending'</span><span class="p">,</span>
+    <span class="n">IsPrescription</span> <span class="nb">Boolean</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="k">DEFAULT</span> <span class="k">false</span>
+<span class="p">);</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h3 id="pacotes-utilizados">📦 Pacotes utilizados
+</h3>
+
+<p>Você vai precisar instalar os seguintes pacotes no seu projeto TypeScript com Azure Functions:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>npm <span class="nb">install </span>pg
+</code></pre>
+
+</div>
+
+
+
+<p>Esses pacotes serão usados para:</p>
+
+<ul>
+<li>Conectar ao banco Azure Postgres SQL (<code>pg</code>)</li>
+</ul>
+
+
+<hr>
+
+<h2 id="conectando-a-function-ao-azure-postgres-sql">🔗Conectando a Function ao Azure Postgres SQL
+</h2>
+
+<p>Pra não usar string de conexão com usuário e senha no código (o famoso hardcoded), vamos usar <strong>Microsoft Entra ID (identidade gerenciada)</strong> via o recurso <strong>Service Connector</strong> do portal Azure.</p>
+
+<h3 id="como-conectar">Como conectar:
+</h3>
+
+<ol>
+<li>Vá até a sua Function App no portal Azure</li>
+<li>Clique em <strong>Service Connector</strong> &gt; <strong>+ Adicionar</strong>
+</li>
+<li>Selecione o Azure Postgres SQL como destino</li>
+<li>Escolha <strong>Used Assigned</strong>
+</li>
+<li>Escolha <strong>Firewall</strong>
+</li>
+<li>Clique em <strong>Próximo: Revisar + Criar</strong>
+</li>
+<li>Clique em <strong>Criar</strong>
+</li>
+</ol>
+
+
+<hr>
+
+<h2 id="definindo-o-contrato-do-reposit%C3%B3rio">Definindo o contrato do repositório
+</h2>
+
+<p>Criamos a interface <code>IImageRepository</code> pra definir o que a persistência precisa saber fazer, sem se preocupar com o tipo de banco de dados utilizado:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">export</span> <span class="kr">interface</span> <span class="nx">IImageRepository</span> <span class="p">{</span>
+  <span class="nf">save</span><span class="p">(</span><span class="nx">fileName</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">url</span><span class="p">:</span> <span class="kr">string</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="implementando-com-azure-postgres-sql">⚙️Implementando com Azure Postgres SQL
+</h2>
+
+<p>Agora sim, a implementação real, vai lá para o <code>infrastructure</code>:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">IImageRepository</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">../domain/IImageRepository</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">Pool</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">pg</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="kd">class</span> <span class="nc">OcrImageRepository</span> <span class="k">implements</span> <span class="nx">IImageRepository</span> <span class="p">{</span>
+  <span class="nf">constructor</span><span class="p">(</span>
+    <span class="k">private</span> <span class="k">readonly</span> <span class="nx">pool</span><span class="p">:</span> <span class="nx">Pool</span><span class="p">,</span>
+  <span class="p">)</span> <span class="p">{</span> <span class="p">}</span>
+
+  <span class="k">async</span> <span class="nf">save</span><span class="p">(</span><span class="nx">fileName</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">url</span><span class="p">:</span> <span class="kr">string</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="k">try</span> <span class="p">{</span>
+      <span class="k">await</span> <span class="k">this</span><span class="p">.</span><span class="nx">pool</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span>
+        <span class="s2">`
+          INSERT INTO OcrImages (FileName, Url)
+          VALUES ($1, $2)
+        `</span><span class="p">,</span>
+        <span class="p">[</span><span class="nx">fileName</span><span class="p">,</span> <span class="nx">url</span><span class="p">]</span>
+      <span class="p">);</span>
+    <span class="p">}</span> <span class="k">catch </span><span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">throw</span> <span class="k">new</span> <span class="nc">Error</span><span class="p">(</span><span class="s2">`Error inserting image: </span><span class="p">${(</span><span class="nx">err</span> <span class="k">as</span> <span class="nb">Error</span><span class="p">).</span><span class="nx">message</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+ <span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Note como a classe só cuida da conexão e do insert. Ela <strong>não</strong> sabe nada sobre HTTP, OCR ou validação. Isso é SOLID na veia.</p>
+
+<p>Agora é atualizar o serviço de aplicação com a dependência e execução:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">export</span> <span class="kd">class</span> <span class="nc">UploadImageService</span> <span class="p">{</span>
+  <span class="nf">constructor</span><span class="p">(</span>
+  <span class="k">private</span> <span class="k">readonly</span> <span class="nx">imageStorage</span><span class="p">:</span> <span class="nx">IImageStorage</span>
+  <span class="k">private</span> <span class="k">readonly</span> <span class="nx">imageStorage</span><span class="p">:</span> <span class="nx">IImageRepository</span>
+  <span class="p">)</span> <span class="p">{}</span>
+
+  <span class="k">async</span> <span class="nf">handleUpload</span><span class="p">(</span><span class="nx">buffer</span><span class="p">:</span> <span class="nx">Buffer</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span> <span class="na">url</span><span class="p">:</span> <span class="kr">string</span><span class="p">;</span> <span class="nl">fileName</span><span class="p">:</span> <span class="kr">string</span> <span class="p">}</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">fileName</span> <span class="o">=</span> <span class="s2">`</span><span class="p">${</span><span class="nf">uuidv4</span><span class="p">()}</span><span class="s2">.png`</span><span class="p">;</span>
+    <span class="kd">const</span> <span class="nx">url</span> <span class="o">=</span> <span class="k">await</span> <span class="k">this</span><span class="p">.</span><span class="nx">imageStorage</span><span class="p">.</span><span class="nf">uploadImage</span><span class="p">(</span><span class="nx">buffer</span><span class="p">,</span> <span class="nx">fileName</span><span class="p">);</span>
+    <span class="kd">const</span> <span class="nx">result</span> <span class="o">=</span> <span class="k">await</span> <span class="k">this</span><span class="p">.</span><span class="nx">imageRepository</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="nx">filename</span><span class="p">,</span> <span class="nx">url</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span> <span class="nx">url</span><span class="p">,</span> <span class="nx">fileName</span> <span class="p">};</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Após criar as camadas de infraestrutura e aplicação, chegou a hora de integrar tudo na Function em si.</p>
+
+<h3 id="estrutura-atual-da-function">Estrutura atual da Function
+</h3>
+
+<p>A função HTTP é responsável por:</p>
+
+<ul>
+<li>Validar o tipo de conteúdo (<code>Content-Type</code>)</li>
+<li>Validar o tamanho da imagem</li>
+<li>Salvar a imagem no Azure Blob Storage</li>
+<li>Registrar o nome da imagem e URL no Azure Postgres SQL</li>
+</ul>
+
+<p>A seguir, o código completo da função com todos esses elementos:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="kd">const</span> <span class="nx">httpTrigger</span><span class="p">:</span> <span class="nx">AzureFunction</span> <span class="o">=</span> <span class="k">async</span> <span class="nf">function </span><span class="p">(</span><span class="nx">context</span><span class="p">:</span> <span class="nx">Context</span><span class="p">,</span> <span class="nx">req</span><span class="p">:</span> <span class="nx">HttpRequest</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="k">try</span> <span class="p">{</span>
+        <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">req</span><span class="p">.</span><span class="nx">body</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="na">status</span><span class="p">:</span> <span class="mi">400</span><span class="p">,</span>
+                <span class="na">body</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Imagem inválida ou ausente</span><span class="dl">"</span>
+            <span class="p">};</span>
+            <span class="k">return</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="kd">const</span> <span class="nx">contentType</span> <span class="o">=</span> <span class="nx">req</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="dl">'</span><span class="s1">content-type</span><span class="dl">'</span><span class="p">];</span>
+        <span class="nx">ContentTypeValidator</span><span class="p">.</span><span class="nf">validate</span><span class="p">(</span><span class="nx">contentType</span> <span class="k">as</span> <span class="nx">AllowedContentTypes</span><span class="p">);</span>
+
+        <span class="kd">const</span> <span class="nx">buffer</span> <span class="o">=</span> <span class="nx">Buffer</span><span class="p">.</span><span class="nf">isBuffer</span><span class="p">(</span><span class="nx">req</span><span class="p">.</span><span class="nx">body</span><span class="p">)</span> <span class="p">?</span> <span class="nx">req</span><span class="p">.</span><span class="nx">body</span> <span class="p">:</span> <span class="nx">Buffer</span><span class="p">.</span><span class="k">from</span><span class="p">(</span><span class="nx">req</span><span class="p">.</span><span class="nx">body</span><span class="p">);</span>
+
+        <span class="k">if </span><span class="p">(</span><span class="nx">buffer</span><span class="p">.</span><span class="nx">length</span> <span class="o">&gt;</span> <span class="mi">15</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nc">Error</span><span class="p">(</span><span class="dl">"</span><span class="s2">Imagem excede o tamanho máximo de 15MB.</span><span class="dl">"</span><span class="p">);</span>
+        <span class="p">}</span>
+
+        <span class="kd">const</span> <span class="nx">credential</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">DefaultAzureCredential</span><span class="p">({</span>
+            <span class="na">managedIdentityClientId</span><span class="p">:</span> <span class="nx">managedIdentityClientId</span><span class="p">,</span>
+        <span class="p">});</span>
+
+        <span class="kd">const</span> <span class="nx">storage</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AzureBlobStorage</span><span class="p">(</span>
+            <span class="nx">accountUrl</span><span class="p">,</span>
+            <span class="nx">containerName</span><span class="p">,</span>
+            <span class="nx">credential</span><span class="p">,</span>
+        <span class="p">);</span>
+
+        <span class="kd">const</span> <span class="p">{</span> <span class="na">token</span><span class="p">:</span> <span class="nx">password</span> <span class="p">}</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">credential</span><span class="p">.</span><span class="nf">getToken</span><span class="p">(</span><span class="dl">'</span><span class="s1">https://ossrdbms-aad.database.windows.net/.default</span><span class="dl">'</span><span class="p">);</span>
+
+        <span class="kd">const</span> <span class="nx">pool</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Pool</span><span class="p">({</span>
+            <span class="nx">host</span><span class="p">,</span>
+            <span class="nx">user</span><span class="p">,</span>
+            <span class="nx">password</span><span class="p">,</span>
+            <span class="nx">database</span><span class="p">,</span>
+            <span class="nx">port</span><span class="p">,</span>
+            <span class="nx">ssl</span><span class="p">,</span>
+        <span class="p">});</span>
+
+        <span class="kd">const</span> <span class="nx">repository</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">OcrImageRepository</span><span class="p">(</span><span class="nx">pool</span><span class="p">);</span>
+
+        <span class="kd">const</span> <span class="nx">uploadService</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">UploadImageService</span><span class="p">(</span>
+            <span class="nx">storage</span><span class="p">,</span> 
+            <span class="nx">repository</span><span class="p">,</span> 
+        <span class="p">);</span>
+
+        <span class="kd">const</span> <span class="p">{</span> <span class="nx">url</span><span class="p">,</span> <span class="nx">fileName</span> <span class="p">}</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">uploadService</span><span class="p">.</span><span class="nf">handleUpload</span><span class="p">(</span><span class="nx">buffer</span><span class="p">);</span>
+
+        <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="na">status</span><span class="p">:</span> <span class="mi">200</span><span class="p">,</span>
+            <span class="na">body</span><span class="p">:</span> <span class="p">{</span>
+                <span class="na">message</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Imagem armazenada com sucesso</span><span class="dl">"</span><span class="p">,</span>
+                <span class="nx">url</span><span class="p">,</span>
+                <span class="nx">fileName</span>
+            <span class="p">}</span>
+        <span class="p">};</span>
+
+    <span class="p">}</span> <span class="k">catch </span><span class="p">(</span><span class="nx">error</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nx">log</span><span class="p">.</span><span class="nf">error</span><span class="p">(</span><span class="dl">"</span><span class="s2">Erro ao armazenar imagem</span><span class="dl">"</span><span class="p">,</span> <span class="nx">error</span><span class="p">);</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="na">status</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span>
+            <span class="na">body</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Erro ao armazenar imagem</span><span class="dl">"</span><span class="p">,</span>
+            <span class="nx">error</span>
+        <span class="p">};</span>
+    <span class="p">}</span>
+
+<span class="p">};</span>
+
+<span class="k">export</span> <span class="k">default</span> <span class="nx">httpTrigger</span><span class="p">;</span>
+
+</code></pre>
+
+</div>
+
+
+
+<blockquote>
+<p>🧠 Note como a responsabilidade de cada etapa foi distribuída em classes específicas, respeitando o princípio da responsabilidade única (SRP), deixando a Function mais limpa e testável.</p>
+</blockquote>
+
+<p>Na próxima parte vamos criar uma Function que processa o OCR de verdade, extrai o texto da imagem e atualiza o banco com o resultado e a informação se o conteúdo é uma receita médica.</p>
+
+<p>Se ficou com dúvida ou curtiu o formato, comenta aqui embaixo e bora trocar uma ideia!</p>
+
+
+<hr>
+
+<p>🚀 <strong>Próximo passo:</strong> <a href="#">Parte 3 - Processando o OCR e atualizando o banco</a></p>

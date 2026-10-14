@@ -1,0 +1,638 @@
+<p>Você já pensou em criar seu próprio serviço de encurtamento de URL? E que tal usar apenas serviços serverless e com custo praticamente zero?</p>
+
+<p>Este projeto implementa uma API de encurtador de URLs usando <strong>Azure Functions</strong> em JavaScript, armazenando as URLs encurtadas no <strong>Azure Table Storage</strong>. Ele atende aos requisitos de: redirecionamento de URLs, expiração por tempo ou acessos, autenticação básica para criação e registro de métricas (acessos, data e IP). A seguir descrevemos a arquitetura, configuração e código completo do projeto.</p>
+
+<p>Neste artigo, você vai aprender a criar um URL shortener com Azure Functions, armazenando os dados em Azure Table Storage e utilizando Identidade Gerenciada (Managed Identity) para acesso seguro sem armazenar secrets.</p>
+
+
+<hr>
+
+<h2 id="arquitetura-e-estrutura-do-projeto">🏗️ Arquitetura e Estrutura do Projeto
+</h2>
+
+<p>Esta solução utiliza <strong>Azure Function App</strong> (Node.js) para encurtar e redirecionar URLs, <strong>Azure Table Storage</strong> como banco NoSQL e autenticação por API Key. O usuário faz requisições HTTP ao Function App, que valida a chave de API, gera/consulta o mapeamento de URL no Table Storage (acessado com identidade gerenciada) e registra dados de análise (IP e timestamp) antes de redirecionar. O diagrama de sequência abaixo ilustra todo o fluxo de interação (requisição de encurtamento e redirecionamento) e a coleta de analytics. As tecnologias escolhidas seguem as melhores práticas da Microsoft: o Azure Functions executa código sem servidor disparado por requisições HTTP, e o Azure Table Storage oferece armazenamento NoSQL barato e escalável para dados estruturados. Para organizar o projeto, usamos um diagrama de sequência e o modelo C4 (Contexto, Container, Componente, Código).   </p>
+
+<h3 id="diagrama-de-sequ%C3%AAncia">Diagrama de Sequência
+</h3>
+
+<p>O seguinte diagrama de sequência mostra o fluxo completo: (1) o usuário faz <strong>HTTP POST</strong> à função <em>ShortenFunction</em> com a URL original e a chave de API; (2) <em>ShortenFunction</em> valida a chave de API, gera um código curto único, calcula a expiração (por tempo ou contagem de acessos) e grava o registro em Azure Table Storage; (3) a função retorna a URL encurtada ao usuário; (4) quando o usuário acessa a URL curta, ele faz <strong>HTTP GET</strong> à função <em>RedirectFunction</em>; (5) <em>RedirectFunction</em> consulta o Table Storage, verifica se a URL expirou (tempo ou limite de acessos) e, se válido, registra o IP e data no analytics e incrementa o contador de acessos; (6) finalmente a função responde com um redirecionamento HTTP (302) para a URL original. Em cada etapa de acesso (mesmo em erros), o sistema coleta IP e timestamp para análises.  </p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F7i8g2wg1a2nztct0oplq.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F7i8g2wg1a2nztct0oplq.png" alt="Diagrama de sequencia" loading="lazy" width="800" height="632"></a></p>
+
+<p>No fluxo acima destacamos as etapas de autenticação (por API Key) e coleta de analytics. Como o Azure Functions usa identidades gerenciadas, a função comunica-se com o Table Storage sem expor credenciais, seguindo padrões de segurança em nuvem (<a href="https://learn.microsoft.com/en-us/azure/storage/tables/table-storage-overview#:~:text=Azure%20Table%20storage%20is%20a,for%20similar%20volumes%20of%20data" target="_blank" rel="noopener noreferrer">Introduction to Table storage - Object storage in Azure | Microsoft Learn</a>). A divisão do diagrama em chamadas HTTP e operações de banco espelha diretamente os componentes principais definidos na arquitetura C4 a seguir.</p>
+
+<h3 id="diagrama-c4-n%C3%ADvel-de-contexto">Diagrama C4 – Nível de Contexto
+</h3>
+
+<p>No diagrama de contexto (nível 1 do C4) mostramos o <strong>usuário externo</strong>, a <strong>Azure Function App</strong> (encurtador) e o <strong>Azure Table Storage</strong>. Segundo o modelo C4, este nível destaca <em>entidades externas</em> e como elas interagem com o sistema. Aqui, o usuário (pessoa ou serviço cliente) consome a API do Function App; o Function App, por sua vez, acessa o Table Storage para armazenar e recuperar URLs. O diagrama de contexto esclarece que o serviço de armazenamento é gerenciado pelo Azure e serve como banco de dados do sistema. Em uma visão de contexto, incluem-se todas as fronteiras externas ao sistema principal (por exemplo, o Table Storage)</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fxxnhx5icnybgl2zr3xpv.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fxxnhx5icnybgl2zr3xpv.png" alt="System Context" loading="lazy" width="800" height="272"></a></p>
+
+<p>No diagrama acima, <strong>user</strong> é o ator externo, <strong>functionApp</strong> representa o encurtador implementado em Azure Functions, e <strong>azureStorage</strong> é o serviço de Table Storage. Há uma seta do usuário para o functionApp (requisições de API) e do functionApp para o storage (operações CRUD nos dados), ilustrando o fluxo geral. Este diagrama fornece uma visão geral do sistema em seu ambiente, deixando claro o papel de cada entidade externa.</p>
+
+<h3 id="diagrama-c4-n%C3%ADvel-de-containers">Diagrama C4 – Nível de Containers
+</h3>
+
+<p>No nível de containers (nível 2 do C4) detalhamos os principais componentes executáveis do sistema dentro do limite do Function App e do Storage. Dividimos a aplicação serverless em dois containers (funções) distintos: <strong>ShortenFunction</strong> e <strong>RedirectFunction</strong>, ambos implementados em Node.js dentro do Function App. Adicionalmente, o <strong>Azure Table Storage</strong> aparece como outro container (serviço de armazenamento). Cada função expõe um endpoint HTTP (encurtar ou redirecionar) e utiliza a <strong>autenticação por API Key</strong> (implementada via chaves de função do Azure) para proteger a operação de encurtamento. Para maior clareza, omitimos um container separado para autenticação (pois as chaves são integradas no Function App) e focamos nas funções e no Storage.</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F8cqvzhtxkxrdgh36qkad.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F8cqvzhtxkxrdgh36qkad.png" alt="Container" loading="lazy" width="800" height="480"></a></p>
+
+<p>Neste diagrama C4 de containers, os elementos são: <strong>ShortenFunction</strong> (função que gera URLs curtas, validando a API Key), <strong>RedirectFunction</strong> (função que processa o redirecionamento) e <strong>Azure Table Storage</strong> (serviço externo de dados). As relações mostram que o usuário invoca cada função via HTTP, e que ambas as funções interagem com o storage. O uso de dois containers separados deixa claro o padrão “Single Responsibility”: cada função faz uma tarefa (encurtar ou redirecionar). A autenticação por API Key está implícita na comunicação entre o usuário e ShortenFunction (representada na label da seta) — normalmente configurada como chave do trigger HTTP do Azure Functions.  </p>
+
+<h3 id="diagrama-c4-n%C3%ADvel-de-componentes">Diagrama C4 – Nível de Componentes
+</h3>
+
+<p>No nível de componentes (nível 3 do C4) mergulhamos no interior de cada container (função) e descrevemos os módulos/libraries principais. Dentro de <strong>ShortenFunction</strong>, destacamos componentes como <strong>Autenticação</strong> (validação da API Key), <strong>Geração de Código</strong> (cria código curto único), <strong>Gerenciamento de Expiração</strong> (define TTL ou contador) e <strong>Persistência</strong> (acesso ao Table Storage). Dentro de <strong>RedirectFunction</strong>, há componentes como <strong>Consulta de Armazenamento</strong> (busca mapeamento no Table Storage). O objetivo é mostrar a responsabilidade de cada parte do código dentro das funções. </p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fj1whbf9da8g9qeof7mdk.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fj1whbf9da8g9qeof7mdk.png" alt="ShortenFunction" loading="lazy" width="800" height="207"></a></p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fywg4lb7ryde3mqkpubro.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fywg4lb7ryde3mqkpubro.png" alt="RedirectFunction" loading="lazy" width="800" height="643"></a></p>
+
+<p>Nos diagramas acima, cada <strong>Container</strong> (ShortenFunction e RedirectFunction) tem seus <strong>Componentes</strong> internos representados. As funções de autenticação, geração de código, armazenamento e expiração dentro de ShortenFunction suportam o processo de criação da URL curta. Já em RedirectFunction, os componentes cuidam de buscar a URL original, verificar expiração, registrar analytics e redirecionar. Mostramos explicitamente, por exemplo, que <em>storageModule/storageRF</em> acessam o Azure Table Storage (conforme ilustrado nas relações do nível anterior). Esta visão detalha a arquitetura interna e como os módulos se relacionam, seguindo o propósito do nível de Componentes do C4.</p>
+
+<h3 id="pseudoc%C3%B3digo-das-fun%C3%A7%C3%B5es-vis%C3%A3o-de-c%C3%B3digo-e-estrutura-de-arquivos">Pseudocódigo das Funções (Visão de Código) e estrutura de arquivos
+</h3>
+
+<p>Podemos ilustrar em pseudocódigo as rotinas internas principais de cada função. Abaixo há um exemplo simplificado de como seriam as funções <em>ShortenFunction</em> e <em>RedirectFunction</em> em pseudocódigo:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>// ShortenFunction: gera uma URL curta
+function ShortenFunction(request) {
+    validateApiKey(request.headers['x-api-key'])
+    if not valid: return HttpResponse(401, "API Key inválida")
+    let originalUrl = request.body.url
+    let shortCode = generateUniqueCode(originalUrl)
+    let expiration = computeExpiration(request.body.expiration, request.body.maxAccesses)
+    // Persiste no Table Storage (via identidade gerenciada)
+    storage.insert({ shortCode, originalUrl, expiration, accessCount: 0 })
+    return HttpResponse(200, { shortUrl: "https://encurtador/" + shortCode })
+}
+
+// RedirectFunction: redireciona para URL original
+function RedirectFunction(request) {
+    let shortCode = extractCodeFromPath(request.path)
+    let entry = storage.lookup(shortCode)
+    // Registra dados de acesso (IP e timestamp) no analytics
+    analytics.insert({ shortCode, ip: request.ip, timestamp: now() })
+    if (entry == null || entry.isExpired()) {
+        return HttpResponse(404, "URL expirada ou inexistente")
+    }
+    entry.accessCount += 1
+    storage.update(entry)
+    return HttpResponse(302, { Location: entry.originalUrl })
+}
+</code></pre>
+
+</div>
+
+
+
+<p>Este pseudocódigo resume o fluxo interno: validação da chave, geração do código único, cálculo de expiração, leitura/gravação no armazenamento, registro de analytics e envio da resposta HTTP apropriada. Apesar de simplificado, ele está alinhado com os componentes descritos (autenticação, armazenamento, expiração, analytics) e pode servir de base para uma implementação real. </p>
+
+<p>A estrutura de arquivos do projeto pode ser, por exemplo:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>EncurtadorURL/
+├─ host.json
+├─ local.settings.json
+├─ ShortenFunction/
+│  ├─ function.json
+│  └─ index.js
+└─ RedirectFunction/
+   ├─ function.json
+   └─ index.js
+</code></pre>
+
+</div>
+
+
+
+<ul>
+<li>
+<strong>host.json:</strong> Configuração global do Function App (ex.: remover o prefixo <code>/api</code> das rotas).
+</li>
+<li>
+<strong>local.settings.json:</strong> Variáveis de ambiente para desenvolvimento local (chave de conexão com Storage, API_KEY, etc.) (<a href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-app-settings?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">App settings reference for Azure Functions | Microsoft Learn</a>).
+</li>
+<li>
+<strong>ShortenFunction:</strong> função HTTP POST que recebe a URL longa e cria um código curto no Table Storage.
+</li>
+<li>
+<strong>RedirectFunction:</strong> função HTTP GET que recebe o código curto na rota, busca a URL original no Table Storage, verifica expiração, incrementa estatísticas e redireciona.
+</li>
+</ul>
+
+
+<hr>
+
+<h2 id="configura%C3%A7%C3%A3o-geral-hostjson-e-localsettingsjson">🚀 Configuração Geral (host.json e local.settings.json)
+</h2>
+
+<p>No arquivo <code>host.json</code> desativamos o prefixo padrão <code>/api</code> para que as rotas sejam acessíveis diretamente na raiz. Por exemplo:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2.0"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"extensions"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"http"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"routePrefix"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre>
+
+</div>
+
+
+
+<blockquote>
+<p><strong>Obs.:</strong> Isso define <code>"routePrefix": ""</code> dentro de <code>"extensions"</code>, conforme recomendado para remover o prefixo <code>/api</code> (<a href="https://ryanpeden.com/how-to-remove-api-from-azure-functions-urls?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">How to remove /api from Azure Functions URLs - Ryan Peden</a>).  </p>
+</blockquote>
+
+<p>No <code>local.settings.json</code> (apenas para testes locais) definimos as configurações de ambiente:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"IsEncrypted"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"Values"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"AzureWebJobsStorage"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;STRING_DE_CONEXAO_COM_STORAGE&gt;"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"FUNCTIONS_WORKER_RUNTIME"</span><span class="p">:</span><span class="w"> </span><span class="s2">"node"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"API_KEY"</span><span class="p">:</span><span class="w"> </span><span class="s2">"MINHA_CHAVE_SECRETA"</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre>
+
+</div>
+
+
+
+<ul>
+<li>
+<code>AzureWebJobsStorage</code> aponta para a conta do Azure Table Storage (usada pelo SDK).
+</li>
+<li>
+<code>API_KEY</code> armazena o token de autenticação para criação de URLs.
+</li>
+</ul>
+
+<p><em>Referências:</em> As configurações de ambiente de uma Function App são acessíveis via <code>process.env</code> (<a href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-app-settings?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">App settings reference for Azure Functions | Microsoft Learn</a>). Para rodar localmente, definimos essas variáveis em <code>local.settings.json</code> (<a href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-app-settings?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">App settings reference for Azure Functions | Microsoft Learn</a>).</p>
+
+
+<hr>
+
+<h2 id="modelo-de-dados-azure-table-storage">📦 Modelo de Dados (Azure Table Storage)
+</h2>
+
+<p>Usaremos uma tabela no Table Storage (por exemplo chamada <strong>ShortUrls</strong>) para armazenar cada URL encurtada como uma entidade. A estrutura de cada entidade (linha) pode ser descrita assim:</p>
+
+<ul>
+<li>
+<strong>PartitionKey:</strong> string fixa (ex. <code>"ShortUrl"</code> ou domínio da aplicação).
+</li>
+<li>
+<strong>RowKey:</strong> código curto gerado (ex. <code>"abc123"</code>), único dentro da partição (<a href="https://learn.microsoft.com/en-us/rest/api/storageservices/understanding-the-table-service-data-model?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">Understanding the Table service data model (REST API) - Azure Storage | Microsoft Learn</a>).
+</li>
+<li>
+<strong>originalUrl:</strong> string com a URL completa de destino.
+</li>
+<li>
+<strong>createdAt:</strong> data/hora de criação (timestamp).
+</li>
+<li>
+<strong>expirationDate:</strong> data/hora de expiração (se usado expiração por tempo).
+</li>
+<li>
+<strong>maxVisits:</strong> número máximo de acessos permitidos (se usado expiração por número de acessos).
+</li>
+<li>
+<strong>visitCount:</strong> contador atual de acessos.
+</li>
+<li>
+<strong>lastAccess:</strong> data/hora do último acesso.
+</li>
+<li>
+<strong>lastIP:</strong> IP do último usuário que acessou.
+</li>
+</ul>
+
+<p>Em resumo, cada entidade JSON na tabela poderia ser algo como:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"PartitionKey"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ShortUrl"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"RowKey"</span><span class="p">:</span><span class="w"> </span><span class="s2">"abc123"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"originalUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://exemplo.com"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-05-01T10:00:00Z"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"expirationDate"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-05-08T10:00:00Z"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"maxVisits"</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"visitCount"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"lastAccess"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2025-05-02T12:34:56Z"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"lastIP"</span><span class="p">:</span><span class="w"> </span><span class="s2">"123.45.67.89"</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre>
+
+</div>
+
+
+
+<blockquote>
+<p><strong>Nota:</strong> No Azure Table Storage, as propriedades <code>PartitionKey</code> e <code>RowKey</code> juntas identificam unicamente cada entidade (<a href="https://learn.microsoft.com/en-us/rest/api/storageservices/understanding-the-table-service-data-model?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">Understanding the Table service data model (REST API) - Azure Storage | Microsoft Learn</a>). Usamos esses campos para buscar e atualizar as URLs encurtadas eficientemente.  </p>
+</blockquote>
+
+
+<hr>
+
+<h2 id="fun%C3%A7%C3%A3o-de-cria%C3%A7%C3%A3o-de-url-encurtada-shortenfunction">✏️ Função de Criação de URL Encurtada (ShortenFunction)
+</h2>
+
+<p>A função <em>ShortenFunction</em> é acionada via HTTP POST (rota, por exemplo, <code>/shorten</code>). Ela requer um cabeçalho de autorização (<code>x-api-key</code>) com o token válido; caso contrário, retorna 401. Depois de validado, processa o corpo JSON com os dados: pela URL original e parâmetros de expiração opcionais. Por exemplo, o corpo pode ser:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"url"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://www.exemplo.com/longa"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"expiryDays"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"maxVisits"</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre>
+
+</div>
+
+
+
+<p>O código exemplo abaixo demonstra como gerar um código curto, montar a entidade e gravá-la no Azure Table usando o SDK <code>@azure/data-tables</code>. </p>
+
+<p><strong>Arquivo:</strong> <code>ShortenFunction/function.json</code><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json-doc"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"bindings"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"authLevel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"anonymous"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"httpTrigger"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"direction"</span><span class="p">:</span><span class="w"> </span><span class="s2">"in"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"req"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"methods"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"post"</span><span class="p">]</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"direction"</span><span class="p">:</span><span class="w"> </span><span class="s2">"out"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"res"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre>
+
+</div>
+
+
+
+<p>Este <code>function.json</code> configura uma função HTTP trigger (método POST) anônima (<a href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">Azure Functions HTTP trigger | Microsoft Learn</a>). Usamos <code>authLevel: "anonymous"</code> porque faremos validação manual via header.  </p>
+
+<p><strong>Arquivo:</strong> <code>ShortenFunction/index.js</code><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight javascript"><code>
+<span class="kd">const</span> <span class="nx">accountUrl</span> <span class="o">=</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">AZURE_STORAGETABLE_RESOURCEENDPOINT</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">credential</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">DefaultAzureCredential</span><span class="p">();</span>
+
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span> <span class="o">=</span> <span class="k">async</span> <span class="nf">function </span><span class="p">(</span><span class="nx">context</span><span class="p">,</span> <span class="nx">req</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">key</span> <span class="o">=</span> <span class="nx">req</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="dl">"</span><span class="s2">x-api-key</span><span class="dl">"</span><span class="p">]</span> <span class="o">||</span> <span class="dl">""</span><span class="p">;</span>
+    <span class="c1">// Verifica autenticação básica via API key (salva em setting API_KEY)</span>
+    <span class="k">if </span><span class="p">(</span><span class="nx">key</span> <span class="o">!==</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">API_KEY</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span> <span class="na">status</span><span class="p">:</span> <span class="mi">401</span><span class="p">,</span> <span class="na">body</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Unauthorized</span><span class="dl">"</span> <span class="p">};</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="kd">const</span> <span class="p">{</span> <span class="nx">url</span><span class="p">,</span> <span class="nx">expiryDays</span><span class="p">,</span> <span class="nx">maxVisits</span> <span class="p">}</span> <span class="o">=</span> <span class="nx">req</span><span class="p">.</span><span class="nx">body</span> <span class="o">||</span> <span class="p">{};</span>
+    <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">url</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span> <span class="na">status</span><span class="p">:</span> <span class="mi">400</span><span class="p">,</span> <span class="na">body</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Falta o parâmetro url.</span><span class="dl">"</span> <span class="p">};</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Gera um código curto simples (base36 de timestamp ou rand)</span>
+    <span class="kd">const</span> <span class="nx">code</span> <span class="o">=</span> <span class="nb">Math</span><span class="p">.</span><span class="nf">random</span><span class="p">().</span><span class="nf">toString</span><span class="p">(</span><span class="mi">36</span><span class="p">).</span><span class="nf">substr</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">6</span><span class="p">);</span>
+
+    <span class="c1">// Prepara dados da entidade</span>
+    <span class="kd">const</span> <span class="nx">createdAt</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Date</span><span class="p">().</span><span class="nf">toISOString</span><span class="p">();</span>
+    <span class="kd">let</span> <span class="nx">expirationDate</span> <span class="o">=</span> <span class="kc">null</span><span class="p">;</span>
+    <span class="k">if </span><span class="p">(</span><span class="nx">expiryDays</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">const</span> <span class="nx">expDate</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Date</span><span class="p">();</span>
+        <span class="nx">expDate</span><span class="p">.</span><span class="nf">setDate</span><span class="p">(</span><span class="nx">expDate</span><span class="p">.</span><span class="nf">getDate</span><span class="p">()</span> <span class="o">+</span> <span class="nf">parseInt</span><span class="p">(</span><span class="nx">expiryDays</span><span class="p">));</span>
+        <span class="nx">expirationDate</span> <span class="o">=</span> <span class="nx">expDate</span><span class="p">.</span><span class="nf">toISOString</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="kd">const</span> <span class="nx">entity</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="na">partitionKey</span><span class="p">:</span> <span class="dl">"</span><span class="s2">ShortUrl</span><span class="dl">"</span><span class="p">,</span>
+        <span class="na">rowKey</span><span class="p">:</span> <span class="nx">code</span><span class="p">,</span>
+        <span class="na">originalUrl</span><span class="p">:</span> <span class="nx">url</span><span class="p">,</span>
+        <span class="nx">createdAt</span><span class="p">,</span>
+        <span class="na">expirationDate</span><span class="p">:</span> <span class="nx">expirationDate</span><span class="p">,</span>
+        <span class="na">maxVisits</span><span class="p">:</span> <span class="nx">maxVisits</span> <span class="o">||</span> <span class="kc">null</span><span class="p">,</span>
+        <span class="na">visitCount</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="na">lastAccess</span><span class="p">:</span> <span class="kc">null</span><span class="p">,</span>
+        <span class="na">lastIP</span><span class="p">:</span> <span class="kc">null</span>
+    <span class="p">};</span>
+
+    <span class="k">try</span> <span class="p">{</span>
+        <span class="c1">// Conecta e cria a tabela se não existir</span>
+        <span class="kd">const</span> <span class="nx">tableClient</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">TableClient</span><span class="p">(</span><span class="nx">accountUrl</span><span class="p">,</span> <span class="dl">"</span><span class="s2">ShortUrls</span><span class="dl">"</span><span class="p">,</span> <span class="nx">credential</span><span class="p">);</span>
+        <span class="k">await</span> <span class="nx">tableClient</span><span class="p">.</span><span class="nf">createTable</span><span class="p">();</span>
+        <span class="c1">// Insere a entidade no Table Storage</span>
+        <span class="k">await</span> <span class="nx">tableClient</span><span class="p">.</span><span class="nf">createEntity</span><span class="p">(</span><span class="nx">entity</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">catch </span><span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span> <span class="na">status</span><span class="p">:</span> <span class="mi">500</span><span class="p">,</span> <span class="na">body</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Erro ao acessar o storage: </span><span class="dl">"</span> <span class="o">+</span> <span class="nx">err</span><span class="p">.</span><span class="nx">message</span> <span class="p">};</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Retorna o código curto criado</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="na">status</span><span class="p">:</span> <span class="mi">201</span><span class="p">,</span>
+        <span class="na">body</span><span class="p">:</span> <span class="p">{</span> <span class="na">shortCode</span><span class="p">:</span> <span class="nx">code</span> <span class="p">}</span>
+    <span class="p">};</span>
+<span class="p">};</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Explicação do código:</p>
+
+<ul>
+<li>Obtemos o token de <code>x-api-key</code> e comparamos com <code>process.env.API_KEY</code>.
+</li>
+<li>Validamos o corpo JSON e extraímos <code>url</code>, <code>expiryDays</code> e <code>maxVisits</code>.
+</li>
+<li>Geramos um código curto (pode-se usar melhor algoritmo, aqui simplificado).
+</li>
+<li>Calculamos a data de expiração se fornecido <code>expiryDays</code>.
+</li>
+<li>Preparamos a entidade com campos conforme modelo acima.
+</li>
+<li>Usamos o pacote <code>@azure/data-tables</code> para conectar ao Table Storage usando a <em>connection string</em> padrão (<code>AzureWebJobsStorage</code>) e inserimos a entidade.
+</li>
+<li>Retornamos o código curto em formato JSON.
+</li>
+</ul>
+
+<blockquote>
+<p><strong>Referência:</strong> O arquivo <code>function.json</code> configura a ligação HTTP da função, conforme exemplo da documentação Azure (<a href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">Azure Functions HTTP trigger | Microsoft Learn</a>). A validação do token/API key é feita manualmente no código usando as variáveis de ambiente definidas em <code>local.settings.json</code> (<a href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-app-settings?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">App settings reference for Azure Functions | Microsoft Learn</a>).  </p>
+</blockquote>
+
+
+<hr>
+
+<h2 id="fun%C3%A7%C3%A3o-de-redirecionamento-redirectfunction">✏️ Função de Redirecionamento (RedirectFunction)
+</h2>
+
+<p>A função <em>RedirectFunction</em> é acionada via HTTP GET em uma rota dinâmica contendo o código curto (por exemplo, <code>/abc123</code>). Para isso, definimos no <code>function.json</code> um parâmetro de rota <code>{code}</code>. Usamos o <code>host.json</code> sem prefixo, então a chamada <code>GET /xyz</code> executa essa função. O trecho abaixo exemplifica a configuração da rota:</p>
+
+<p><strong>Arquivo:</strong> <code>RedirectFunction/function.json</code><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json-doc"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"bindings"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"authLevel"</span><span class="p">:</span><span class="w"> </span><span class="s2">"anonymous"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"httpTrigger"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"direction"</span><span class="p">:</span><span class="w"> </span><span class="s2">"in"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"req"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"methods"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"get"</span><span class="p">],</span><span class="w">
+      </span><span class="nl">"route"</span><span class="p">:</span><span class="w"> </span><span class="s2">"{code}"</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"direction"</span><span class="p">:</span><span class="w"> </span><span class="s2">"out"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"res"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre>
+
+</div>
+
+
+
+<p>Aqui definimos <code>"route": "{code}"</code>, capturando qualquer segmento de rota como parâmetro. A documentação explica que parâmetros de rota podem ser definidos em <code>function.json</code> ou no app (ex.: <code>{id}</code>) e acessados no código (<a href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">Azure Functions HTTP trigger | Microsoft Learn</a>) (<a href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">Azure Functions HTTP trigger | Microsoft Learn</a>).  </p>
+
+<p><strong>Arquivo:</strong> <code>RedirectFunction/index.js</code><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight javascript"><code><span class="kd">const</span> <span class="nx">accountUrl</span> <span class="o">=</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">AZURE_STORAGETABLE_RESOURCEENDPOINT</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">credential</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">DefaultAzureCredential</span><span class="p">();</span>
+
+<span class="nx">module</span><span class="p">.</span><span class="nx">exports</span> <span class="o">=</span> <span class="k">async</span> <span class="nf">function </span><span class="p">(</span><span class="nx">context</span><span class="p">,</span> <span class="nx">req</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">code</span> <span class="o">=</span> <span class="nx">context</span><span class="p">.</span><span class="nx">bindingData</span><span class="p">.</span><span class="nx">code</span><span class="p">;</span> <span class="c1">// valor capturado da rota</span>
+    <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">code</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span> <span class="na">status</span><span class="p">:</span> <span class="mi">400</span><span class="p">,</span> <span class="na">body</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Código não fornecido.</span><span class="dl">"</span> <span class="p">};</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">try</span> <span class="p">{</span>
+        <span class="kd">const</span> <span class="nx">tableClient</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">TableClient</span><span class="p">(</span><span class="nx">accountUrl</span><span class="p">,</span> <span class="dl">"</span><span class="s2">ShortUrls</span><span class="dl">"</span><span class="p">,</span> <span class="nx">credential</span><span class="p">);</span>
+        <span class="c1">// Tenta obter a entidade pela partitionKey e rowKey (o código)</span>
+        <span class="kd">const</span> <span class="nx">entity</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">tableClient</span><span class="p">.</span><span class="nf">getEntity</span><span class="p">(</span><span class="dl">"</span><span class="s2">ShortUrl</span><span class="dl">"</span><span class="p">,</span> <span class="nx">code</span><span class="p">);</span>
+
+        <span class="c1">// Verifica expiração por data</span>
+        <span class="k">if </span><span class="p">(</span><span class="nx">entity</span><span class="p">.</span><span class="nx">expirationDate</span><span class="p">)</span> <span class="p">{</span>
+            <span class="kd">const</span> <span class="nx">now</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Date</span><span class="p">().</span><span class="nf">toISOString</span><span class="p">();</span>
+            <span class="k">if </span><span class="p">(</span><span class="nx">now</span> <span class="o">&gt;</span> <span class="nx">entity</span><span class="p">.</span><span class="nx">expirationDate</span><span class="p">)</span> <span class="p">{</span>
+                <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span> <span class="na">status</span><span class="p">:</span> <span class="mi">410</span><span class="p">,</span> <span class="na">body</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Link expirado.</span><span class="dl">"</span> <span class="p">};</span>
+                <span class="k">return</span><span class="p">;</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+        <span class="c1">// Verifica expiração por número de acessos</span>
+        <span class="k">if </span><span class="p">(</span><span class="nx">entity</span><span class="p">.</span><span class="nx">maxVisits</span> <span class="o">&amp;&amp;</span> <span class="nx">entity</span><span class="p">.</span><span class="nx">visitCount</span> <span class="o">&gt;=</span> <span class="nx">entity</span><span class="p">.</span><span class="nx">maxVisits</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span> <span class="na">status</span><span class="p">:</span> <span class="mi">410</span><span class="p">,</span> <span class="na">body</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Número de acessos excedido.</span><span class="dl">"</span> <span class="p">};</span>
+            <span class="k">return</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="c1">// Atualiza contagem e último acesso</span>
+        <span class="kd">const</span> <span class="nx">updatedEntity</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="p">...</span><span class="nx">entity</span><span class="p">,</span>
+            <span class="na">visitCount</span><span class="p">:</span> <span class="p">(</span><span class="nx">entity</span><span class="p">.</span><span class="nx">visitCount</span> <span class="o">||</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="na">lastAccess</span><span class="p">:</span> <span class="k">new</span> <span class="nc">Date</span><span class="p">().</span><span class="nf">toISOString</span><span class="p">(),</span>
+            <span class="na">lastIP</span><span class="p">:</span> <span class="nx">req</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="dl">"</span><span class="s2">x-forwarded-for</span><span class="dl">"</span><span class="p">]</span> <span class="o">||</span> <span class="nx">req</span><span class="p">.</span><span class="nx">headers</span><span class="p">[</span><span class="dl">"</span><span class="s2">X-Forwarded-For</span><span class="dl">"</span><span class="p">]</span> <span class="o">||</span> <span class="nx">req</span><span class="p">.</span><span class="nx">connection</span><span class="p">.</span><span class="nx">remoteAddress</span>
+        <span class="p">};</span>
+        <span class="c1">// Escreve atualização na tabela</span>
+        <span class="k">await</span> <span class="nx">tableClient</span><span class="p">.</span><span class="nf">updateEntity</span><span class="p">(</span><span class="nx">updatedEntity</span><span class="p">,</span> <span class="dl">"</span><span class="s2">Merge</span><span class="dl">"</span><span class="p">);</span>
+
+        <span class="c1">// Redireciona para a URL original</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="na">status</span><span class="p">:</span> <span class="mi">302</span><span class="p">,</span>
+            <span class="na">headers</span><span class="p">:</span> <span class="p">{</span>
+                <span class="na">Location</span><span class="p">:</span> <span class="nx">entity</span><span class="p">.</span><span class="nx">originalUrl</span>
+            <span class="p">}</span>
+        <span class="p">};</span>
+    <span class="p">}</span> <span class="k">catch </span><span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// Se a entidade não existir, retorna 404</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nx">res</span> <span class="o">=</span> <span class="p">{</span> <span class="na">status</span><span class="p">:</span> <span class="mi">404</span><span class="p">,</span> <span class="na">body</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Código não encontrado.</span><span class="dl">"</span> <span class="p">};</span>
+    <span class="p">}</span>
+<span class="p">};</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Explicação do código:</p>
+
+<ul>
+<li>Capturamos o código da rota em <code>context.bindingData.code</code>.
+</li>
+<li>Buscamos a entidade na tabela usando <code>getEntity(PartitionKey, RowKey)</code>.
+</li>
+<li>Se não encontrada, caímos no <code>catch</code> e retornamos 404.
+</li>
+<li>Se encontrada, verificamos se já expirou por data ou número de acessos. Se expirado, retornamos status 410 (Gone).
+</li>
+<li>Se ainda válida, atualizamos <code>visitCount</code>, <code>lastAccess</code> e <code>lastIP</code>. Para obter o IP do usuário, usamos o header <code>X-Forwarded-For</code>, recomendado em Azure Functions (<a href="https://learn.microsoft.com/en-us/answers/questions/902635/getting-client-ip-from-azure-functions-net-isolate?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">Getting Client-IP from Azure Functions - .NET Isolated - Microsoft Q&amp;A</a>).
+</li>
+<li>Por fim, enviamos resposta HTTP com status 302 e o header <code>Location</code> apontando para <code>entity.originalUrl</code>, realizando o redirecionamento.
+</li>
+</ul>
+
+<blockquote>
+<p><strong>Referências:</strong> A configuração da rota dinâmica <code>{code}</code> no <code>function.json</code> permite capturar o valor na rota (<a href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">Azure Functions HTTP trigger | Microsoft Learn</a>). Para obter o IP do cliente, usamos <code>X-Forwarded-For</code>, conforme orientação da documentação do Azure Functions (<a href="https://learn.microsoft.com/en-us/answers/questions/902635/getting-client-ip-from-azure-functions-net-isolate?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">Getting Client-IP from Azure Functions - .NET Isolated - Microsoft Q&amp;A</a>).  </p>
+</blockquote>
+
+
+<hr>
+
+<h2 id="estrutura-da-tabela-no-azure">🧭 Estrutura da Tabela no Azure
+</h2>
+
+<p>Não há um “esquema fixo” no Azure Table Storage (é NoSQL), mas definimos as propriedades de cada entidade conforme acima. Resumindo: usamos um PartitionKey fixo (ex. <code>"ShortUrl"</code>) e o RowKey é o código curto. Os demais campos (<code>originalUrl</code>, <code>expirationDate</code>, <code>maxVisits</code>, <code>visitCount</code>, <code>lastAccess</code>, <code>lastIP</code>) são adicionados livremente à entidade. Cada inserção/atualização é um objeto JSON com esses atributos. A documentação explica que propriedades arbitrárias podem ser usadas em tabelas armazenando os dados necessários (<a href="https://learn.microsoft.com/en-us/rest/api/storageservices/understanding-the-table-service-data-model?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">Understanding the Table service data model (REST API) - Azure Storage | Microsoft Learn</a>).</p>
+
+
+<hr>
+
+<h2 id="testando-a-api-exemplos-de-requisi%C3%A7%C3%B5es">🧪 Testando a API (Exemplos de Requisições)
+</h2>
+
+<p><strong>1. Criar URL encurtada (Shorten):</strong> chame via <code>POST</code> incluindo o token no header. Por exemplo:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>curl <span class="nt">-X</span> POST <span class="s2">"https://&lt;seu_app&gt;.azurewebsites.net/shorten"</span> <span class="se">\</span>
+  <span class="nt">-H</span> <span class="s2">"Content-Type: application/json"</span> <span class="se">\</span>
+  <span class="nt">-H</span> <span class="s2">"x-api-key: MINHA_CHAVE_SECRETA"</span> <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s1">'{
+        "url": "https://www.exemplo.com/algum-caminho",
+        "expiryDays": 7,
+        "maxVisits": 50
+      }'</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Resposta esperada (HTTP 201):<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json"><code><span class="p">{</span><span class="w"> </span><span class="nl">"shortCode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a1b2c3"</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span></code></pre>
+
+</div>
+
+
+
+<p>(O código <code>"a1b2c3"</code> é um exemplo; o real será gerado dinamicamente.)</p>
+
+<p><strong>2. Acessar URL encurtada (Redirect):</strong> faça <code>GET</code> passando o código no caminho. Por exemplo:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>curl <span class="nt">-I</span> <span class="s2">"https://&lt;seu_app&gt;.azurewebsites.net/a1b2c3"</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Resposta (HTTP 302 com header Location):<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>HTTP/1.1 302 Found
+Location: https://www.exemplo.com/algum-caminho
+...
+</code></pre>
+
+</div>
+
+
+
+<p>Isso redireciona o cliente para a URL original. Nos logs/entidade do Table Storage, os campos <code>visitCount</code>, <code>lastAccess</code> e <code>lastIP</code> serão atualizados.</p>
+
+<p><strong>3. Casos de expiração:</strong> após atingir a data de expiração ou o número máximo de acessos, o redirecionamento não ocorre e retorna status 410, por exemplo:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>HTTP/1.1 410 Gone
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="conclus%C3%A3o">✅ Conclusão
+</h2>
+
+<p>Você agora tem um <strong>encurtador de URLs funcional e escalável</strong>, usando:</p>
+
+<ul>
+<li>
+<strong>Azure Functions</strong> com cobrança por execução</li>
+<li>
+<strong>Armazenamento Table</strong> com identidade gerenciada</li>
+<li>Segurança via API Key</li>
+<li>Funcionalidades como expiração e analytics</li>
+</ul>
+
+<p>Se quiser evoluir, aqui vão ideias:</p>
+
+<ul>
+<li>UI com React ou Blazor</li>
+<li>Registro de analytics por IP/cidade</li>
+<li>Auth com Azure AD B2C</li>
+<li>Uso de CosmosDB para mais escala</li>
+</ul>
+
+
+<hr>
+
+<h2 id="e-voc%C3%AA">💬 E você?
+</h2>
+
+<p>Já construiu algo com Azure Functions ou Table Storage? Deixe nos comentários!</p>
+
+<h2 id="refer%C3%AAncias">Referências
+</h2>
+
+<ul>
+<li>Configuração de funções HTTP em Azure Functions (function.json) (<a href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">Azure Functions HTTP trigger | Microsoft Learn</a>).
+</li>
+<li>Uso de parâmetros de rota (<code>{id}</code>) em Azure Functions (<a href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">Azure Functions HTTP trigger | Microsoft Learn</a>).
+</li>
+<li>Chaves PartitionKey/RowKey no Azure Table Storage (<a href="https://learn.microsoft.com/en-us/rest/api/storageservices/understanding-the-table-service-data-model?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">Understanding the Table service data model (REST API) - Azure Storage | Microsoft Learn</a>).
+</li>
+<li>Obtenção do IP do cliente via header <code>X-Forwarded-For</code> (<a href="https://learn.microsoft.com/en-us/answers/questions/902635/getting-client-ip-from-azure-functions-net-isolate?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">Getting Client-IP from Azure Functions - .NET Isolated - Microsoft Q&amp;A</a>).
+</li>
+<li>Uso de variáveis de ambiente em Azure Functions (local.settings.json) (<a href="https://learn.microsoft.com/en-us/azure/azure-functions/functions-app-settings?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">App settings reference for Azure Functions | Microsoft Learn</a>). </li>
+</ul>

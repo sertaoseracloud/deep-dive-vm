@@ -1,0 +1,364 @@
+<p>Aplicações modernas funcionam raramente isoladas. Muitas vezes temos um <strong>frontend</strong> que lida com a experiência do usuário, e um <strong>backend</strong> que concentra as regras de negócio e o acesso a dados sensíveis.<br>
+Garantir que apenas usuários autenticados consigam acessar esses recursos é fundamental.</p>
+
+<p>Neste artigo, vamos construir uma solução que utiliza <strong>Next.js</strong> como frontend, integrando a autenticação com o <strong>Microsoft Entra ID</strong> (antigo Azure Active Directory), e um <strong>backend em Node/TypeScript</strong> que valida tokens JWT emitidos pelo Entra ID antes de liberar o acesso a rotas protegidas.</p>
+
+<hr>
+<h2 id="arquitetura-geral">Arquitetura Geral
+</h2>
+
+<p>A solução pode ser entendida em cinco passos principais:</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fi7xs8s06xm0c6vouyytx.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fi7xs8s06xm0c6vouyytx.png" alt="Diagrama de Sequência" loading="lazy" width="723" height="541"></a></p>
+
+<ol>
+<li>O usuário acessa a aplicação em <strong>Next.js</strong> e inicia o login.</li>
+<li>O <strong>NextAuth.js</strong> redireciona o usuário para o Microsoft Entra ID.</li>
+<li>Após a autenticação, o Entra ID retorna um <strong>ID Token</strong> e um <strong>Access Token</strong> para o Next.js.</li>
+<li>O frontend envia o <strong>Access Token</strong> ao backend, no header <code>Authorization: Bearer &lt;token&gt;</code>.</li>
+<li>O backend valida o token contra o serviço de chaves públicas (JWKS) do Entra ID.</li>
+</ol>
+
+<ul>
+<li>Se válido → rota protegida é acessada.</li>
+<li>Se inválido/expirado → resposta <code>401 Unauthorized</code>.</li>
+</ul>
+
+<hr>
+<h2 id="1-configura%C3%A7%C3%A3o-no-entra-id">1. Configuração no Entra ID
+</h2>
+
+<p>No <strong>Azure Portal</strong>:</p>
+
+<ul>
+<li>Vá em <strong>Microsoft Entra ID → App registrations → New registration</strong>.</li>
+<li>
+<p>Preencha os campos:</p>
+
+<ul>
+<li>
+<strong>Name</strong>: <code>nextjs-auth-app</code>
+</li>
+<li>
+<strong>Redirect URI</strong>: <code>http://localhost:3000/api/auth/callback</code>
+</li>
+<li>Ative <strong>ID tokens</strong> e <strong>Access tokens</strong>.</li>
+</ul>
+</li>
+<li>
+<p>Salve as credenciais:</p>
+
+<ul>
+<li><strong>Application (client) ID</strong></li>
+<li><strong>Directory (tenant) ID</strong></li>
+<li>
+<strong>Client Secret</strong> (criado manualmente em <em>Certificates &amp; secrets</em>).</li>
+</ul>
+</li>
+</ul>
+
+<hr>
+<h2 id="2-frontend-nextjs-com-nextauth">2. Frontend Next.js com NextAuth
+</h2>
+<h3 id="instala%C3%A7%C3%A3o">Instalação
+</h3>
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>npm <span class="nb">install </span>next-auth @azure/msal-node
+</code></pre>
+
+</div>
+
+<h3 id="vari%C3%A1veis-de-ambiente">Variáveis de ambiente
+</h3>
+
+<p>Arquivo <code>.env.local</code>:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code><span class="nv">AZURE_AD_CLIENT_ID</span><span class="o">=</span>&lt;Application ID&gt;       <span class="c"># ID da aplicação registrada no Entra ID</span>
+<span class="nv">AZURE_AD_CLIENT_SECRET</span><span class="o">=</span>&lt;Client Secret&gt;    <span class="c"># Segredo do app (não expor no frontend)</span>
+<span class="nv">AZURE_AD_TENANT_ID</span><span class="o">=</span>&lt;Directory ID&gt;         <span class="c"># Tenant (diretório da organização)</span>
+<span class="nv">NEXTAUTH_URL</span><span class="o">=</span>http://localhost:3000        <span class="c"># URL da aplicação Next.js</span>
+<span class="nv">NEXTAUTH_SECRET</span><span class="o">=</span>&lt;chave-aleatória&gt;         <span class="c"># Chave para assinar JWT de sessão</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h3 id="configura%C3%A7%C3%A3o-do-nextauth">Configuração do NextAuth
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">import</span> <span class="nx">NextAuth</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">next-auth</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="nx">AzureADProvider</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">next-auth/providers/azure-ad</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="c1">// Configuração principal do NextAuth</span>
+<span class="k">export</span> <span class="k">default</span> <span class="nc">NextAuth</span><span class="p">({</span>
+  <span class="na">providers</span><span class="p">:</span> <span class="p">[</span>
+    <span class="c1">// Habilita login com Microsoft Entra ID (Azure AD)</span>
+    <span class="nc">AzureADProvider</span><span class="p">({</span>
+      <span class="na">clientId</span><span class="p">:</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">AZURE_AD_CLIENT_ID</span><span class="o">!</span><span class="p">,</span>        <span class="c1">// ID do app registrado no Entra ID</span>
+      <span class="na">clientSecret</span><span class="p">:</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">AZURE_AD_CLIENT_SECRET</span><span class="o">!</span><span class="p">,</span><span class="c1">// Segredo do cliente (guardado no backend)</span>
+      <span class="na">tenantId</span><span class="p">:</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">AZURE_AD_TENANT_ID</span><span class="o">!</span><span class="p">,</span>        <span class="c1">// ID do diretório (tenant)</span>
+    <span class="p">}),</span>
+  <span class="p">],</span>
+  <span class="na">session</span><span class="p">:</span> <span class="p">{</span> <span class="na">strategy</span><span class="p">:</span> <span class="dl">"</span><span class="s2">jwt</span><span class="dl">"</span> <span class="p">},</span> <span class="c1">// Sessões baseadas em JWT (sem persistência no BD)</span>
+  <span class="na">callbacks</span><span class="p">:</span> <span class="p">{</span>
+    <span class="c1">// Callback executado ao criar/atualizar JWT</span>
+    <span class="k">async</span> <span class="nf">jwt</span><span class="p">({</span> <span class="nx">token</span><span class="p">,</span> <span class="nx">account</span> <span class="p">})</span> <span class="p">{</span>
+      <span class="k">if </span><span class="p">(</span><span class="nx">account</span><span class="p">)</span> <span class="nx">token</span><span class="p">.</span><span class="nx">accessToken</span> <span class="o">=</span> <span class="nx">account</span><span class="p">.</span><span class="nx">access_token</span><span class="p">;</span> <span class="c1">// Armazena o accessToken no token</span>
+      <span class="k">return</span> <span class="nx">token</span><span class="p">;</span>
+    <span class="p">},</span>
+    <span class="c1">// Callback executado ao montar a sessão</span>
+    <span class="k">async</span> <span class="nf">session</span><span class="p">({</span> <span class="nx">session</span><span class="p">,</span> <span class="nx">token</span> <span class="p">})</span> <span class="p">{</span>
+      <span class="nx">session</span><span class="p">.</span><span class="nx">accessToken</span> <span class="o">=</span> <span class="nx">token</span><span class="p">.</span><span class="nx">accessToken</span> <span class="k">as</span> <span class="kr">string</span><span class="p">;</span> <span class="c1">// Inclui o accessToken na sessão</span>
+      <span class="k">return</span> <span class="nx">session</span><span class="p">;</span>
+    <span class="p">},</span>
+  <span class="p">},</span>
+<span class="p">});</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h3 id="componente-de-loginlogout-raw-authbuttontsx-endraw-">Componente de Login/Logout (<code>AuthButton.tsx</code>)
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight tsx"><code><span class="dl">"</span><span class="s2">use client</span><span class="dl">"</span><span class="p">;</span> <span class="c1">// Necessário porque usamos interações de browser (signIn/signOut)</span>
+
+<span class="k">import</span> <span class="p">{</span> <span class="nx">signIn</span><span class="p">,</span> <span class="nx">signOut</span><span class="p">,</span> <span class="nx">useSession</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">next-auth/react</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="k">default</span> <span class="kd">function</span> <span class="nf">AuthButton</span><span class="p">()</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="p">{</span> <span class="na">data</span><span class="p">:</span> <span class="nx">session</span> <span class="p">}</span> <span class="o">=</span> <span class="nf">useSession</span><span class="p">();</span> <span class="c1">// Hook que recupera a sessão atual</span>
+
+  <span class="k">if </span><span class="p">(</span><span class="nx">session</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// Caso o usuário esteja logado</span>
+    <span class="k">return </span><span class="p">(</span>
+      <span class="p">&lt;</span><span class="nt">button</span> <span class="na">onClick</span><span class="p">=</span><span class="si">{</span><span class="p">()</span> <span class="o">=&gt;</span> <span class="nf">signOut</span><span class="p">()</span><span class="si">}</span><span class="p">&gt;</span>
+        Sair (<span class="si">{</span><span class="nx">session</span><span class="p">.</span><span class="nx">user</span><span class="p">?.</span><span class="nx">name</span><span class="si">}</span>) <span class="si">{</span><span class="cm">/* Mostra o nome do usuário logado */</span><span class="si">}</span>
+      <span class="p">&lt;/</span><span class="nt">button</span><span class="p">&gt;</span>
+    <span class="p">);</span>
+  <span class="p">}</span>
+  <span class="c1">// Caso não esteja logado</span>
+  <span class="k">return </span><span class="p">(</span>
+    <span class="p">&lt;</span><span class="nt">button</span> <span class="na">onClick</span><span class="p">=</span><span class="si">{</span><span class="p">()</span> <span class="o">=&gt;</span> <span class="nf">signIn</span><span class="p">(</span><span class="dl">"</span><span class="s2">azure-ad</span><span class="dl">"</span><span class="p">)</span><span class="si">}</span><span class="p">&gt;</span>
+      Entrar com Entra ID <span class="si">{</span><span class="cm">/* Chama fluxo de login no Entra ID */</span><span class="si">}</span>
+    <span class="p">&lt;/</span><span class="nt">button</span><span class="p">&gt;</span>
+  <span class="p">);</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h3 id="tela-principal-raw-pagetsx-endraw-">Tela Principal (<code>page.tsx</code>)
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight tsx"><code><span class="k">import</span> <span class="nx">AuthButton</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">./components/AuthButton</span><span class="dl">"</span><span class="p">;</span> <span class="c1">// Importa o botão de login/logout</span>
+<span class="k">import</span> <span class="nx">Link</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">next/link</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="k">default</span> <span class="kd">function</span> <span class="nf">Home</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">return </span><span class="p">(</span>
+    <span class="p">&lt;</span><span class="nt">main</span> <span class="na">style</span><span class="p">=</span><span class="si">{</span><span class="p">{</span> <span class="na">padding</span><span class="p">:</span> <span class="dl">"</span><span class="s2">2rem</span><span class="dl">"</span> <span class="p">}</span><span class="si">}</span><span class="p">&gt;</span>
+      <span class="p">&lt;</span><span class="nt">h1</span><span class="p">&gt;</span>🔐 Demo de Autenticação com Entra ID<span class="p">&lt;/</span><span class="nt">h1</span><span class="p">&gt;</span>
+      <span class="si">{</span><span class="cm">/* Botão que mostra "Entrar" ou "Sair", dependendo da sessão */</span><span class="si">}</span>
+      <span class="p">&lt;</span><span class="nc">AuthButton</span> <span class="p">/&gt;</span>
+
+      <span class="p">&lt;</span><span class="nt">hr</span> <span class="na">style</span><span class="p">=</span><span class="si">{</span><span class="p">{</span> <span class="na">margin</span><span class="p">:</span> <span class="dl">"</span><span class="s2">2rem 0</span><span class="dl">"</span> <span class="p">}</span><span class="si">}</span> <span class="p">/&gt;</span>
+
+      <span class="si">{</span><span class="cm">/* Link para acessar página protegida */</span><span class="si">}</span>
+      <span class="p">&lt;</span><span class="nc">Link</span> <span class="na">href</span><span class="p">=</span><span class="s">"/protected"</span><span class="p">&gt;</span>
+        <span class="p">&lt;</span><span class="nt">button</span><span class="p">&gt;</span>Acessar página protegida<span class="p">&lt;/</span><span class="nt">button</span><span class="p">&gt;</span>
+      <span class="p">&lt;/</span><span class="nc">Link</span><span class="p">&gt;</span>
+    <span class="p">&lt;/</span><span class="nt">main</span><span class="p">&gt;</span>
+  <span class="p">);</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="3-server-component-p%C3%A1gina-protegida">3. Server Component: Página Protegida
+</h2>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight tsx"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">authOptions</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">../api/auth/[...nextauth]/route</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">getServerSession</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">next-auth</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="k">default</span> <span class="k">async</span> <span class="kd">function</span> <span class="nf">ProtectedPage</span><span class="p">()</span> <span class="p">{</span>
+  <span class="c1">// Recupera a sessão no lado do servidor</span>
+  <span class="kd">const</span> <span class="nx">session</span> <span class="o">=</span> <span class="k">await</span> <span class="nf">getServerSession</span><span class="p">(</span><span class="nx">authOptions</span><span class="p">);</span>
+
+  <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">session</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// Caso o usuário não esteja autenticado</span>
+    <span class="k">return</span> <span class="p">&lt;</span><span class="nt">p</span><span class="p">&gt;</span>Você precisa estar logado.<span class="p">&lt;/</span><span class="nt">p</span><span class="p">&gt;;</span>
+  <span class="p">}</span>
+
+  <span class="c1">// Faz requisição ao backend protegido enviando o accessToken no header</span>
+  <span class="kd">const</span> <span class="nx">res</span> <span class="o">=</span> <span class="k">await</span> <span class="nf">fetch</span><span class="p">(</span><span class="dl">"</span><span class="s2">http://localhost:4000/api/secure-data</span><span class="dl">"</span><span class="p">,</span> <span class="p">{</span>
+    <span class="na">headers</span><span class="p">:</span> <span class="p">{</span>
+      <span class="na">Authorization</span><span class="p">:</span> <span class="s2">`Bearer </span><span class="p">${</span><span class="nx">session</span><span class="p">.</span><span class="nx">accessToken</span><span class="p">}</span><span class="s2">`</span><span class="p">,</span> <span class="c1">// Token nunca vai para o client</span>
+    <span class="p">},</span>
+    <span class="na">cache</span><span class="p">:</span> <span class="dl">"</span><span class="s2">no-store</span><span class="dl">"</span><span class="p">,</span> <span class="c1">// Garante que não será cacheado</span>
+  <span class="p">});</span>
+
+  <span class="kd">const</span> <span class="nx">data</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">res</span><span class="p">.</span><span class="nf">json</span><span class="p">();</span>
+
+  <span class="k">return </span><span class="p">(</span>
+    <span class="p">&lt;</span><span class="nt">div</span><span class="p">&gt;</span>
+      <span class="p">&lt;</span><span class="nt">h2</span><span class="p">&gt;</span>Olá, <span class="si">{</span><span class="nx">session</span><span class="p">.</span><span class="nx">user</span><span class="p">?.</span><span class="nx">name</span><span class="si">}</span><span class="p">&lt;/</span><span class="nt">h2</span><span class="p">&gt;</span> <span class="si">{</span><span class="cm">/* Nome do usuário logado */</span><span class="si">}</span>
+      <span class="p">&lt;</span><span class="nt">pre</span><span class="p">&gt;</span><span class="si">{</span><span class="nx">JSON</span><span class="p">.</span><span class="nf">stringify</span><span class="p">(</span><span class="nx">data</span><span class="p">,</span> <span class="kc">null</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="si">}</span><span class="p">&lt;/</span><span class="nt">pre</span><span class="p">&gt;</span> <span class="si">{</span><span class="cm">/* Dados retornados da API */</span><span class="si">}</span>
+    <span class="p">&lt;/</span><span class="nt">div</span><span class="p">&gt;</span>
+  <span class="p">);</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="4-backend-nodetypescript">4. Backend Node/TypeScript
+</h2>
+
+<h3 id="depend%C3%AAncias">Dependências
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>npm <span class="nb">install </span>express jwks-rsa express-jwt
+</code></pre>
+
+</div>
+
+
+
+<h3 id="c%C3%B3digo-raw-srcindexts-endraw-">Código (<code>src/index.ts</code>)
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">import</span> <span class="nx">express</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">express</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">expressjwt</span> <span class="k">as</span> <span class="nx">jwt</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">express-jwt</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="nx">jwksRsa</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">jwks-rsa</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">app</span> <span class="o">=</span> <span class="nf">express</span><span class="p">();</span>
+<span class="kd">const</span> <span class="nx">port</span> <span class="o">=</span> <span class="mi">4000</span><span class="p">;</span>
+
+<span class="c1">// Middleware que valida o JWT recebido</span>
+<span class="kd">const</span> <span class="nx">checkJwt</span> <span class="o">=</span> <span class="nf">jwt</span><span class="p">({</span>
+  <span class="c1">// Define a forma de obter as chaves públicas do Entra ID</span>
+  <span class="na">secret</span><span class="p">:</span> <span class="nx">jwksRsa</span><span class="p">.</span><span class="nf">expressJwtSecret</span><span class="p">({</span>
+    <span class="na">cache</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>                      <span class="c1">// Cache para não buscar chave toda vez</span>
+    <span class="na">rateLimit</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>                  <span class="c1">// Limite de requisições para JWKS</span>
+    <span class="na">jwksRequestsPerMinute</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>        <span class="c1">// Máx. 10 req/min</span>
+    <span class="na">jwksUri</span><span class="p">:</span> <span class="s2">`https://login.microsoftonline.com/</span><span class="p">${</span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">AZURE_AD_TENANT_ID</span><span class="p">}</span><span class="s2">/discovery/v2.0/keys`</span><span class="p">,</span>
+  <span class="p">})</span> <span class="k">as</span> <span class="kr">any</span><span class="p">,</span>
+  <span class="na">audience</span><span class="p">:</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">AZURE_AD_CLIENT_ID</span><span class="p">,</span>               <span class="c1">// Valida se o token é para este app</span>
+  <span class="na">issuer</span><span class="p">:</span> <span class="s2">`https://login.microsoftonline.com/</span><span class="p">${</span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">AZURE_AD_TENANT_ID</span><span class="p">}</span><span class="s2">/v2.0`</span><span class="p">,</span> <span class="c1">// Origem do token</span>
+  <span class="na">algorithms</span><span class="p">:</span> <span class="p">[</span><span class="dl">"</span><span class="s2">RS256</span><span class="dl">"</span><span class="p">],</span>                                  <span class="c1">// Algoritmo esperado</span>
+<span class="p">});</span>
+
+<span class="c1">// Rota protegida: só acessa se o JWT for válido</span>
+<span class="nx">app</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="dl">"</span><span class="s2">/api/secure-data</span><span class="dl">"</span><span class="p">,</span> <span class="nx">checkJwt</span><span class="p">,</span> <span class="p">(</span><span class="nx">req</span><span class="p">,</span> <span class="nx">res</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+  <span class="nx">res</span><span class="p">.</span><span class="nf">json</span><span class="p">({</span>
+    <span class="na">message</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Autenticado ✅</span><span class="dl">"</span><span class="p">,</span>
+    <span class="na">claims</span><span class="p">:</span> <span class="p">(</span><span class="nx">req</span> <span class="k">as</span> <span class="kr">any</span><span class="p">).</span><span class="nx">auth</span><span class="p">,</span> <span class="c1">// Retorna as claims do token decodificado</span>
+  <span class="p">});</span>
+<span class="p">});</span>
+
+<span class="c1">// Inicializa o servidor</span>
+<span class="nx">app</span><span class="p">.</span><span class="nf">listen</span><span class="p">(</span><span class="nx">port</span><span class="p">,</span> <span class="p">()</span> <span class="o">=&gt;</span>
+  <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`🚀 Backend rodando em http://localhost:</span><span class="p">${</span><span class="nx">port</span><span class="p">}</span><span class="s2">`</span><span class="p">)</span>
+<span class="p">);</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="boas-pr%C3%A1ticas">Boas Práticas
+</h2>
+
+<ul>
+<li>
+<strong>Proteção de secrets</strong>: nunca exponha <code>clientSecret</code> no frontend.</li>
+<li>
+<strong>Sessões seguras</strong>: use cookies <code>httpOnly</code> ou JWT fornecidos pelo NextAuth.</li>
+<li>
+<strong>Validação rigorosa</strong>: configure corretamente <code>audience</code> e <code>issuer</code>.</li>
+<li>
+<strong>Observabilidade</strong>: registre logs de falhas de autenticação.</li>
+<li>
+<strong>Escalabilidade</strong>: esse padrão permite múltiplos serviços validando tokens sem depender do frontend.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="conclus%C3%A3o">Conclusão
+</h2>
+
+<p>Com essa arquitetura, garantimos um fluxo seguro de ponta a ponta:</p>
+
+<ul>
+<li>O <strong>Next.js</strong> gerencia autenticação e sessão do usuário.</li>
+<li>O <strong>backend Node/TS</strong> valida tokens antes de liberar dados sensíveis.</li>
+<li>O <strong>Microsoft Entra ID</strong> centraliza a identidade, oferecendo segurança corporativa.</li>
+</ul>
+
+<p>Esse modelo é flexível e pode ser expandido para <strong>microsserviços</strong> ou <strong>integração com APIs da Microsoft (Graph API)</strong>.</p>
+
+
+<hr>
+
+<h2 id="refer%C3%AAncias">Referências
+</h2>
+
+<ul>
+<li><p>Microsoft Corporation. (2024a). <em>Microsoft identity platform documentation</em>. Microsoft Learn.<br>
+<a href="https://learn.microsoft.com/en-us/azure/active-directory/develop/?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">https://learn.microsoft.com/en-us/azure/active-directory/develop/</a></p></li>
+<li><p>Microsoft Corporation. (2024b). <em>Microsoft Entra ID: Overview</em>. Microsoft Learn.<br>
+<a href="https://learn.microsoft.com/en-us/entra/identity/?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">https://learn.microsoft.com/en-us/entra/identity/</a></p></li>
+<li><p>Microsoft Corporation. (2024c). <em>Configure NextAuth.js with Azure AD</em>. Microsoft Learn.<br>
+<a href="https://learn.microsoft.com/en-us/azure/active-directory/develop/tutorial-v2-javascript-spa?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">https://learn.microsoft.com/en-us/azure/active-directory/develop/tutorial-v2-javascript-spa</a></p></li>
+<li><p>NextAuth.js. (2024). <em>NextAuth.js Documentation</em>.<br>
+<a href="https://next-auth.js.org/" target="_blank" rel="noopener noreferrer">https://next-auth.js.org/</a></p></li>
+<li><p>Auth0 Inc. (2024). <em>Introduction to JWTs</em>.<br>
+<a href="https://auth0.com/intro-to-jwt" target="_blank" rel="noopener noreferrer">https://auth0.com/intro-to-jwt</a></p></li>
+</ul>

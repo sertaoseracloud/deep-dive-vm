@@ -6,10 +6,18 @@ Site estático em [Astro](https://astro.build) com o hub de cursos e eventos do 
 
 | Rota | Conteúdo |
 | --- | --- |
-| `/` | Hub: perfil do mentor, redes e cursos gratuitos (DivergePHP, DivergeTerraform e DivergePython), em abas **Cursos** e **Eventos** (`/#eventos`), cada uma com carrossel de banners |
+| `/` | Hub: perfil do mentor, redes e cursos gratuitos (DivergePHP, DivergeTerraform e DivergePython), em abas **Cursos**, **Eventos** (`/#eventos`) e **Blog** (`/#blog`) |
 | `/acessibilidade/` | Declaração de acessibilidade |
+| `/blog/<slug>/` | Artigo do blog (texto do dev.to, com canonical para lá) |
 
 Os cursos do hub vêm de [`src/data/courses.ts`](src/data/courses.ts). O banner de cada curso (1584×396, em [`src/assets/banners/`](src/assets/banners/)) aparece no carrossel do hub ([`BannerCarousel.astro`](src/components/ui/BannerCarousel.astro)): sem rotação automática, com botões, pontos, setas do teclado e arraste, e o Astro gera as versões WebP em 640, 960 e 1584 px. Os eventos vêm de [`src/data/events.ts`](src/data/events.ts) e cada link pode ter um banner em [`src/assets/eventos/`](src/assets/eventos/). As regras de exibição (agrupar por mês, "faltam N dias", esconder os encerrados) ficam em [`src/lib/eventos.ts`](src/lib/eventos.ts), com testes; elas rodam no build e no navegador, e o site é republicado todo dia às 06:00 (horário de Brasília) para os eventos encerrados saírem também do HTML e do sitemap.
+
+**Blog:** os artigos do [dev.to/sertaoseracloud](https://dev.to/sertaoseracloud) ficam dentro do site, em `/blog/<slug>/`, com o texto completo e a **URL canônica apontando para o dev.to** (`<link rel="canonical">` = `canonical_url` da API). Assim os buscadores tratam o dev.to como a origem e as páginas não contam como conteúdo duplicado; por isso elas também ficam fora do sitemap.
+
+- [`scripts/buscar-devto.mjs`](scripts/buscar-devto.mjs) chama a API pública (`GET /api/articles?username=sertaoseracloud` e `GET /api/articles/:id`) e grava a lista em [`src/data/devto-artigos.json`](src/data/devto-artigos.json) e o corpo de cada artigo em `src/data/devto/<id>.html`. Só baixa os artigos novos ou editados, com 1 pedido por segundo e nova tentativa quando a API limita (429).
+- A pipeline de publicação ([`deploy.yaml`](.github/workflows/deploy.yaml)) roda o script **todo dia à meia-noite de Brasília**, antes do build. Se a API falhar, o site sai com o que está salvo no repositório. Para atualizar o que está salvo: `node scripts/buscar-devto.mjs` e commit.
+- O HTML do dev.to passa por [`limparHtml`](src/lib/devto.js): saem botões e scripts que só funcionam lá, `<h1>` do texto vira `<h2>`, blocos de código e tabelas ficam roláveis pelo teclado e imagens carregam sob demanda.
+- Na aba Blog do hub, cada card leva à página do artigo ("Ler artigo") e ao dev.to; há filtro por idioma e "Mostrar mais" (9 por vez). Artigos em inglês marcam `lang="en"`.
 
 Estrutura do hub: a página ([`src/pages/index.astro`](src/pages/index.astro)) monta o perfil, as abas e os painéis; os cards ficam em [`src/components/hub/`](src/components/hub/) e os estilos em [`src/styles/hub.css`](src/styles/hub.css).
 

@@ -1,0 +1,254 @@
+<h2 id="1-introduction">1. Introduction
+</h2>
+
+<p>An event-driven architecture utilizing DynamoDB Streams, AWS Lambda, Amazon SNS, and Amazon SQS is considered the gold standard for designing highly decoupled, scalable, and resilient systems in the cloud. In this tutorial, you will construct a complete, asynchronous data flow from scratch. The process begins when modifications occur in a DynamoDB table, which automatically triggers a data stream. This stream is continuously captured by a producer Lambda function, which processes the change and publishes a notification to an SNS topic. The SNS acts as a high-availability message router, performing a fan-out distribution of this notification to an SQS queue. Finally, a second consumer Lambda function reads the messages from the SQS queue to perform the final business logic processing. By the end of this guide, you will be able to deploy this robust infrastructure using Terraform alongside official AWS community modules. This approach is extremely useful because it ensures your infrastructure is version-controlled, highly maintainable, and inherently adopts security best practices, such as the principle of least privilege and fault tolerance.</p>
+
+<h2 id="2-prerequisites">2. Prerequisites
+</h2>
+
+<p>Before starting the infrastructure build, you must ensure that your development environment is properly prepared. You will need an active AWS account with administrative permissions to provision compute, messaging, database, and Identity and Access Management (IAM) resources. The AWS Command Line Interface (AWS CLI) must be installed and configured with your access credentials on your local machine. Additionally, Terraform (version 1.3.0 or higher) needs to be installed and globally accessible from your command terminal. Fundamental knowledge of Terraform's declarative syntax (HCL) and a basic understanding of how cloud messaging systems operate are highly recommended for the best learning experience. A modern code editor will greatly facilitate the creation and manipulation of the configuration files.</p>
+
+<h2 id="3-stepbystep">3. Step-by-Step
+</h2>
+
+<h3 id="step-1-initial-configuration-and-aws-provider">Step 1: Initial Configuration and AWS Provider
+</h3>
+
+<p><strong>What to do:</strong> Create the root Terraform configuration file to define the required Terraform version and establish the connection with the AWS provider, explicitly specifying the region where the resources will be allocated.</p>
+
+<p><strong>Why do it:</strong> Terraform operates through plugins called providers. The AWS provider block instructs the tool on which API to use for authentication and resource provisioning. Declaring the region explicitly avoids unexpected behaviors and ensures that all interconnected services, such as DynamoDB and SNS, are deployed in the same geographical environment, significantly reducing the network latency of your architecture. Setting default tags also helps organize your resources for billing and management purposes.</p>
+
+<p><strong>Example (<code>main.tf</code>):</strong><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">terraform</span> <span class="p">{</span>
+  <span class="nx">required_version</span> <span class="p">=</span> <span class="s2">"&gt;= 1.3.0"</span>
+  <span class="nx">required_providers</span> <span class="p">{</span>
+    <span class="nx">aws</span> <span class="p">=</span> <span class="p">{</span>
+      <span class="nx">source</span>  <span class="p">=</span> <span class="s2">"hashicorp/aws"</span>
+      <span class="nx">version</span> <span class="p">=</span> <span class="s2">"~&gt; 5.0"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">provider</span> <span class="s2">"aws"</span> <span class="p">{</span>
+  <span class="nx">region</span> <span class="p">=</span> <span class="s2">"us-east-1"</span>
+  <span class="nx">default_tags</span> <span class="p">{</span>
+    <span class="nx">tags</span> <span class="p">=</span> <span class="p">{</span>
+      <span class="nx">Environment</span> <span class="p">=</span> <span class="s2">"Production"</span>
+      <span class="nx">Project</span>     <span class="p">=</span> <span class="s2">"EventDrivenArchitecture"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="step-2-creation-of-the-dynamodb-table-with-stream-enabled">Step 2: Creation of the DynamoDB Table with Stream Enabled
+</h3>
+
+<p><strong>What to do:</strong> Utilize the official DynamoDB Terraform module to create the main application table, ensuring that the Streams feature is activated with the view type configured to capture both new and old images of the modified items.</p>
+
+<p><strong>Why do it:</strong> The official module drastically simplifies the definition of partition keys and table attributes. Enabling the Stream is the foundational step of this entire architecture, as it acts as the initial trigger for our event pipeline. Setting the <code>stream_view_type</code> to <code>NEW_AND_OLD_IMAGES</code> guarantees that the consuming Lambda function will receive both the previous state of the modified item and its new state. This provides complete context, allowing your code to perform complex validations or delta comparisons during data processing.</p>
+
+<p><strong>Example (<code>dynamodb.tf</code>):</strong><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">module</span> <span class="s2">"dynamodb_table"</span> <span class="p">{</span>
+  <span class="nx">source</span>  <span class="p">=</span> <span class="s2">"terraform-aws-modules/dynamodb-table/aws"</span>
+  <span class="nx">version</span> <span class="p">=</span> <span class="s2">"~&gt; 4.0"</span>
+
+  <span class="nx">name</span>           <span class="p">=</span> <span class="s2">"application-data-table"</span>
+  <span class="nx">hash_key</span>       <span class="p">=</span> <span class="s2">"id"</span>
+  <span class="nx">billing_mode</span>   <span class="p">=</span> <span class="s2">"PAY_PER_REQUEST"</span>
+
+  <span class="nx">attributes</span> <span class="p">=</span> <span class="p">[</span>
+    <span class="p">{</span>
+      <span class="nx">name</span> <span class="p">=</span> <span class="s2">"id"</span>
+      <span class="nx">type</span> <span class="p">=</span> <span class="s2">"S"</span>
+    <span class="p">}</span>
+  <span class="p">]</span>
+
+  <span class="nx">stream_enabled</span>   <span class="p">=</span> <span class="kc">true</span>
+  <span class="nx">stream_view_type</span> <span class="p">=</span> <span class="s2">"NEW_AND_OLD_IMAGES"</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="step-3-provisioning-the-sns-topic-and-sqs-queue">Step 3: Provisioning the SNS Topic and SQS Queue
+</h3>
+
+<p><strong>What to do:</strong> Implement the official modules for Amazon SNS and Amazon SQS. You must configure the access policy of the SQS queue to securely allow the SNS topic to publish messages directly into it, and then create the subscription linking them together.</p>
+
+<p><strong>Why do it:</strong> Using SNS combined with SQS implements the robust "Fan-out" messaging pattern. SNS manages the immediate delivery and routing, while SQS ensures temporary storage, persistence, and message retention in case the consumer Lambda is temporarily unavailable. Utilizing the official modules abstracts away the complexity of manually crafting JSON IAM policies. By enabling <code>create_queue_policy = true</code> and providing the allowed ARNs, the SQS module automatically manages the IAM permissions required to receive payloads from SNS, keeping your security posture tight and error-free.</p>
+
+<p><strong>Example (<code>messaging.tf</code>):</strong><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">module</span> <span class="s2">"sns_topic"</span> <span class="p">{</span>
+  <span class="nx">source</span>  <span class="p">=</span> <span class="s2">"terraform-aws-modules/sns/aws"</span>
+  <span class="nx">version</span> <span class="p">=</span> <span class="s2">"~&gt; 6.0"</span>
+
+  <span class="nx">name</span> <span class="p">=</span> <span class="s2">"data-processing-topic"</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"sqs_queue"</span> <span class="p">{</span>
+  <span class="nx">source</span>  <span class="p">=</span> <span class="s2">"terraform-aws-modules/sqs/aws"</span>
+  <span class="nx">version</span> <span class="p">=</span> <span class="s2">"~&gt; 4.0"</span>
+
+  <span class="nx">name</span> <span class="p">=</span> <span class="s2">"data-processing-queue"</span>
+
+  <span class="nx">create_queue_policy</span> <span class="p">=</span> <span class="kc">true</span>
+  <span class="nx">queue_policy_statements</span> <span class="p">=</span> <span class="p">{</span>
+    <span class="nx">sns_publish</span> <span class="p">=</span> <span class="p">{</span>
+      <span class="nx">sid</span>     <span class="p">=</span> <span class="s2">"AllowSNSPublish"</span>
+      <span class="nx">actions</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"sqs:SendMessage"</span><span class="p">]</span>
+      <span class="nx">principals</span> <span class="p">=</span> <span class="p">[</span>
+        <span class="p">{</span>
+          <span class="nx">type</span>        <span class="p">=</span> <span class="s2">"Service"</span>
+          <span class="nx">identifiers</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"sns.amazonaws.com"</span><span class="p">]</span>
+        <span class="p">}</span>
+      <span class="p">]</span>
+      <span class="nx">conditions</span> <span class="p">=</span> <span class="p">[</span>
+        <span class="p">{</span>
+          <span class="nx">test</span>     <span class="p">=</span> <span class="s2">"ArnEquals"</span>
+          <span class="nx">variable</span> <span class="p">=</span> <span class="s2">"aws:SourceArn"</span>
+          <span class="nx">values</span>   <span class="p">=</span> <span class="p">[</span><span class="nx">module</span><span class="p">.</span><span class="nx">sns_topic</span><span class="p">.</span><span class="nx">topic_arn</span><span class="p">]</span>
+        <span class="p">}</span>
+      <span class="p">]</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_sns_topic_subscription"</span> <span class="s2">"sns_to_sqs"</span> <span class="p">{</span>
+  <span class="nx">topic_arn</span> <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">sns_topic</span><span class="p">.</span><span class="nx">topic_arn</span>
+  <span class="nx">protocol</span>  <span class="p">=</span> <span class="s2">"sqs"</span>
+  <span class="nx">endpoint</span>  <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">sqs_queue</span><span class="p">.</span><span class="nx">queue_arn</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="step-4-deploying-the-producer-and-consumer-lambda-functions">Step 4: Deploying the Producer and Consumer Lambda Functions
+</h3>
+
+<p><strong>What to do:</strong> Configure two instances of the AWS Lambda module. The first function (Producer) requires strict permissions to publish messages to the SNS topic. The second function (Consumer) requires permissions to read and consume messages from the SQS queue.</p>
+
+<p><strong>Why do it:</strong> Lambda functions require highly granular and well-defined permissions (Policies) attached to their execution identity (Role). The Terraform Lambda module handles the packaging of your source code and the creation of these Roles simultaneously. By passing inline JSON policies directly into the module, we guarantee that each Lambda possesses strictly the minimum level of access necessary to perform its specific task. This prevents security vulnerabilities that arise from excessive or wildcard permissions.</p>
+
+<p><strong>Example (<code>lambdas.tf</code>):</strong><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">module</span> <span class="s2">"lambda_producer"</span> <span class="p">{</span>
+  <span class="nx">source</span>  <span class="p">=</span> <span class="s2">"terraform-aws-modules/lambda/aws"</span>
+  <span class="nx">version</span> <span class="p">=</span> <span class="s2">"~&gt; 7.0"</span>
+
+  <span class="nx">function_name</span> <span class="p">=</span> <span class="s2">"dynamodb-stream-producer"</span>
+  <span class="nx">handler</span>       <span class="p">=</span> <span class="s2">"index.handler"</span>
+  <span class="nx">runtime</span>       <span class="p">=</span> <span class="s2">"nodejs20.x"</span>
+  <span class="nx">source_path</span>   <span class="p">=</span> <span class="s2">"../src/producer"</span>
+
+  <span class="nx">environment_variables</span> <span class="p">=</span> <span class="p">{</span>
+    <span class="nx">SNS_TOPIC_ARN</span> <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">sns_topic</span><span class="p">.</span><span class="nx">topic_arn</span>
+  <span class="p">}</span>
+
+  <span class="nx">attach_policy_json</span> <span class="p">=</span> <span class="kc">true</span>
+  <span class="nx">policy_json</span> <span class="p">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
+    <span class="nx">Version</span> <span class="p">=</span> <span class="s2">"2012-10-17"</span>
+    <span class="nx">Statement</span> <span class="p">=</span> <span class="p">[</span>
+      <span class="p">{</span>
+        <span class="nx">Action</span>   <span class="p">=</span> <span class="p">[</span><span class="s2">"sns:Publish"</span><span class="p">]</span>
+        <span class="nx">Effect</span>   <span class="p">=</span> <span class="s2">"Allow"</span>
+        <span class="nx">Resource</span> <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">sns_topic</span><span class="p">.</span><span class="nx">topic_arn</span>
+      <span class="p">}</span>
+    <span class="p">]</span>
+  <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"lambda_consumer"</span> <span class="p">{</span>
+  <span class="nx">source</span>  <span class="p">=</span> <span class="s2">"terraform-aws-modules/lambda/aws"</span>
+  <span class="nx">version</span> <span class="p">=</span> <span class="s2">"~&gt; 7.0"</span>
+
+  <span class="nx">function_name</span> <span class="p">=</span> <span class="s2">"sqs-message-consumer"</span>
+  <span class="nx">handler</span>       <span class="p">=</span> <span class="s2">"index.handler"</span>
+  <span class="nx">runtime</span>       <span class="p">=</span> <span class="s2">"nodejs20.x"</span>
+  <span class="nx">source_path</span>   <span class="p">=</span> <span class="s2">"../src/consumer"</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="step-5-mapping-event-sources-to-triggers">Step 5: Mapping Event Sources to Triggers
+</h3>
+
+<p><strong>What to do:</strong> Create the native <code>aws_lambda_event_source_mapping</code> resources to actively connect the DynamoDB Stream to the Producer Lambda, and the SQS Queue to the Consumer Lambda. You must also attach the AWS managed execution policies to the respective Lambda roles.</p>
+
+<p><strong>Why do it:</strong> While the Lambda module creates the compute resource, the "event source mapping" is the internal AWS polling service that actively reads the Stream or the Queue and invokes your function. This mapping mechanism requires specific operational policies (<code>AWSLambdaDynamoDBExecutionRole</code> and <code>AWSLambdaSQSQueueExecutionRole</code>) to function correctly. Integrating these components declaratively via Terraform centralizes the control of your end-to-end event flow, ensuring that infrastructure changes are applied consistently.</p>
+
+<p><strong>Example (<code>triggers.tf</code>):</strong><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="c1"># Attach Stream reading permissions to the Producer Lambda</span>
+<span class="nx">resource</span> <span class="s2">"aws_iam_role_policy_attachment"</span> <span class="s2">"producer_dynamodb_policy"</span> <span class="p">{</span>
+  <span class="nx">role</span>       <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">lambda_producer</span><span class="p">.</span><span class="nx">lambda_role_name</span>
+  <span class="nx">policy_arn</span> <span class="p">=</span> <span class="s2">"arn:aws:iam::aws:policy/service-role/AWSLambdaDynamoDBExecutionRole"</span>
+<span class="p">}</span>
+
+<span class="c1"># Integrate DynamoDB Stream with Producer Lambda</span>
+<span class="nx">resource</span> <span class="s2">"aws_lambda_event_source_mapping"</span> <span class="s2">"dynamodb_trigger"</span> <span class="p">{</span>
+  <span class="nx">event_source_arn</span>  <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">dynamodb_table</span><span class="p">.</span><span class="nx">dynamodb_table_stream_arn</span>
+  <span class="nx">function_name</span>     <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">lambda_producer</span><span class="p">.</span><span class="nx">lambda_function_arn</span>
+  <span class="nx">starting_position</span> <span class="p">=</span> <span class="s2">"LATEST"</span>
+
+  <span class="nx">depends_on</span> <span class="p">=</span> <span class="p">[</span><span class="nx">aws_iam_role_policy_attachment</span><span class="p">.</span><span class="nx">producer_dynamodb_policy</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="c1"># Attach SQS reading permissions to the Consumer Lambda</span>
+<span class="nx">resource</span> <span class="s2">"aws_iam_role_policy_attachment"</span> <span class="s2">"consumer_sqs_policy"</span> <span class="p">{</span>
+  <span class="nx">role</span>       <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">lambda_consumer</span><span class="p">.</span><span class="nx">lambda_role_name</span>
+  <span class="nx">policy_arn</span> <span class="p">=</span> <span class="s2">"arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole"</span>
+<span class="p">}</span>
+
+<span class="c1"># Integrate SQS with Consumer Lambda</span>
+<span class="nx">resource</span> <span class="s2">"aws_lambda_event_source_mapping"</span> <span class="s2">"sqs_trigger"</span> <span class="p">{</span>
+  <span class="nx">event_source_arn</span> <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">sqs_queue</span><span class="p">.</span><span class="nx">queue_arn</span>
+  <span class="nx">function_name</span>    <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">lambda_consumer</span><span class="p">.</span><span class="nx">lambda_function_arn</span>
+  <span class="nx">batch_size</span>       <span class="p">=</span> <span class="mi">10</span>
+
+  <span class="nx">depends_on</span> <span class="p">=</span> <span class="p">[</span><span class="nx">aws_iam_role_policy_attachment</span><span class="p">.</span><span class="nx">consumer_sqs_policy</span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h2 id="4-common-troubleshooting">4. Common Troubleshooting
+</h2>
+
+<p>Even when following best practices, distributed systems can present challenges regarding network configuration and IAM permissions. Below are the most common problems you might encounter and how to efficiently solve them:</p>
+
+<ol>
+<li> <strong>Producer Lambda is not invoked by DynamoDB:</strong> This almost always occurs due to IAM permission failures. The execution Role of the Lambda must possess the <code>dynamodb:GetRecords</code>, <code>dynamodb:GetShardIterator</code>, <code>dynamodb:DescribeStream</code>, and <code>dynamodb:ListStreams</code> permissions. Verify that the <code>AWSLambdaDynamoDBExecutionRole</code> policy was successfully attached in your Terraform state.</li>
+<li> <strong>SQS Queue does not receive messages from the SNS Topic:</strong> The SNS subscription protocol dictates that the endpoint (the SQS queue) must explicitly authorize the reception of messages. Confirm that the SQS access policy contains a statement allowing the <code>sqs:SendMessage</code> action, with the principal set to the <code>sns.amazonaws.com</code> service, and a restrictive condition matching the exact ARN of your SNS topic. This prevents unauthorized cross-account access.</li>
+<li> <strong>Duplicate processing or infinite retries in the Consumer Lambda:</strong> If your code within the consumer Lambda fails and throws an unhandled exception, the message will return to the SQS queue after the visibility timeout expires and will be reprocessed, creating an infinite loop of errors. To solve this, wrap your logic in try-catch blocks and implement a Dead Letter Queue (DLQ). Configure the <code>maxReceiveCount</code> property on your main SQS queue to safely route "poison pill" messages to the DLQ after a limited number of failed attempts.</li>
+</ol>
+
+<h2 id="5-conclusion">5. Conclusion
+</h2>
+
+<p>In this tutorial, you have comprehensively understood and practically applied the creation of a highly scalable, asynchronous architecture on AWS. The combination of DynamoDB Streams, Lambda functions, SNS, and SQS forms a resilient, event-driven system where each isolated component performs its specific duty flawlessly. Utilizing Terraform with official modules ensured agility, security, and exceptional structural code organization. As next steps to evolve this ecosystem, it is highly recommended to implement KMS (Key Management Service) encryption for your SNS topics and SQS queues, build CI/CD pipelines to automate the provisioning process, and create specialized CloudWatch dashboards to monitor message age and function error metrics.</p>

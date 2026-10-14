@@ -1,0 +1,460 @@
+<p>Este guia descreve, de forma contínua e didática, como construir a primeira metade de um bot de trading em Go. Nesta etapa não há transações on-chain. O programa observa o preço em dólar de um token de referência, compara esse valor com limites configurados em um arquivo <code>.env</code> e decide, de maneira simulada, quando compraria e quando venderia. O objetivo é validar lógica e parâmetros sem risco financeiro, além de introduzir a persistência do estado em SQLite para que o bot possa ser interrompido e retomado sem perder contexto.</p>
+
+<h2 id="conceito-e-fluxo">Conceito e fluxo
+</h2>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Ffh11lwbi2dbje5bhm4zf.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Ffh11lwbi2dbje5bhm4zf.png" alt="Arquitetura de Referência" loading="lazy" width="800" height="580"></a></p>
+
+<p>O comportamento é simples. O aplicativo carrega as configurações do <code>.env</code>, consulta periodicamente o preço em USD do token de referência por HTTP e imprime no console o valor atual. Se o preço observado estiver abaixo ou igual ao alvo de compra e ainda não houver posição aberta, considera-se uma entrada e o estado é salvo no banco com a informação do preço de entrada. Se, com posição aberta, o preço atingir o alvo de lucro, considera-se a saída e o estado é atualizado para indicar que não há mais posição. Em qualquer outro caso, o programa apenas aguarda. Como não há transações nesta fase, tratamos essas decisões como um simulador de gatilhos, útil para ajustar parâmetros e entender o ciclo de execução.</p>
+
+
+<hr>
+
+<h2 id="prepara%C3%A7%C3%A3o-do-ambiente">Preparação do ambiente
+</h2>
+
+<p>É necessário ter Go instalado em versão recente. Crie uma pasta para o projeto, inicialize um módulo e instale as dependências. O pacote <code>godotenv</code> carrega variáveis do arquivo <code>.env</code> e o driver <code>modernc.org/sqlite</code> possibilita usar SQLite sem CGO, o que simplifica a portabilidade.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code><span class="nb">mkdir </span>sushiswap-v3-go <span class="o">&amp;&amp;</span> <span class="nb">cd </span>sushiswap-v3-go
+go mod init example.com/sushiswap-v3-go
+go get github.com/joho/godotenv
+go get modernc.org/sqlite
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="configura%C3%A7%C3%A3o-com-raw-env-endraw-">Configuração com <code>.env</code>
+</h2>
+
+<p>Crie um arquivo <code>.env</code> na raiz do projeto. Ele concentra variáveis de rede e parâmetros de estratégia. Também indicamos <code>DB_PATH</code>, o caminho do arquivo SQLite que manterá o estado.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>CHAIN_ID=11155111
+NETWORK=sepolia
+INFURA_API_KEY=SUA_INFURA_KEY
+
+TOKEN0_ADDRESS=0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14
+TOKEN1_ADDRESS=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
+
+QUOTE0_ADDRESS=0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+
+WALLET=0xSUA_WALLET
+PRIVATE_KEY=0xSUA_PRIVATE_KEY
+
+ROUTER_ADDRESS=0x3b0aa7d38bf3c103bf02d1de2e37568cbed3d6e8
+
+PRICE_TO_BUY=5000
+AMOUNT_TO_BUY=0.1
+PROFITABILITY=1.1
+
+DB_PATH=./bot.db
+</code></pre>
+
+</div>
+
+
+
+<p>A variável <code>QUOTE0_ADDRESS</code> representa o token cujo preço em USD será observado; no exemplo, usa-se o WETH da mainnet por ser uma referência líquida e amplamente utilizada. As variáveis <code>PRICE_TO_BUY</code> e <code>PROFITABILITY</code> definem, respectivamente, o alvo de entrada e o multiplicador do alvo de lucro. As chaves de carteira e o endereço do router são armazenados desde já, embora só venham a ser utilizadas na fase seguinte, quando forem adicionadas transações reais. Recomenda-se manter o arquivo <code>.env</code> fora do controle de versão.</p>
+
+
+<hr>
+
+<h2 id="implementa%C3%A7%C3%A3o-do-c%C3%B3digo">Implementação do código
+</h2>
+
+<p>A seguir estão os arquivos Go, organizados por responsabilidade. Basta criar cada arquivo com o conteúdo indicado.</p>
+
+<h3 id="-raw-configgo-endraw-"><code>config.go</code>
+</h3>
+
+<p>Este módulo lê e valida o <code>.env</code>, convertendo valores numéricos e garantindo que os campos mínimos existam para a execução desta etapa. Se faltar algo essencial, a função sinaliza claramente o problema.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">package</span> <span class="n">main</span>
+
+<span class="k">import</span> <span class="p">(</span>
+    <span class="s">"fmt"</span>
+    <span class="s">"os"</span>
+    <span class="s">"strconv"</span>
+
+    <span class="s">"github.com/joho/godotenv"</span>
+<span class="p">)</span>
+
+<span class="k">type</span> <span class="n">Config</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">ChainID</span>       <span class="kt">int</span>
+    <span class="n">Network</span>       <span class="kt">string</span>
+    <span class="n">InfuraAPIKey</span>  <span class="kt">string</span>
+    <span class="n">Token0Address</span> <span class="kt">string</span>
+    <span class="n">Token1Address</span> <span class="kt">string</span>
+    <span class="n">Quote0Address</span> <span class="kt">string</span>
+    <span class="n">Wallet</span>        <span class="kt">string</span>
+    <span class="n">PrivateKey</span>    <span class="kt">string</span>
+    <span class="n">RouterAddress</span> <span class="kt">string</span>
+    <span class="n">PriceToBuy</span>    <span class="kt">float64</span>
+    <span class="n">AmountToBuy</span>   <span class="kt">string</span>
+    <span class="n">Profitability</span> <span class="kt">float64</span>
+    <span class="n">DBPath</span>        <span class="kt">string</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">LoadConfig</span><span class="p">()</span> <span class="p">(</span><span class="o">*</span><span class="n">Config</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">_</span> <span class="o">=</span> <span class="n">godotenv</span><span class="o">.</span><span class="n">Load</span><span class="p">()</span>
+
+    <span class="k">var</span> <span class="n">err</span> <span class="kt">error</span>
+    <span class="n">cfg</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="n">Config</span><span class="p">{}</span>
+
+    <span class="k">if</span> <span class="n">v</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"CHAIN_ID"</span><span class="p">);</span> <span class="n">v</span> <span class="o">!=</span> <span class="s">""</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">ChainID</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="n">strconv</span><span class="o">.</span><span class="n">Atoi</span><span class="p">(</span><span class="n">v</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"CHAIN_ID inválido: %w"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+        <span class="p">}</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">ChainID</span> <span class="o">=</span> <span class="m">11155111</span>
+    <span class="p">}</span>
+
+    <span class="n">cfg</span><span class="o">.</span><span class="n">Network</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"NETWORK"</span><span class="p">)</span>
+    <span class="n">cfg</span><span class="o">.</span><span class="n">InfuraAPIKey</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"INFURA_API_KEY"</span><span class="p">)</span>
+    <span class="n">cfg</span><span class="o">.</span><span class="n">Token0Address</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"TOKEN0_ADDRESS"</span><span class="p">)</span>
+    <span class="n">cfg</span><span class="o">.</span><span class="n">Token1Address</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"TOKEN1_ADDRESS"</span><span class="p">)</span>
+    <span class="n">cfg</span><span class="o">.</span><span class="n">Quote0Address</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"QUOTE0_ADDRESS"</span><span class="p">)</span>
+    <span class="n">cfg</span><span class="o">.</span><span class="n">Wallet</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"WALLET"</span><span class="p">)</span>
+    <span class="n">cfg</span><span class="o">.</span><span class="n">PrivateKey</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"PRIVATE_KEY"</span><span class="p">)</span>
+    <span class="n">cfg</span><span class="o">.</span><span class="n">RouterAddress</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"ROUTER_ADDRESS"</span><span class="p">)</span>
+    <span class="n">cfg</span><span class="o">.</span><span class="n">AmountToBuy</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"AMOUNT_TO_BUY"</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">v</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"PRICE_TO_BUY"</span><span class="p">);</span> <span class="n">v</span> <span class="o">!=</span> <span class="s">""</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">PriceToBuy</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="n">strconv</span><span class="o">.</span><span class="n">ParseFloat</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="m">64</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"PRICE_TO_BUY inválido: %w"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+        <span class="p">}</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"PRICE_TO_BUY ausente"</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">v</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"PROFITABILITY"</span><span class="p">);</span> <span class="n">v</span> <span class="o">!=</span> <span class="s">""</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">Profitability</span><span class="p">,</span> <span class="n">err</span> <span class="o">=</span> <span class="n">strconv</span><span class="o">.</span><span class="n">ParseFloat</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="m">64</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"PROFITABILITY inválido: %w"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+        <span class="p">}</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"PROFITABILITY ausente"</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">Quote0Address</span> <span class="o">==</span> <span class="s">""</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"QUOTE0_ADDRESS ausente"</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">v</span> <span class="o">:=</span> <span class="n">os</span><span class="o">.</span><span class="n">Getenv</span><span class="p">(</span><span class="s">"DB_PATH"</span><span class="p">);</span> <span class="n">v</span> <span class="o">!=</span> <span class="s">""</span> <span class="p">{</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">DBPath</span> <span class="o">=</span> <span class="n">v</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">DBPath</span> <span class="o">=</span> <span class="s">"./bot.db"</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">cfg</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h3 id="-raw-databasego-endraw-"><code>database.go</code>
+</h3>
+
+<p>Este módulo cria e inicializa o banco SQLite, além de oferecer funções para ler e salvar o estado do bot. O estado se restringe a duas informações: se há ou não posição aberta e qual foi o preço de entrada, quando aplicável. Ao iniciar pela primeira vez, uma linha padrão é criada para garantir que o acesso seja simples e previsível nas execuções subsequentes.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">package</span> <span class="n">main</span>
+
+<span class="k">import</span> <span class="p">(</span>
+    <span class="s">"database/sql"</span>
+    <span class="s">"fmt"</span>
+
+    <span class="n">_</span> <span class="s">"modernc.org/sqlite"</span>
+<span class="p">)</span>
+
+<span class="k">type</span> <span class="n">BotState</span> <span class="k">struct</span> <span class="p">{</span>
+    <span class="n">IsOpened</span>   <span class="kt">bool</span>
+    <span class="n">EntryPrice</span> <span class="o">*</span><span class="kt">float64</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">InitDB</span><span class="p">(</span><span class="n">path</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">sql</span><span class="o">.</span><span class="n">DB</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">db</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">sql</span><span class="o">.</span><span class="n">Open</span><span class="p">(</span><span class="s">"sqlite"</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"erro abrindo sqlite: %w"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="n">schema</span> <span class="o">:=</span> <span class="s">`
+    CREATE TABLE IF NOT EXISTS bot_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        is_opened INTEGER NOT NULL,
+        entry_price REAL
+    );
+    INSERT INTO bot_state (id, is_opened, entry_price)
+        SELECT 1, 0, NULL
+        WHERE NOT EXISTS (SELECT 1 FROM bot_state WHERE id = 1);
+    `</span>
+    <span class="k">if</span> <span class="n">_</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">db</span><span class="o">.</span><span class="n">Exec</span><span class="p">(</span><span class="n">schema</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"erro criando schema: %w"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">db</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">LoadBotState</span><span class="p">(</span><span class="n">db</span> <span class="o">*</span><span class="n">sql</span><span class="o">.</span><span class="n">DB</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="n">BotState</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">row</span> <span class="o">:=</span> <span class="n">db</span><span class="o">.</span><span class="n">QueryRow</span><span class="p">(</span><span class="s">`SELECT is_opened, entry_price FROM bot_state WHERE id = 1`</span><span class="p">)</span>
+    <span class="k">var</span> <span class="n">isOpenedInt</span> <span class="kt">int</span>
+    <span class="k">var</span> <span class="n">entryPrice</span> <span class="n">sql</span><span class="o">.</span><span class="n">NullFloat64</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">row</span><span class="o">.</span><span class="n">Scan</span><span class="p">(</span><span class="o">&amp;</span><span class="n">isOpenedInt</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">entryPrice</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="no">nil</span><span class="p">,</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"erro lendo estado: %w"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">var</span> <span class="n">ep</span> <span class="o">*</span><span class="kt">float64</span>
+    <span class="k">if</span> <span class="n">entryPrice</span><span class="o">.</span><span class="n">Valid</span> <span class="p">{</span>
+        <span class="n">v</span> <span class="o">:=</span> <span class="n">entryPrice</span><span class="o">.</span><span class="n">Float64</span>
+        <span class="n">ep</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">v</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="o">&amp;</span><span class="n">BotState</span><span class="p">{</span>
+        <span class="n">IsOpened</span><span class="o">:</span>   <span class="n">isOpenedInt</span> <span class="o">==</span> <span class="m">1</span><span class="p">,</span>
+        <span class="n">EntryPrice</span><span class="o">:</span> <span class="n">ep</span><span class="p">,</span>
+    <span class="p">},</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">SaveBotState</span><span class="p">(</span><span class="n">db</span> <span class="o">*</span><span class="n">sql</span><span class="o">.</span><span class="n">DB</span><span class="p">,</span> <span class="n">st</span> <span class="o">*</span><span class="n">BotState</span><span class="p">)</span> <span class="kt">error</span> <span class="p">{</span>
+    <span class="k">var</span> <span class="n">isOpenedInt</span> <span class="kt">int</span>
+    <span class="k">if</span> <span class="n">st</span><span class="o">.</span><span class="n">IsOpened</span> <span class="p">{</span>
+        <span class="n">isOpenedInt</span> <span class="o">=</span> <span class="m">1</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="n">isOpenedInt</span> <span class="o">=</span> <span class="m">0</span>
+    <span class="p">}</span>
+
+    <span class="k">var</span> <span class="n">entry</span> <span class="k">interface</span><span class="p">{}</span>
+    <span class="k">if</span> <span class="n">st</span><span class="o">.</span><span class="n">EntryPrice</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">entry</span> <span class="o">=</span> <span class="o">*</span><span class="n">st</span><span class="o">.</span><span class="n">EntryPrice</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="n">_</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">db</span><span class="o">.</span><span class="n">Exec</span><span class="p">(</span>
+        <span class="s">`UPDATE bot_state SET is_opened = ?, entry_price = ? WHERE id = 1`</span><span class="p">,</span>
+        <span class="n">isOpenedInt</span><span class="p">,</span> <span class="n">entry</span><span class="p">,</span>
+    <span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"erro salvando estado: %w"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="-raw-pricesgo-endraw-"><code>prices.go</code>
+</h3>
+
+<p>Esta unidade contém a função que consulta a API pública de preços. O retorno esperado é um número de ponto flutuante representando o preço em USD do token indicado. A configuração de timeout e a verificação do status HTTP ajudam a tornar o comportamento previsível.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">package</span> <span class="n">main</span>
+
+<span class="k">import</span> <span class="p">(</span>
+    <span class="s">"encoding/json"</span>
+    <span class="s">"fmt"</span>
+    <span class="s">"io"</span>
+    <span class="s">"net/http"</span>
+    <span class="s">"time"</span>
+<span class="p">)</span>
+
+<span class="k">func</span> <span class="n">fetchPriceUSD</span><span class="p">(</span><span class="n">tokenAddress</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="kt">float64</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">url</span> <span class="o">:=</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Sprintf</span><span class="p">(</span><span class="s">"https://api.sushi.com/price/v1/%d/%s"</span><span class="p">,</span> <span class="m">1</span><span class="p">,</span> <span class="n">tokenAddress</span><span class="p">)</span>
+
+    <span class="n">req</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">http</span><span class="o">.</span><span class="n">NewRequest</span><span class="p">(</span><span class="n">http</span><span class="o">.</span><span class="n">MethodGet</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="no">nil</span><span class="p">)</span>
+    <span class="n">req</span><span class="o">.</span><span class="n">Header</span><span class="o">.</span><span class="n">Set</span><span class="p">(</span><span class="s">"Accept"</span><span class="p">,</span> <span class="s">"application/json"</span><span class="p">)</span>
+
+    <span class="n">client</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="n">http</span><span class="o">.</span><span class="n">Client</span><span class="p">{</span><span class="n">Timeout</span><span class="o">:</span> <span class="m">10</span> <span class="o">*</span> <span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">}</span>
+    <span class="n">res</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">client</span><span class="o">.</span><span class="n">Do</span><span class="p">(</span><span class="n">req</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="m">0</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="k">defer</span> <span class="n">res</span><span class="o">.</span><span class="n">Body</span><span class="o">.</span><span class="n">Close</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">StatusCode</span> <span class="o">!=</span> <span class="n">http</span><span class="o">.</span><span class="n">StatusOK</span> <span class="p">{</span>
+        <span class="n">body</span><span class="p">,</span> <span class="n">_</span> <span class="o">:=</span> <span class="n">io</span><span class="o">.</span><span class="n">ReadAll</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">Body</span><span class="p">)</span>
+        <span class="k">return</span> <span class="m">0</span><span class="p">,</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"pricing api status %d: %s"</span><span class="p">,</span> <span class="n">res</span><span class="o">.</span><span class="n">StatusCode</span><span class="p">,</span> <span class="kt">string</span><span class="p">(</span><span class="n">body</span><span class="p">))</span>
+    <span class="p">}</span>
+
+    <span class="k">var</span> <span class="n">price</span> <span class="kt">float64</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">json</span><span class="o">.</span><span class="n">NewDecoder</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">Body</span><span class="p">)</span><span class="o">.</span><span class="n">Decode</span><span class="p">(</span><span class="o">&amp;</span><span class="n">price</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="m">0</span><span class="p">,</span> <span class="n">fmt</span><span class="o">.</span><span class="n">Errorf</span><span class="p">(</span><span class="s">"falha ao decodificar preço: %w"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">price</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="-raw-maingo-endraw-"><code>main.go</code>
+</h3>
+
+<p>O arquivo principal integra as partes. Ao iniciar, o programa carrega a configuração, prepara o banco, recupera o estado e entra em um ciclo que consulta o preço, imprime o valor e executa a lógica de decisão, atualizando o SQLite sempre que houver mudanças de estado. Um comando para limpar a tela mantém o console com aparência de painel.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight go"><code><span class="k">package</span> <span class="n">main</span>
+
+<span class="k">import</span> <span class="p">(</span>
+    <span class="s">"fmt"</span>
+    <span class="s">"log"</span>
+    <span class="s">"time"</span>
+<span class="p">)</span>
+
+<span class="k">func</span> <span class="n">monitor</span><span class="p">(</span><span class="n">cfg</span> <span class="o">*</span><span class="n">Config</span><span class="p">)</span> <span class="p">(</span><span class="kt">float64</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">price</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">fetchPriceUSD</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">Quote0Address</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="m">0</span><span class="p">,</span> <span class="n">err</span>
+    <span class="p">}</span>
+    <span class="n">fmt</span><span class="o">.</span><span class="n">Print</span><span class="p">(</span><span class="s">"</span><span class="err">\0</span><span class="s">33[2J</span><span class="err">\0</span><span class="s">33[H"</span><span class="p">)</span>
+    <span class="n">fmt</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"Price:"</span><span class="p">,</span> <span class="n">price</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">price</span><span class="p">,</span> <span class="no">nil</span>
+<span class="p">}</span>
+
+<span class="k">func</span> <span class="n">main</span><span class="p">()</span> <span class="p">{</span>
+    <span class="n">cfg</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">LoadConfig</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">Fatalf</span><span class="p">(</span><span class="s">"config erro: %v"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">db</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">InitDB</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">DBPath</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">Fatalf</span><span class="p">(</span><span class="s">"db erro: %v"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">defer</span> <span class="n">db</span><span class="o">.</span><span class="n">Close</span><span class="p">()</span>
+
+    <span class="n">state</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">LoadBotState</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">Fatalf</span><span class="p">(</span><span class="s">"erro carregando estado: %v"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">cycle</span> <span class="o">:=</span> <span class="k">func</span><span class="p">()</span> <span class="p">{</span>
+        <span class="n">price</span><span class="p">,</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">monitor</span><span class="p">(</span><span class="n">cfg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+            <span class="n">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"erro monitorando preço: %v"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="o">!</span><span class="n">state</span><span class="o">.</span><span class="n">IsOpened</span> <span class="o">&amp;&amp;</span> <span class="n">price</span> <span class="o">&lt;=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">PriceToBuy</span> <span class="p">{</span>
+            <span class="n">state</span><span class="o">.</span><span class="n">IsOpened</span> <span class="o">=</span> <span class="no">true</span>
+            <span class="n">state</span><span class="o">.</span><span class="n">EntryPrice</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">price</span>
+            <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">SaveBotState</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">state</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"erro salvando estado (swap in): %v"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+            <span class="p">}</span>
+            <span class="n">fmt</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"Swap in (entry=%.6f)</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">price</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="p">}</span>
+
+        <span class="n">target</span> <span class="o">:=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">PriceToBuy</span> <span class="o">*</span> <span class="n">cfg</span><span class="o">.</span><span class="n">Profitability</span>
+        <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">IsOpened</span> <span class="o">&amp;&amp;</span> <span class="n">price</span> <span class="o">&gt;=</span> <span class="n">target</span> <span class="p">{</span>
+            <span class="n">state</span><span class="o">.</span><span class="n">IsOpened</span> <span class="o">=</span> <span class="no">false</span>
+            <span class="n">state</span><span class="o">.</span><span class="n">EntryPrice</span> <span class="o">=</span> <span class="no">nil</span>
+            <span class="k">if</span> <span class="n">err</span> <span class="o">:=</span> <span class="n">SaveBotState</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">state</span><span class="p">);</span> <span class="n">err</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"erro salvando estado (swap out): %v"</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+            <span class="p">}</span>
+            <span class="n">fmt</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"Swap out (target=%.6f)</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">IsOpened</span> <span class="o">&amp;&amp;</span> <span class="n">state</span><span class="o">.</span><span class="n">EntryPrice</span> <span class="o">!=</span> <span class="no">nil</span> <span class="p">{</span>
+            <span class="n">fmt</span><span class="o">.</span><span class="n">Printf</span><span class="p">(</span><span class="s">"Wait... (opened at %.6f, target %.6f)</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="o">*</span><span class="n">state</span><span class="o">.</span><span class="n">EntryPrice</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="p">}</span>
+
+        <span class="n">fmt</span><span class="o">.</span><span class="n">Println</span><span class="p">(</span><span class="s">"Wait..."</span><span class="p">)</span>
+    <span class="p">}</span>
+
+    <span class="n">cycle</span><span class="p">()</span>
+    <span class="n">ticker</span> <span class="o">:=</span> <span class="n">time</span><span class="o">.</span><span class="n">NewTicker</span><span class="p">(</span><span class="m">10</span> <span class="o">*</span> <span class="n">time</span><span class="o">.</span><span class="n">Second</span><span class="p">)</span>
+    <span class="k">defer</span> <span class="n">ticker</span><span class="o">.</span><span class="n">Stop</span><span class="p">()</span>
+    <span class="k">for</span> <span class="k">range</span> <span class="n">ticker</span><span class="o">.</span><span class="n">C</span> <span class="p">{</span>
+        <span class="n">cycle</span><span class="p">()</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="execu%C3%A7%C3%A3o">Execução
+</h2>
+
+<p>Com os arquivos criados e o <code>.env</code> preenchido, execute o projeto a partir da raiz. O console exibirá o preço e a decisão correspondente do ciclo. Quando o preço atingir o alvo de compra, aparecerá a indicação de entrada e o estado será salvo. Quando alcançar o alvo de lucro com posição aberta, a saída será registrada. Se o programa for encerrado e reiniciado, a leitura do banco restaurará a situação anterior.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>go run <span class="nb">.</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="encerramento">Encerramento
+</h2>
+
+<p>Com esta base consolidada, você tem um esqueleto funcional capaz de observar preço, tomar decisões simuladas e manter consistência entre execuções por meio de SQLite. Na <strong>Parte 2</strong>, em vez de montar e enviar a transação on-chain localmente, o fluxo de <strong>swap será executado via gRPC</strong>: o cliente em <strong>Go</strong> fará chamadas a um serviço gRPC responsável por cotar e processar a operação de compra e venda. Esse serviço receberá parâmetros como <code>chain_id</code>, <code>token_in</code>, <code>token_out</code>, <code>amount</code>, <code>max_slippage</code> e <code>wallet</code>, retornará métricas de pré-troca (por exemplo, o <em>assumedAmountOut</em>) e cuidará da preparação/execução da transação, incluindo roteamento, montagem do payload, assinatura e envio, além do retorno do hash e do recibo quando confirmada.</p>
+
+<p>Do ponto de vista de arquitetura, o cliente Go apenas <strong>disciplina a orquestração</strong>: abre o canal gRPC, envia a requisição de <code>Quote/Execute</code>, aguarda a resposta (com sucesso ou erro tratado) e registra estado/telemetria. O serviço gRPC concentra a <strong>lógica sensível</strong>: integração com o roteador (para encontrar a melhor rota), aplicação de <em>slippage</em> máxima, políticas de <em>deadline</em> e <em>retries</em>, idempotência por chave, auditoria, observabilidade e segurança de chaves (sem trafegar <code>PRIVATE_KEY</code> pelo cliente). A assinatura pode ficar no servidor (HSM, KMS ou cofre) ou ser separada em um <em>signer</em> dedicado, mantendo o cliente leve e sem material sensível.</p>
+
+<p>Finalmente, a evolução natural é: o bot em Go continua decidindo <strong>quando</strong> agir, persiste o estado no SQLite, e a <strong>execução do swap</strong> passa a ser um <strong>contrato gRPC</strong> bem definido com <em>protobufs</em> para <strong>cotação e execução</strong>, entregando robustez operacional, isolamento de segredos e padronização de erros/logs para produção.</p>
+
+
+<hr>
+
+<h2 id="refer%C3%AAncias">Referências
+</h2>
+
+<p>Go. (2025, 25 fevereiro). <em>The Go programming language specification</em>. go.dev. <a href="https://go.dev/ref/spec" target="_blank" rel="noopener noreferrer">https://go.dev/ref/spec</a> (<a href="https://go.dev/ref/spec?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">Go</a>)</p>
+
+<p>Go. (n.d.). <em>Documentation</em>. go.dev. <a href="https://go.dev/doc/" target="_blank" rel="noopener noreferrer">https://go.dev/doc/</a> (<a href="https://go.dev/doc/?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">Go</a>)</p>
+
+<p>gRPC. (2024, 25 novembro). <em>Basics tutorial | Go</em>. grpc.io. <a href="https://grpc.io/docs/languages/go/basics/" target="_blank" rel="noopener noreferrer">https://grpc.io/docs/languages/go/basics/</a> (<a href="https://grpc.io/docs/languages/go/basics/?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">gRPC</a>)</p>
+
+<p>gRPC. (2024, 25 novembro). <em>Quick start | Go</em>. grpc.io. <a href="https://grpc.io/docs/languages/go/quickstart/" target="_blank" rel="noopener noreferrer">https://grpc.io/docs/languages/go/quickstart/</a> (<a href="https://grpc.io/docs/languages/go/quickstart/?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">gRPC</a>)</p>
+
+<p>Protocol Buffers. (n.d.). <em>Protocol buffer basics: Go</em>. protobuf.dev. <a href="https://protobuf.dev/getting-started/gotutorial/" target="_blank" rel="noopener noreferrer">https://protobuf.dev/getting-started/gotutorial/</a> (<a href="https://protobuf.dev/getting-started/gotutorial/?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">protobuf.dev</a>)</p>
+
+<p>Equipe go-ethereum (Geth). (2024, 24 maio). <em>Getting started with Geth</em>. geth.ethereum.org. <a href="https://geth.ethereum.org/docs/getting-started" target="_blank" rel="noopener noreferrer">https://geth.ethereum.org/docs/getting-started</a> (<a href="https://geth.ethereum.org/docs/getting-started?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">go-ethereum</a>)</p>
+
+<p>Go Ethereum. (n.d.). <em>github.com/ethereum/go-ethereum</em> (API em Go). pkg.go.dev. <a href="https://pkg.go.dev/github.com/ethereum/go-ethereum" target="_blank" rel="noopener noreferrer">https://pkg.go.dev/github.com/ethereum/go-ethereum</a> (<a href="https://pkg.go.dev/github.com/ethereum/go-ethereum?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">Go Packages</a>)</p>
+
+<p>modernc.org. (2025, 11 agosto). <em>sqlite package</em> (driver SQLite sem CGO). pkg.go.dev. <a href="https://pkg.go.dev/modernc.org/sqlite" target="_blank" rel="noopener noreferrer">https://pkg.go.dev/modernc.org/sqlite</a> (<a href="https://pkg.go.dev/modernc.org/sqlite?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">Go Packages</a>)</p>
+
+<p>Joho. (n.d.). <em>joho/godotenv</em> [Repositório]. GitHub. <a href="https://github.com/joho/godotenv" target="_blank" rel="noopener noreferrer">https://github.com/joho/godotenv</a> (<a href="https://github.com/joho/godotenv?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">GitHub</a>)</p>
+
+<p>Sushi. (2025, 13 setembro). <em>Pricing API documentation</em>. docs.sushi.com. <a href="https://docs.sushi.com/api/examples/pricing" target="_blank" rel="noopener noreferrer">https://docs.sushi.com/api/examples/pricing</a> (<a href="https://docs.sushi.com/api/examples/pricing?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">docs.sushi.com</a>)</p>
+
+<p>gRPC-Go. (n.d.). <em>google.golang.org/grpc</em> (pacote em Go). pkg.go.dev. <a href="https://pkg.go.dev/google.golang.org/grpc" target="_blank" rel="noopener noreferrer">https://pkg.go.dev/google.golang.org/grpc</a> (<a href="https://pkg.go.dev/google.golang.org/grpc?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">Go Packages</a>)</p>
+
+<h2 id="curtiu">💡Curtiu?
+</h2>
+
+<p>Se quiser trocar ideia sobre IA, cloud e arquitetura, me segue nas redes:</p>
+
+<ul>
+<li><a href="https://olink.ai/sertaoseracloud" target="_blank" rel="noopener noreferrer">Redes Sociais</a></li>
+</ul>
+
+<p>Publico conteúdos técnicos direto do campo de batalha. E quando descubro uma ferramenta que economiza tempo e resolve bem, como essa, você fica sabendo também.</p>

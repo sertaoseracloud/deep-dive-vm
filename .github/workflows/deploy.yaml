@@ -7,16 +7,22 @@ on:
     branches: [main]
   # Allows you to run this workflow manually from the Actions tab on GitHub.
   workflow_dispatch:
-  # Republica todo dia (06:00 em Brasília): os eventos encerrados saem do HTML,
-  # do carrossel e do contador da aba sem depender de um push.
+  # Todo dia à meia-noite de Brasília (03:00 UTC): busca os artigos novos do
+  # dev.to para a aba Blog e tira do site os eventos encerrados, sem depender
+  # de um push.
   schedule:
-    - cron: "0 9 * * *"
+    - cron: "0 3 * * *"
 
 # Allow this job to clone the repo and create a page deployment
 permissions:
   contents: read
   pages: write
   id-token: write
+
+# Uma publicação por vez (o agendamento e um push podem coincidir).
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -28,6 +34,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Atualiza src/data/devto-artigos.json com a API do dev.to. Se a API
+      # falhar, o script avisa e mantém a lista salva no repositório.
+      - name: Artigos do dev.to (aba Blog)
+        run: node scripts/buscar-devto.mjs
       - run: npm run build
       - uses: actions/upload-pages-artifact@v5
         with:

@@ -1,0 +1,210 @@
+<p>Os padrões de projeto são fundamentais na criação de software bem estruturado e fácil de manter. Entre eles, o <strong>Singleton</strong> e o <strong>Observable</strong> são frequentemente utilizados em cenários que exigem controle de estado global e comunicação entre diferentes partes do sistema. Neste artigo, vamos explorar como esses dois padrões funcionam, quando utilizá-los, suas diferenças e fornecer exemplos práticos de como implementá-los.</p>
+
+<h3 id="o-que-%C3%A9-o-singleton">O que é o Singleton?
+</h3>
+
+<p>O <strong>Singleton Pattern</strong> é um padrão de design criacional que assegura que uma classe tenha apenas uma instância e fornece um ponto global de acesso a essa instância. Esse padrão é útil quando você precisa de um objeto único em toda a aplicação, como em configurações globais, conexão com banco de dados, ou gerenciamento de logs.</p>
+
+<h4 id="como-funciona-o-singleton">Como Funciona o Singleton?
+</h4>
+
+<p>A principal característica do Singleton é que ele restringe a instância da classe a um único objeto, garantindo que todas as requisições de instância retornem o mesmo objeto. Para isso, o padrão normalmente utiliza um método estático que cria a instância apenas quando ela é solicitada pela primeira vez, garantindo a criação única e o uso do objeto em todo o sistema.</p>
+
+<p>No diagrama abaixo, a sequência mostra como a instância do Singleton é criada e acessada, garantindo que seja única.</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fmmiqyb5tpt9uptxndm4j.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fmmiqyb5tpt9uptxndm4j.png" alt="Diagrama de Sequência do Singleton" loading="lazy" width="800" height="600"></a></p>
+
+<p>O diagrama de sequência do Singleton ilustra o fluxo de interação entre o cliente e a classe Singleton. O processo começa com o cliente chamando o método estático getInstance() para obter a instância do Singleton. Se a instância ainda não foi criada, o Singleton cria uma nova instância e a retorna. Quando o cliente chama novamente o método getInstance(), a mesma instância é retornada, garantindo que exista apenas uma instância do objeto Singleton durante toda a execução do programa.</p>
+
+<h4 id="exemplo-de-uso-singleton-em-typescript">Exemplo de Uso - Singleton em TypeScript
+</h4>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="kd">class</span> <span class="nc">Singleton</span> <span class="p">{</span>
+    <span class="k">private</span> <span class="k">static</span> <span class="nx">instance</span><span class="p">:</span> <span class="nx">Singleton</span><span class="p">;</span>
+
+    <span class="k">private</span> <span class="nf">constructor</span><span class="p">()</span> <span class="p">{</span> <span class="p">}</span>
+
+    <span class="c1">// Método para acessar a instância única</span>
+    <span class="k">public</span> <span class="k">static</span> <span class="nf">getInstance</span><span class="p">():</span> <span class="nx">Singleton</span> <span class="p">{</span>
+        <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">Singleton</span><span class="p">.</span><span class="nx">instance</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nx">Singleton</span><span class="p">.</span><span class="nx">instance</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Singleton</span><span class="p">();</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="nx">Singleton</span><span class="p">.</span><span class="nx">instance</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="nf">showMessage</span><span class="p">():</span> <span class="kr">string</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="dl">"</span><span class="s2">Esta é a única instância!</span><span class="dl">"</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// Uso do Singleton</span>
+<span class="kd">const</span> <span class="nx">instance1</span> <span class="o">=</span> <span class="nx">Singleton</span><span class="p">.</span><span class="nf">getInstance</span><span class="p">();</span>
+<span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">instance1</span><span class="p">.</span><span class="nf">showMessage</span><span class="p">());</span> <span class="c1">// "Esta é a única instância!"</span>
+<span class="kd">const</span> <span class="nx">instance2</span> <span class="o">=</span> <span class="nx">Singleton</span><span class="p">.</span><span class="nf">getInstance</span><span class="p">();</span>
+<span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="nx">instance1</span> <span class="o">===</span> <span class="nx">instance2</span><span class="p">);</span> <span class="c1">// true</span>
+</code></pre>
+
+</div>
+
+
+
+<h4 id="quando-usar-o-singleton">Quando Usar o Singleton?
+</h4>
+
+<ul>
+<li>
+<strong>Configurações globais</strong>: quando você precisa de uma instância única para armazenar configurações de sistema, como variáveis de ambiente.</li>
+<li>
+<strong>Gestão de conexões</strong>: por exemplo, para gerenciar conexões com um banco de dados ou um servidor de API.</li>
+<li>
+<strong>Gerenciamento de recursos</strong>: quando é necessário controlar o acesso a um recurso exclusivo, como um logger ou cache.</li>
+</ul>
+
+<h3 id="o-que-%C3%A9-o-observable">O que é o Observable?
+</h3>
+
+<p>O <strong>Observable Pattern</strong> é um padrão de design comportamental que define uma dependência de um-para-muitos entre objetos. Ou seja, quando o estado de um objeto (o "subject") muda, todos os seus dependentes (os "observers") são notificados automaticamente. Este padrão é muito utilizado em sistemas onde eventos e mudanças de estado precisam ser propagados entre diversos componentes, como interfaces gráficas ou sistemas de monitoramento.</p>
+
+<h4 id="como-funciona-o-observable">Como Funciona o Observable?
+</h4>
+
+<p>O padrão Observable permite que objetos "observem" as mudanças de estado de um objeto e reajam a essas mudanças. O padrão se baseia em três componentes principais:</p>
+
+<ol>
+<li>
+<strong>Subject</strong>: o objeto que mantém o estado e envia notificações aos observers.</li>
+<li>
+<strong>Observer</strong>: objetos que estão interessados nas mudanças de estado do Subject.</li>
+<li>
+<strong>Subscription</strong>: um mecanismo que permite ao Observer se inscrever ou cancelar a inscrição nas notificações do Subject.</li>
+</ol>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F9yrbk374t3f5hulbc9ex.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F9yrbk374t3f5hulbc9ex.png" alt="Diagrama de Sequência do Observable" loading="lazy" width="800" height="433"></a></p>
+
+<p>O diagrama de sequência do Observable demonstra como o padrão funciona com múltiplos observadores. O Subject (ou objeto observado) notifica todos os Observers registrados quando ocorre uma mudança de estado. Cada Observer reage à notificação, realizando as ações necessárias com base nas informações recebidas. O processo de notificação é propagado de forma que todos os observadores sejam atualizados simultaneamente, mantendo-os sincronizados com o estado do Subject. Esse padrão é útil quando há múltiplos componentes ou partes do sistema que precisam ser informados sobre mudanças no estado de um objeto.</p>
+
+<h4 id="exemplo-de-uso-observable-em-typescript">Exemplo de Uso - Observable em TypeScript
+</h4>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="c1">// Interface Observer</span>
+<span class="kr">interface</span> <span class="nx">Observer</span> <span class="p">{</span>
+    <span class="nf">update</span><span class="p">(</span><span class="nx">message</span><span class="p">:</span> <span class="kr">string</span><span class="p">):</span> <span class="k">void</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// Classe Subject</span>
+<span class="kd">class</span> <span class="nc">Observable</span> <span class="p">{</span>
+    <span class="k">private</span> <span class="nx">observers</span><span class="p">:</span> <span class="nx">Observer</span><span class="p">[]</span> <span class="o">=</span> <span class="p">[];</span>
+
+    <span class="c1">// Método para adicionar observers</span>
+    <span class="k">public</span> <span class="nf">addObserver</span><span class="p">(</span><span class="nx">observer</span><span class="p">:</span> <span class="nx">Observer</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">observers</span><span class="p">.</span><span class="nf">push</span><span class="p">(</span><span class="nx">observer</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Método para remover observers</span>
+    <span class="k">public</span> <span class="nf">removeObserver</span><span class="p">(</span><span class="nx">observer</span><span class="p">:</span> <span class="nx">Observer</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+        <span class="kd">const</span> <span class="nx">index</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">observers</span><span class="p">.</span><span class="nf">indexOf</span><span class="p">(</span><span class="nx">observer</span><span class="p">);</span>
+        <span class="k">if </span><span class="p">(</span><span class="nx">index</span> <span class="o">!==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">this</span><span class="p">.</span><span class="nx">observers</span><span class="p">.</span><span class="nf">splice</span><span class="p">(</span><span class="nx">index</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Método para notificar observers</span>
+    <span class="k">public</span> <span class="nf">notifyObservers</span><span class="p">(</span><span class="nx">message</span><span class="p">:</span> <span class="kr">string</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">observers</span><span class="p">.</span><span class="nf">forEach</span><span class="p">(</span><span class="nx">observer</span> <span class="o">=&gt;</span> <span class="nx">observer</span><span class="p">.</span><span class="nf">update</span><span class="p">(</span><span class="nx">message</span><span class="p">));</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// Classe Observer concreta</span>
+<span class="kd">class</span> <span class="nc">ConcreteObserver</span> <span class="k">implements</span> <span class="nx">Observer</span> <span class="p">{</span>
+    <span class="k">private</span> <span class="nx">name</span><span class="p">:</span> <span class="kr">string</span><span class="p">;</span>
+
+    <span class="nf">constructor</span><span class="p">(</span><span class="nx">name</span><span class="p">:</span> <span class="kr">string</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">this</span><span class="p">.</span><span class="nx">name</span> <span class="o">=</span> <span class="nx">name</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="nf">update</span><span class="p">(</span><span class="nx">message</span><span class="p">:</span> <span class="kr">string</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`</span><span class="p">${</span><span class="k">this</span><span class="p">.</span><span class="nx">name</span><span class="p">}</span><span class="s2"> recebeu a mensagem: </span><span class="p">${</span><span class="nx">message</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// Uso do Observable</span>
+<span class="kd">const</span> <span class="nx">observable</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Observable</span><span class="p">();</span>
+
+<span class="kd">const</span> <span class="nx">observer1</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ConcreteObserver</span><span class="p">(</span><span class="dl">"</span><span class="s2">Observer 1</span><span class="dl">"</span><span class="p">);</span>
+<span class="kd">const</span> <span class="nx">observer2</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ConcreteObserver</span><span class="p">(</span><span class="dl">"</span><span class="s2">Observer 2</span><span class="dl">"</span><span class="p">);</span>
+
+<span class="nx">observable</span><span class="p">.</span><span class="nf">addObserver</span><span class="p">(</span><span class="nx">observer1</span><span class="p">);</span>
+<span class="nx">observable</span><span class="p">.</span><span class="nf">addObserver</span><span class="p">(</span><span class="nx">observer2</span><span class="p">);</span>
+
+<span class="nx">observable</span><span class="p">.</span><span class="nf">notifyObservers</span><span class="p">(</span><span class="dl">"</span><span class="s2">Mudança no sistema!</span><span class="dl">"</span><span class="p">);</span>
+
+<span class="nx">observable</span><span class="p">.</span><span class="nf">removeObserver</span><span class="p">(</span><span class="nx">observer1</span><span class="p">);</span>
+
+<span class="nx">observable</span><span class="p">.</span><span class="nf">notifyObservers</span><span class="p">(</span><span class="dl">"</span><span class="s2">Nova mudança!</span><span class="dl">"</span><span class="p">);</span>
+</code></pre>
+
+</div>
+
+
+
+<h4 id="quando-usar-o-observable">Quando Usar o Observable?
+</h4>
+
+<ul>
+<li>
+<strong>Eventos em interfaces gráficas</strong>: para reagir a cliques de botões, mudanças de campos, ou atualizações de tela.</li>
+<li>
+<strong>Notificação de mudanças de estado</strong>: quando diversos componentes precisam ser informados sobre alterações em um objeto.</li>
+<li>
+<strong>Modelagem de fluxo de dados reativo</strong>: em sistemas onde há propagação de dados ou eventos entre múltiplos sistemas, como em aplicações baseadas em eventos.</li>
+</ul>
+
+<h3 id="diferen%C3%A7as-entre-singleton-e-observable">Diferenças entre Singleton e Observable
+</h3>
+
+<p>Embora ambos os padrões sirvam para gerenciar objetos de forma controlada, suas finalidades e comportamentos são bem diferentes:</p>
+
+<div class="table-wrapper-paragraph"><table tabindex="0">
+<thead>
+<tr>
+<th>Característica</th>
+<th><strong>Singleton</strong></th>
+<th><strong>Observable</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Objetivo</strong></td>
+<td>Garantir que uma classe tenha apenas uma instância.</td>
+<td>Notificar múltiplos objetos sobre mudanças de estado.</td>
+</tr>
+<tr>
+<td><strong>Instância</strong></td>
+<td>Apenas uma instância é criada e compartilhada.</td>
+<td>Vários objetos podem ser observadores de um único sujeito.</td>
+</tr>
+<tr>
+<td><strong>Uso principal</strong></td>
+<td>Gerenciamento de recursos exclusivos.</td>
+<td>Notificação de eventos e mudanças de estado.</td>
+</tr>
+<tr>
+<td><strong>Exemplo de uso</strong></td>
+<td>Gerenciamento de logs ou configuração global.</td>
+<td>Atualização de interfaces gráficas ou propagação de eventos.</td>
+</tr>
+</tbody>
+</table></div>
+
+<h3 id="conclus%C3%A3o">Conclusão
+</h3>
+
+<p>Os padrões <strong>Singleton</strong> e <strong>Observable</strong> são fundamentais em diversas situações no desenvolvimento de software. O <strong>Singleton</strong> é ideal quando precisamos garantir uma única instância de uma classe em toda a aplicação, enquanto o <strong>Observable</strong> é útil para notificar e gerenciar interações entre múltiplos objetos com base nas mudanças de estado.</p>
+
+<p>Ao escolher entre esses padrões, considere as necessidades do seu projeto. Use o <strong>Singleton</strong> quando a unicidade de uma instância for crucial para a aplicação, e utilize o <strong>Observable</strong> quando o seu sistema precisar reagir a mudanças de estado ou eventos.</p>

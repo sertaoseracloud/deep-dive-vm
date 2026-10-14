@@ -8,6 +8,9 @@ import SocialIcon from "../components/ui/SocialIcon.astro";
 import BannerCarousel from "../components/ui/BannerCarousel.astro";
 import CourseCard from "../components/hub/CourseCard.astro";
 import EventCard from "../components/hub/EventCard.astro";
+import PostCard from "../components/hub/PostCard.astro";
+import artigos from "../data/devto-artigos.json";
+import { PERFIL, idiomas, nomeDoIdioma } from "../lib/devto.js";
 import { upcomingEvents } from "../data/events";
 import { agruparPorMes, nomeDoMes } from "../lib/eventos";
 import "../styles/hub.css";
@@ -22,6 +25,9 @@ const eventSlides = eventos.flatMap((e) =>
 );
 
 const porMes = agruparPorMes(eventos);
+const idiomasDoBlog = idiomas(artigos);
+/** Cards visíveis de início na aba Blog; o resto aparece com "Mostrar mais". */
+const POR_VEZ = 9;
 const ano = new Date().getFullYear();
 ---
 
@@ -72,6 +78,7 @@ const ano = new Date().getFullYear();
             <ul class="atalhos" aria-label="Atalhos">
               <li><a href="#cursos" data-ir-aba="cursos">{cursosAtivos} cursos gratuitos</a></li>
               {eventos.length > 0 && <li><a href="#eventos" data-ir-aba="eventos">{eventos.length} próximos eventos</a></li>}
+              {artigos.length > 0 && <li><a href="#blog" data-ir-aba="blog">{artigos.length} artigos no blog</a></li>}
             </ul>
             <ul class="social-links" aria-label="Redes sociais">
               {socialLinks.map((link) => (
@@ -99,6 +106,9 @@ const ano = new Date().getFullYear();
         </button>
         <button type="button" role="tab" id="aba-eventos" aria-controls="painel-eventos" aria-selected="false" tabindex="-1" data-aba="eventos">
           Eventos{eventos.length > 0 && <span class="aba-contador" aria-hidden="true" data-contador-eventos>{eventos.length}</span>}
+        </button>
+        <button type="button" role="tab" id="aba-blog" aria-controls="painel-blog" aria-selected="false" tabindex="-1" data-aba="blog">
+          Blog<span class="aba-contador" aria-hidden="true">{artigos.length}</span>
         </button>
       </div>
 
@@ -133,6 +143,33 @@ const ano = new Date().getFullYear();
             ))}
           </>
         )}
+      </section>
+
+      <section class="hub-painel" id="painel-blog" aria-labelledby="titulo-blog" data-painel="blog" data-por-vez={POR_VEZ}>
+        <h2 id="titulo-blog">Blog</h2>
+        <p class="painel-intro">
+          Artigos sobre arquitetura, cloud (AWS e Azure), Terraform, Kubernetes e IA, publicados no{" "}
+          <a href={PERFIL} target="_blank" rel="noopener noreferrer">dev.to/sertaoseracloud<span class="sr-only"> (abre em nova aba)</span></a>.
+          A lista é atualizada todo dia à meia-noite.
+        </p>
+        {idiomasDoBlog.length > 1 && (
+          <div class="blog-filtro" role="group" aria-label="Filtrar artigos por idioma" data-filtro-blog hidden>
+            <button type="button" aria-pressed="true" data-idioma="">Todos <span aria-hidden="true">({artigos.length})</span></button>
+            {idiomasDoBlog.map((codigo) => (
+              <button type="button" aria-pressed="false" data-idioma={codigo}>
+                {nomeDoIdioma(codigo)} <span aria-hidden="true">({artigos.filter((a) => a.language === codigo).length})</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <div class="course-list post-list" data-lista-blog>
+          {artigos.map((artigo) => <PostCard artigo={artigo} />)}
+        </div>
+        <p class="blog-rodape">
+          <button type="button" class="course-star" data-mais-blog hidden>Mostrar mais artigos</button>
+          <span class="sr-only" aria-live="polite" data-anuncio-blog></span>
+          <a href={PERFIL} class="link-texto" target="_blank" rel="noopener noreferrer">Ver todos no dev.to<span aria-hidden="true"> ↗</span><span class="sr-only"> (abre em nova aba)</span></a>
+        </p>
       </section>
 
     </div>
@@ -228,5 +265,48 @@ const ano = new Date().getFullYear();
   });
   const contador = document.querySelector<HTMLElement>("[data-contador-eventos]");
   if (contador) contador.textContent = String(document.querySelectorAll(".event-card").length);
+
+  // Blog: filtro por idioma e "Mostrar mais" (sem JavaScript, todos os cards aparecem).
+  const listaBlog = document.querySelector<HTMLElement>("[data-lista-blog]");
+  if (listaBlog) {
+    const POR_VEZ = Number(listaBlog.closest<HTMLElement>("[data-painel]")?.dataset.porVez ?? 9);
+    const cards = [...listaBlog.querySelectorAll<HTMLElement>(".post-card")];
+    const filtro = document.querySelector<HTMLElement>("[data-filtro-blog]");
+    const mais = document.querySelector<HTMLButtonElement>("[data-mais-blog]")!;
+    const anuncio = document.querySelector<HTMLElement>("[data-anuncio-blog]")!;
+    let idioma = "";
+    let limite = POR_VEZ;
+
+    const mostrar = () => {
+      const doIdioma = cards.filter((c) => !idioma || c.dataset.idioma === idioma);
+      cards.forEach((c) => (c.hidden = true));
+      doIdioma.slice(0, limite).forEach((c) => (c.hidden = false));
+      const restantes = doIdioma.length - limite;
+      mais.hidden = restantes <= 0;
+      mais.textContent = `Mostrar mais artigos (${Math.max(restantes, 0)})`;
+      return doIdioma;
+    };
+
+    filtro?.removeAttribute("hidden");
+    filtro?.querySelectorAll<HTMLButtonElement>("[data-idioma]").forEach((botao) => {
+      botao.addEventListener("click", () => {
+        filtro!.querySelectorAll("[data-idioma]").forEach((b) => b.setAttribute("aria-pressed", String(b === botao)));
+        idioma = botao.dataset.idioma ?? "";
+        limite = POR_VEZ;
+        const total = mostrar().length;
+        anuncio.textContent = `${total} ${total === 1 ? "artigo" : "artigos"}.`;
+      });
+    });
+
+    mais.addEventListener("click", () => {
+      const primeiroNovo = limite;
+      limite += POR_VEZ;
+      const lista = mostrar();
+      // Leva o foco ao primeiro card novo, para quem usa teclado ou leitor de tela.
+      lista[primeiroNovo]?.querySelector<HTMLAnchorElement>("a")?.focus();
+      anuncio.textContent = `Mostrando ${Math.min(limite, lista.length)} de ${lista.length} artigos.`;
+    });
+    mostrar();
+  }
 </script>
 

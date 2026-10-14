@@ -1,0 +1,582 @@
+<p>Já pensou em orquestrar <strong>todo o processo de compra de um marketplace</strong> com segurança, mesmo se der algum problema no meio do caminho? Hoje vamos fazer exatamente isso usando <strong>Azure Durable Functions</strong> em Node.js e o padrão de <strong>Saga</strong> para garantir que, se algo falhar, a gente consiga desfazer as etapas anteriores sem stress. Vamos passo a passo montar uma simulação de compra completa – do pagamento ao envio – num estilo bem descontraído (vem comigo que eu te explico 😉).</p>
+
+<h2 id="rapidinho-o-que-%C3%A9-esse-tal-de-saga">Rapidinho: o que é esse tal de Saga?
+</h2>
+
+<p>Antes de botar a mão no código, vale aquela explicação rápida: <strong>Saga</strong> é um padrão de arquitetura usado para gerenciar <strong>transações distribuídas</strong> ou <strong>processos de negócio de longa duração</strong>. Em vez de travar tudo em uma única transação gigante (o que é impraticável num monte de microsserviços), o Saga divide o processo em uma sequência de <strong>etapas locais</strong> (cada uma com seus próprios commits) e, importante, <strong>uma compensação</strong> para cada etapa caso algo mais adiante dê errado.</p>
+
+<p>Em bom português: imagine uma compra online com várias etapas (cobrar pagamento, reservar estoque, enviar pedido...). Se lá no final o envio falhar, não adianta ter cobrado o cliente e reservado produto à toa, né? O Saga garante que <strong>cada passo desfeito</strong> se necessário – tipo um “Ctrl+Z” para cada ação já concluída caso o processo não conclua com sucesso. Assim, mantemos os sistemas consistentes e ninguém fica no prejuízo. Legal, né? 😁</p>
+
+<p><strong>Resumindo o Saga:</strong> sequência de passos independentes com rollback individual. Se tudo der certo, maravilha; se algo der ruim no meio, ele desfaz o que já rolou e encerra graciosamente o processo. E aqui vamos implementar isso de forma <strong>orquestrada</strong> (ou seja, com um <strong>orquestrador central</strong> coordenando as etapas) usando Azure Durable Functions.</p>
+
+<h2 id="vis%C3%A3o-geral-do-fluxo-de-compra">Visão geral do fluxo de compra
+</h2>
+
+<p>Bora ver o <strong>fluxo da nossa simulação de compra</strong> antes de mergulhar no código. Vamos imaginar uma compra bem simples em um marketplace, envolvendo três etapas principais:</p>
+
+<ol>
+<li>
+<strong>Reservar o estoque</strong> do produto comprado (afinal, não podemos vender o que não tem em estoque, então primeiro garantimos a reserva).</li>
+<li>
+<strong>Processar o pagamento</strong> do cliente (cobrar no cartão, por exemplo).</li>
+<li>
+<strong>Agendar o envio</strong> do produto (simular o despacho do item para entrega).</li>
+</ol>
+
+<p>E claro, como estamos seguindo o padrão Saga, cada uma das duas primeiras etapas terá uma ação de <strong>compensação</strong> caso algo depois falhe:</p>
+
+<ul>
+<li>Se o pagamento for processado mas o envio falhar, precisamos <strong>estornar o pagamento</strong>.</li>
+<li>Se o estoque for reservado mas o pagamento falhar, precisamos <strong>liberar o estoque reservado</strong>.</li>
+</ul>
+
+<p>No nosso caso, a terceira etapa (envio) é a final; se ela falhar, acionamos as compensações das etapas anteriores e cancelamos a compra. Se todas as etapas passarem, show de bola: compra concluída! ✅</p>
+
+<p>Veja em alto nível:</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fbc08hbaltbs6wpruuouu.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fbc08hbaltbs6wpruuouu.png" alt="Fluxograma" loading="lazy" width="800" height="956"></a></p>
+
+<ul>
+<li>
+<strong>Sucesso total:</strong> Reserva -&gt; Pagamento -&gt; Envio -&gt; fim (compra confirmada).</li>
+<li>
+<strong>Falha no pagamento:</strong> Reserva -&gt; tentativa de Pagamento falha -&gt; estoque liberado -&gt; fim (compra cancelada).</li>
+<li>
+<strong>Falha no envio:</strong> Reserva -&gt; Pagamento -&gt; tentativa de Envio falha -&gt; pagamento estornado + estoque liberado -&gt; fim (compra cancelada).</li>
+</ul>
+
+<p>Com isso em mente, partiu código!</p>
+
+<h2 id="orquestrando-a-saga-da-compra-c%C3%B3digo-do-orchestrator">Orquestrando a saga da compra (código do Orchestrator)
+</h2>
+
+<p>No Azure Durable Functions, quem coordena essa brincadeira é o <strong>Orchestrator</strong>, uma função orquestradora que chama as funções de atividade na ordem certa e decide o que fazer em caso de sucesso ou erro. Vamos construir o nosso orquestrador chamado <code>OrderOrchestrator</code>. Ele vai executar as três etapas na sequência e chamar as funções de compensação se necessário.</p>
+
+<p>No projeto Node.js (usando TypeScript aqui pra dar uma organizada, mas poderia ser JavaScript puro também), o orquestrador é definido como uma função geradora usando a biblioteca <code>durable-functions</code>. Segue o código completo do nosso <code>OrderOrchestrator</code> com comentários explicando cada passo:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">import</span> <span class="o">*</span> <span class="k">as</span> <span class="nx">df</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">durable-functions</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">orchestrator</span> <span class="o">=</span> <span class="nx">df</span><span class="p">.</span><span class="nf">orchestrator</span><span class="p">(</span><span class="kd">function</span><span class="o">*</span> <span class="p">(</span><span class="nx">context</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">input</span> <span class="o">=</span> <span class="nx">context</span><span class="p">.</span><span class="nx">df</span><span class="p">.</span><span class="nf">getInput</span><span class="p">();</span>
+
+    <span class="c1">// Passo 1: Reservar estoque</span>
+    <span class="kd">const</span> <span class="nx">inventoryResult</span> <span class="o">=</span> <span class="k">yield</span> <span class="nx">context</span><span class="p">.</span><span class="nx">df</span><span class="p">.</span><span class="nf">callActivity</span><span class="p">(</span><span class="dl">"</span><span class="s2">ReserveInventory</span><span class="dl">"</span><span class="p">,</span> <span class="nx">input</span><span class="p">.</span><span class="nx">orderDetails</span><span class="p">);</span>
+    <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">inventoryResult</span><span class="p">.</span><span class="nx">success</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// Falhou ao reservar estoque, encerra a saga com erro (nada para compensar aqui, pois nada mais foi feito)</span>
+        <span class="k">return</span> <span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span> <span class="na">message</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Compra cancelada: estoque indisponível 😕</span><span class="dl">"</span> <span class="p">};</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Passo 2: Processar pagamento</span>
+    <span class="kd">const</span> <span class="nx">paymentResult</span> <span class="o">=</span> <span class="k">yield</span> <span class="nx">context</span><span class="p">.</span><span class="nx">df</span><span class="p">.</span><span class="nf">callActivity</span><span class="p">(</span><span class="dl">"</span><span class="s2">ProcessPayment</span><span class="dl">"</span><span class="p">,</span> <span class="nx">input</span><span class="p">.</span><span class="nx">paymentDetails</span><span class="p">);</span>
+    <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">paymentResult</span><span class="p">.</span><span class="nx">success</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// Falhou pagamento: chama compensação do estoque reservado e termina com erro</span>
+        <span class="k">yield</span> <span class="nx">context</span><span class="p">.</span><span class="nx">df</span><span class="p">.</span><span class="nf">callActivity</span><span class="p">(</span><span class="dl">"</span><span class="s2">ReleaseInventory</span><span class="dl">"</span><span class="p">,</span> <span class="nx">input</span><span class="p">.</span><span class="nx">orderDetails</span><span class="p">);</span>
+        <span class="k">return</span> <span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span> <span class="na">message</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Compra cancelada: pagamento falhou, estoque liberado 💸</span><span class="dl">"</span> <span class="p">};</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Passo 3: Agendar envio</span>
+    <span class="kd">const</span> <span class="nx">shippingResult</span> <span class="o">=</span> <span class="k">yield</span> <span class="nx">context</span><span class="p">.</span><span class="nx">df</span><span class="p">.</span><span class="nf">callActivity</span><span class="p">(</span><span class="dl">"</span><span class="s2">ScheduleShipping</span><span class="dl">"</span><span class="p">,</span> <span class="p">{</span> 
+        <span class="na">orderId</span><span class="p">:</span> <span class="nx">input</span><span class="p">.</span><span class="nx">orderDetails</span><span class="p">.</span><span class="nx">orderId</span><span class="p">,</span> 
+        <span class="na">shippingAddress</span><span class="p">:</span> <span class="nx">input</span><span class="p">.</span><span class="nx">shippingAddress</span> 
+    <span class="p">});</span>
+    <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">shippingResult</span><span class="p">.</span><span class="nx">success</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// Falhou envio: estorna pagamento e libera estoque (compensações das etapas anteriores)</span>
+        <span class="k">yield</span> <span class="nx">context</span><span class="p">.</span><span class="nx">df</span><span class="p">.</span><span class="nf">callActivity</span><span class="p">(</span><span class="dl">"</span><span class="s2">RefundPayment</span><span class="dl">"</span><span class="p">,</span> <span class="nx">input</span><span class="p">.</span><span class="nx">paymentDetails</span><span class="p">);</span>
+        <span class="k">yield</span> <span class="nx">context</span><span class="p">.</span><span class="nx">df</span><span class="p">.</span><span class="nf">callActivity</span><span class="p">(</span><span class="dl">"</span><span class="s2">ReleaseInventory</span><span class="dl">"</span><span class="p">,</span> <span class="nx">input</span><span class="p">.</span><span class="nx">orderDetails</span><span class="p">);</span>
+        <span class="k">return</span> <span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span> <span class="na">message</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Compra cancelada: envio n</span><span class="se">\</span><span class="s2">u00e3o dispon</span><span class="se">\</span><span class="s2">u00edvel, pagamento estornado e estoque liberado 🚚</span><span class="dl">"</span> <span class="p">};</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Se chegou aqui, tudo deu certo!</span>
+    <span class="k">return</span> <span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span> <span class="na">message</span><span class="p">:</span> <span class="dl">"</span><span class="s2">Pedido concluido com sucesso! 🥳</span><span class="dl">"</span> <span class="p">};</span>
+<span class="p">});</span>
+
+<span class="k">export</span> <span class="k">default</span> <span class="nx">orchestrator</span><span class="p">;</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Vamos dissecar o que acontece aí:</p>
+
+<ul>
+<li>
+<strong>Entrada (<code>input</code>):</strong> O orquestrador espera receber detalhes do pedido, como <code>orderDetails</code> (ex: ID do pedido, itens, etc.), <code>paymentDetails</code> (dados do pagamento) e <code>shippingAddress</code> (endereço para entrega). Daqui a pouco veremos como enviar isso.</li>
+<li>
+<strong>ReserveInventory:</strong> Primeiro chamamos a função de atividade <code>ReserveInventory</code> passando os detalhes do pedido. Se ela retornar <code>{ success: false }</code>, quer dizer que não conseguiu reservar (talvez estoque insuficiente). Nesse caso, não adianta prosseguir – a função já devolve um resultado de falha e a saga termina aí mesmo. (Note que nada foi feito antes disso, então não precisamos “desfazer” nada ainda.)</li>
+<li>
+<strong>ProcessPayment:</strong> Se o estoque foi reservado com sucesso, partimos para cobrar o pagamento com <code>ProcessPayment</code>. Se essa etapa retornar falha, aí sim acionamos a compensação do estoque: chamamos <code>ReleaseInventory</code> para liberar aquele estoque que tínhamos reservado, já que a compra não vai mais acontecer. Depois retornamos falha da saga de compra (e nada de tentar envio, porque sem pagamento não rola).</li>
+<li>
+<strong>ScheduleShipping:</strong> Com pagamento ok e estoque reservado, bora enviar o produto! Chamamos <code>ScheduleShipping</code> com os dados necessários (usamos <code>orderId</code> e talvez o endereço de envio). Se por alguma zica essa etapa falhar, precisamos reverter as anteriores: chamamos <code>RefundPayment</code> (estornar o pagamento cobrado) <strong>e</strong> <code>ReleaseInventory</code> (liberar o estoque). A ordem aqui não importa tanto, mas em geral estornamos pagamento antes de liberar estoque. Depois retornamos a falha.</li>
+<li>
+<strong>Finalização:</strong> Se passou por todas as condições sem retornar antes, significa que reserva, pagamento e envio foram bem-sucedidos. Então retornamos uma mensagem de sucesso geral. 🎉</li>
+</ul>
+
+<p>Repare que o orquestrador <strong>coordenou todas as etapas</strong> na sequência certinha, e garantiu que, em caso de problema, chamasse imediatamente as funções de compensação necessárias antes de encerrar. Isso é a essência do Saga: cada serviço/atividade é chamado, e se algo depois falha, o orquestrador volta chamando os <em>undos</em> dos passos já feitos.</p>
+
+<p>Agora que o “maestro” Orchestrator está pronto, vamos definir as funções de atividade individuais – tanto as ações principais quanto as de compensação.</p>
+
+<h2 id="definindo-as-atividades-e-compensa%C3%A7%C3%B5es-da-saga">Definindo as atividades e compensações da Saga
+</h2>
+
+<p>Temos algumas funções de atividade para criar:</p>
+
+<ul>
+<li>
+<code>ReserveInventory</code> – Reserva os itens no estoque para o pedido.</li>
+<li>
+<code>ReleaseInventory</code> – Compensação da reserva de estoque (desfaz a reserva).</li>
+<li>
+<code>ProcessPayment</code> – Processa (cobra) o pagamento do cliente.</li>
+<li>
+<code>RefundPayment</code> – Compensação do pagamento (faz o reembolso).</li>
+<li>
+<code>ScheduleShipping</code> – Agenda o envio do pedido.</li>
+</ul>
+
+<p>Vamos ver cada uma delas com código. Aqui vamos simular as lógicas de forma bem simples, só para focar no fluxo. Em um caso real, essas funções chamariam serviços externos, bancos de dados, APIs de pagamento, etc.</p>
+
+<h3 id="reserveinventory-reservando-o-produto-no-estoque">📦 ReserveInventory – reservando o produto no estoque
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">AzureFunction</span><span class="p">,</span> <span class="nx">Context</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@azure/functions</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">ReserveInventory</span><span class="p">:</span> <span class="nx">AzureFunction</span> <span class="o">=</span> <span class="k">async</span> <span class="nf">function </span><span class="p">(</span><span class="nx">context</span><span class="p">:</span> <span class="nx">Context</span><span class="p">,</span> <span class="nx">orderDetails</span><span class="p">:</span> <span class="kr">any</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="nx">boolean</span> <span class="p">}</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Reservando estoque para o pedido </span><span class="p">${</span><span class="nx">orderDetails</span><span class="p">.</span><span class="nx">orderId</span><span class="p">}</span><span class="s2">...`</span><span class="p">);</span>
+
+    <span class="c1">// Simulação de banco de dados de estoque</span>
+    <span class="kd">const</span> <span class="nx">inventory</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="dl">"</span><span class="s2">item1</span><span class="dl">"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span> <span class="c1">// 100 unidades disponíveis</span>
+        <span class="dl">"</span><span class="s2">item2</span><span class="dl">"</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>  <span class="c1">// 50 unidades disponíveis</span>
+        <span class="dl">"</span><span class="s2">item3</span><span class="dl">"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>   <span class="c1">// 0 unidades disponíveis (sem estoque)</span>
+    <span class="p">};</span>
+
+    <span class="c1">// Verificando se os itens do pedido estão disponíveis no estoque</span>
+    <span class="k">for </span><span class="p">(</span><span class="kd">let</span> <span class="nx">item</span> <span class="k">of</span> <span class="nx">orderDetails</span><span class="p">.</span><span class="nx">items</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">const</span> <span class="nx">availableStock</span> <span class="o">=</span> <span class="nx">inventory</span><span class="p">[</span><span class="nx">item</span><span class="p">.</span><span class="nx">productId</span><span class="p">];</span>
+        <span class="k">if </span><span class="p">(</span><span class="nx">availableStock</span> <span class="o">===</span> <span class="kc">undefined</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Item </span><span class="p">${</span><span class="nx">item</span><span class="p">.</span><span class="nx">productId</span><span class="p">}</span><span class="s2"> não encontrado no estoque.`</span><span class="p">);</span>
+            <span class="k">return</span> <span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="kc">false</span> <span class="p">};</span>
+        <span class="p">}</span>
+
+        <span class="k">if </span><span class="p">(</span><span class="nx">availableStock</span> <span class="o">&lt;</span> <span class="nx">item</span><span class="p">.</span><span class="nx">quantity</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Estoque insuficiente para o item </span><span class="p">${</span><span class="nx">item</span><span class="p">.</span><span class="nx">productId</span><span class="p">}</span><span class="s2">. Disponível: </span><span class="p">${</span><span class="nx">availableStock</span><span class="p">}</span><span class="s2">, Necessário: </span><span class="p">${</span><span class="nx">item</span><span class="p">.</span><span class="nx">quantity</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+            <span class="k">return</span> <span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="kc">false</span> <span class="p">};</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Simulando a reserva de estoque</span>
+    <span class="k">for </span><span class="p">(</span><span class="kd">let</span> <span class="nx">item</span> <span class="k">of</span> <span class="nx">orderDetails</span><span class="p">.</span><span class="nx">items</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">inventory</span><span class="p">[</span><span class="nx">item</span><span class="p">.</span><span class="nx">productId</span><span class="p">]</span> <span class="o">-=</span> <span class="nx">item</span><span class="p">.</span><span class="nx">quantity</span><span class="p">;</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Reservado </span><span class="p">${</span><span class="nx">item</span><span class="p">.</span><span class="nx">quantity</span><span class="p">}</span><span class="s2"> unidades do item </span><span class="p">${</span><span class="nx">item</span><span class="p">.</span><span class="nx">productId</span><span class="p">}</span><span class="s2">. Estoque restante: </span><span class="p">${</span><span class="nx">inventory</span><span class="p">[</span><span class="nx">item</span><span class="p">.</span><span class="nx">productId</span><span class="p">]}</span><span class="s2">`</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Se passou por todas as verificações, consideramos a reserva bem-sucedida</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Estoque reservado com sucesso para o pedido </span><span class="p">${</span><span class="nx">orderDetails</span><span class="p">.</span><span class="nx">orderId</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+    <span class="k">return</span> <span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="kc">true</span> <span class="p">};</span>
+<span class="p">};</span>
+
+<span class="k">export</span> <span class="k">default</span> <span class="nx">ReserveInventory</span><span class="p">;</span>
+
+</code></pre>
+
+</div>
+
+
+
+<p>Essa função recebe <code>orderDetails</code> (poderia ter ID do produto, quantidade, etc.) e simula a reserva do item. Aqui estamos simplesmente retornando <code>{ success: true }</code> para indicar sucesso. Se quiséssemos simular falha de estoque, poderíamos retornar <code>{ success: false }</code> dependendo de alguma condição (ex: item fora de estoque).</p>
+
+<blockquote>
+<p><em>Dica:</em> Para testar o Saga em caso de falha, você pode alterar temporariamente o retorno para <code>false</code> e ver o orquestrador acionando a compensação 😉.</p>
+</blockquote>
+
+<h3 id="releaseinventory-liberando-o-estoque-compensa%C3%A7%C3%A3o">♻️ ReleaseInventory – liberando o estoque (compensação)
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">AzureFunction</span><span class="p">,</span> <span class="nx">Context</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@azure/functions</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">ReleaseInventory</span><span class="p">:</span> <span class="nx">AzureFunction</span> <span class="o">=</span> <span class="k">async</span> <span class="nf">function </span><span class="p">(</span><span class="nx">context</span><span class="p">:</span> <span class="nx">Context</span><span class="p">,</span> <span class="nx">orderDetails</span><span class="p">:</span> <span class="kr">any</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Liberando estoque do pedido </span><span class="p">${</span><span class="nx">orderDetails</span><span class="p">.</span><span class="nx">orderId</span><span class="p">}</span><span class="s2"> (compensando reserva)...`</span><span class="p">);</span>
+
+    <span class="c1">// Simulação de banco de dados de estoque</span>
+    <span class="kd">const</span> <span class="nx">inventory</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="dl">"</span><span class="s2">item1</span><span class="dl">"</span><span class="p">:</span> <span class="mi">100</span><span class="p">,</span> <span class="c1">// 100 unidades disponíveis</span>
+        <span class="dl">"</span><span class="s2">item2</span><span class="dl">"</span><span class="p">:</span> <span class="mi">50</span><span class="p">,</span>  <span class="c1">// 50 unidades disponíveis</span>
+        <span class="dl">"</span><span class="s2">item3</span><span class="dl">"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>   <span class="c1">// 0 unidades disponíveis (sem estoque)</span>
+    <span class="p">};</span>
+
+    <span class="c1">// Revertendo a reserva de estoque</span>
+    <span class="k">for </span><span class="p">(</span><span class="kd">let</span> <span class="nx">item</span> <span class="k">of</span> <span class="nx">orderDetails</span><span class="p">.</span><span class="nx">items</span><span class="p">)</span> <span class="p">{</span>
+        <span class="kd">const</span> <span class="nx">availableStock</span> <span class="o">=</span> <span class="nx">inventory</span><span class="p">[</span><span class="nx">item</span><span class="p">.</span><span class="nx">productId</span><span class="p">];</span>
+
+        <span class="c1">// Verifica se o item existe no estoque</span>
+        <span class="k">if </span><span class="p">(</span><span class="nx">availableStock</span> <span class="o">===</span> <span class="kc">undefined</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Item </span><span class="p">${</span><span class="nx">item</span><span class="p">.</span><span class="nx">productId</span><span class="p">}</span><span class="s2"> não encontrado no estoque.`</span><span class="p">);</span>
+            <span class="k">continue</span><span class="p">;</span> <span class="c1">// Se o item não for encontrado, ignoramos</span>
+        <span class="p">}</span>
+
+        <span class="c1">// Verifica se a quantidade a ser liberada é válida</span>
+        <span class="k">if </span><span class="p">(</span><span class="nx">item</span><span class="p">.</span><span class="nx">quantity</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Quantidade inválida para o item </span><span class="p">${</span><span class="nx">item</span><span class="p">.</span><span class="nx">productId</span><span class="p">}</span><span class="s2">. Quantidade: </span><span class="p">${</span><span class="nx">item</span><span class="p">.</span><span class="nx">quantity</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+            <span class="k">continue</span><span class="p">;</span> <span class="c1">// Se a quantidade for inválida, ignoramos</span>
+        <span class="p">}</span>
+
+        <span class="c1">// Liberando o estoque</span>
+        <span class="nx">inventory</span><span class="p">[</span><span class="nx">item</span><span class="p">.</span><span class="nx">productId</span><span class="p">]</span> <span class="o">+=</span> <span class="nx">item</span><span class="p">.</span><span class="nx">quantity</span><span class="p">;</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Estoque do item </span><span class="p">${</span><span class="nx">item</span><span class="p">.</span><span class="nx">productId</span><span class="p">}</span><span class="s2"> liberado. Quantidade revertida: </span><span class="p">${</span><span class="nx">item</span><span class="p">.</span><span class="nx">quantity</span><span class="p">}</span><span class="s2">. Estoque atual: </span><span class="p">${</span><span class="nx">inventory</span><span class="p">[</span><span class="nx">item</span><span class="p">.</span><span class="nx">productId</span><span class="p">]}</span><span class="s2">`</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Estoque liberado com sucesso para o pedido </span><span class="p">${</span><span class="nx">orderDetails</span><span class="p">.</span><span class="nx">orderId</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+<span class="p">};</span>
+
+<span class="k">export</span> <span class="k">default</span> <span class="nx">ReleaseInventory</span><span class="p">;</span>
+
+</code></pre>
+
+</div>
+
+
+
+<p>O <code>ReleaseInventory</code> é chamado pelo orquestrador apenas quando precisamos <strong>desfazer</strong> uma reserva de produto (ou seja, a compra não vai mais ser concluída). Ele recebe o mesmo <code>orderDetails</code> para saber qual pedido/produto liberar e apenas faz um log simulando essa liberação. Numa aplicação real, aqui teríamos a lógica para incrementar o estoque novamente.</p>
+
+<h3 id="processpayment-cobrando-o-cliente">💳 ProcessPayment – cobrando o cliente
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">AzureFunction</span><span class="p">,</span> <span class="nx">Context</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@azure/functions</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">ProcessPayment</span><span class="p">:</span> <span class="nx">AzureFunction</span> <span class="o">=</span> <span class="k">async</span> <span class="nf">function </span><span class="p">(</span><span class="nx">context</span><span class="p">:</span> <span class="nx">Context</span><span class="p">,</span> <span class="nx">paymentDetails</span><span class="p">:</span> <span class="kr">any</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="nx">boolean</span> <span class="p">}</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">Processando pagamento do cliente...</span><span class="dl">"</span><span class="p">);</span>
+
+    <span class="kd">const</span> <span class="p">{</span> <span class="nx">cardNumber</span><span class="p">,</span> <span class="nx">amount</span> <span class="p">}</span> <span class="o">=</span> <span class="nx">paymentDetails</span><span class="p">;</span>
+
+    <span class="c1">// Validação de entrada</span>
+    <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">cardNumber</span> <span class="o">||</span> <span class="nx">cardNumber</span><span class="p">.</span><span class="nx">length</span> <span class="o">!==</span> <span class="mi">16</span> <span class="o">||</span> <span class="o">!</span><span class="sr">/^</span><span class="se">\d</span><span class="sr">+$/</span><span class="p">.</span><span class="nf">test</span><span class="p">(</span><span class="nx">cardNumber</span><span class="p">))</span> <span class="p">{</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Erro: Número de cartão inválido. Card Number: </span><span class="p">${</span><span class="nx">cardNumber</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+        <span class="k">return</span> <span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="kc">false</span> <span class="p">};</span>
+    <span class="p">}</span>
+
+    <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">amount</span> <span class="o">||</span> <span class="nx">amount</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Erro: Quantia inválida para o pagamento. Quantia: </span><span class="p">${</span><span class="nx">amount</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+        <span class="k">return</span> <span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="kc">false</span> <span class="p">};</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Aqui seria feita a integração real com o gateway de pagamento (ex: Stripe, PayPal, etc.)</span>
+    <span class="c1">// Exemplo de integração fictícia com um gateway de pagamento:</span>
+    <span class="c1">// const paymentGatewayResponse = await callPaymentGateway(paymentDetails);</span>
+
+    <span class="c1">// Simulação de sucesso no pagamento</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Pagamento de R$ </span><span class="p">${</span><span class="nx">amount</span><span class="p">.</span><span class="nf">toFixed</span><span class="p">(</span><span class="mi">2</span><span class="p">)}</span><span class="s2"> processado com sucesso com o cartão </span><span class="p">${</span><span class="nx">cardNumber</span><span class="p">.</span><span class="nf">substring</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">)}</span><span class="s2">-****-****-</span><span class="p">${</span><span class="nx">cardNumber</span><span class="p">.</span><span class="nf">substring</span><span class="p">(</span><span class="mi">12</span><span class="p">)}</span><span class="s2">.`</span><span class="p">);</span>
+
+    <span class="c1">// Simulando sempre sucesso no pagamento</span>
+    <span class="k">return</span> <span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="kc">true</span> <span class="p">};</span>
+<span class="p">};</span>
+
+<span class="k">export</span> <span class="k">default</span> <span class="nx">ProcessPayment</span><span class="p">;</span>
+</code></pre>
+
+</div>
+
+
+
+<p>O <code>ProcessPayment</code> cuidaria de cobrar o cliente. Recebemos <code>paymentDetails</code> (que pode ter informações do cartão, valor, etc.) e aqui apenas simulamos uma cobrança bem-sucedida retornando <code>{ success: true }</code>. Se quiséssemos simular, por exemplo, cartão recusado, retornaríamos <code>{ success: false }</code>.</p>
+
+<p>Assim como antes, <strong>não se preocupe</strong>: deixar esse retorno fixo em true significa que, por padrão, nossa simulação sempre vai passar do pagamento. Mas está fácil de ajustar se quiser ver o fluxo de erro acontecendo.</p>
+
+<h3 id="refundpayment-estornando-o-pagamento-compensa%C3%A7%C3%A3o">💸 RefundPayment – estornando o pagamento (compensação)
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">AzureFunction</span><span class="p">,</span> <span class="nx">Context</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@azure/functions</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">RefundPayment</span><span class="p">:</span> <span class="nx">AzureFunction</span> <span class="o">=</span> <span class="k">async</span> <span class="nf">function </span><span class="p">(</span><span class="nx">context</span><span class="p">:</span> <span class="nx">Context</span><span class="p">,</span> <span class="nx">paymentDetails</span><span class="p">:</span> <span class="kr">any</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">Estornando pagamento do pedido (compensando pagamento)...</span><span class="dl">"</span><span class="p">);</span>
+
+    <span class="kd">const</span> <span class="p">{</span> <span class="nx">cardNumber</span><span class="p">,</span> <span class="nx">amount</span><span class="p">,</span> <span class="nx">orderId</span> <span class="p">}</span> <span class="o">=</span> <span class="nx">paymentDetails</span><span class="p">;</span>
+
+    <span class="c1">// Validação de entrada</span>
+    <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">cardNumber</span> <span class="o">||</span> <span class="nx">cardNumber</span><span class="p">.</span><span class="nx">length</span> <span class="o">!==</span> <span class="mi">16</span> <span class="o">||</span> <span class="o">!</span><span class="sr">/^</span><span class="se">\d</span><span class="sr">+$/</span><span class="p">.</span><span class="nf">test</span><span class="p">(</span><span class="nx">cardNumber</span><span class="p">))</span> <span class="p">{</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Erro: Número de cartão inválido. Card Number: </span><span class="p">${</span><span class="nx">cardNumber</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">amount</span> <span class="o">||</span> <span class="nx">amount</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Erro: Quantia inválida para o estorno. Quantia: </span><span class="p">${</span><span class="nx">amount</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">orderId</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Erro: Identificador do pedido não fornecido.`</span><span class="p">);</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Aqui seria feita a integração real com o sistema de pagamento para processar o estorno</span>
+    <span class="c1">// Exemplo fictício de integração com um gateway de pagamento:</span>
+    <span class="c1">// const refundResponse = await callRefundGateway(paymentDetails);</span>
+
+    <span class="c1">// Simulação de sucesso no estorno</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Pagamento de R$ </span><span class="p">${</span><span class="nx">amount</span><span class="p">.</span><span class="nf">toFixed</span><span class="p">(</span><span class="mi">2</span><span class="p">)}</span><span class="s2"> estornado com sucesso para o pedido </span><span class="p">${</span><span class="nx">orderId</span><span class="p">}</span><span class="s2">.`</span><span class="p">);</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Estorno realizado com o cartão </span><span class="p">${</span><span class="nx">cardNumber</span><span class="p">.</span><span class="nf">substring</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">)}</span><span class="s2">-****-****-</span><span class="p">${</span><span class="nx">cardNumber</span><span class="p">.</span><span class="nf">substring</span><span class="p">(</span><span class="mi">12</span><span class="p">)}</span><span class="s2">.`</span><span class="p">);</span>
+
+    <span class="c1">// Nenhum valor é retornado, pois é um processo de estorno que não requer resposta</span>
+<span class="p">};</span>
+
+<span class="k">export</span> <span class="k">default</span> <span class="nx">RefundPayment</span><span class="p">;</span>
+
+</code></pre>
+
+</div>
+
+
+
+<p>O <code>RefundPayment</code> entra em ação caso a saga precise <strong>desfazer uma cobrança</strong> já realizada (por exemplo, se o envio do produto falhou depois do pagamento ter sido cobrado). Ele recebe os mesmos <code>paymentDetails</code> e faria a chamada para estornar o valor no cartão do cliente. Na nossa simulação apenas loga uma mensagem. O importante é: essa função será chamada <strong>somente</strong> se for necessária a compensação do pagamento.</p>
+
+<h3 id="scheduleshipping-agendando-o-envio-do-pedido">🚚 ScheduleShipping – agendando o envio do pedido
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">AzureFunction</span><span class="p">,</span> <span class="nx">Context</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@azure/functions</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">ScheduleShipping</span><span class="p">:</span> <span class="nx">AzureFunction</span> <span class="o">=</span> <span class="k">async</span> <span class="nf">function </span><span class="p">(</span><span class="nx">context</span><span class="p">:</span> <span class="nx">Context</span><span class="p">,</span> <span class="nx">shipmentInfo</span><span class="p">:</span> <span class="kr">any</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="nx">boolean</span> <span class="p">}</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Agendando envio do pedido </span><span class="p">${</span><span class="nx">shipmentInfo</span><span class="p">.</span><span class="nx">orderId</span><span class="p">}</span><span class="s2">...`</span><span class="p">);</span>
+
+    <span class="c1">// Verificando se as informações necessárias para o agendamento estão presentes</span>
+    <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">shipmentInfo</span><span class="p">.</span><span class="nx">orderId</span> <span class="o">||</span> <span class="o">!</span><span class="nx">shipmentInfo</span><span class="p">.</span><span class="nx">shippingAddress</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">Erro: Informações de envio incompletas.</span><span class="dl">"</span><span class="p">);</span>
+        <span class="k">return</span> <span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="kc">false</span> <span class="p">};</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Simulação de integração com API de transportadora</span>
+    <span class="k">try</span> <span class="p">{</span>
+        <span class="c1">// Aqui você chamaria uma API externa de transportadora, por exemplo:</span>
+        <span class="c1">// const response = await callShippingAPI(shipmentInfo);</span>
+
+        <span class="c1">// Simulando a resposta bem-sucedida da transportadora</span>
+        <span class="kd">const</span> <span class="nx">shipmentResponse</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="na">trackingNumber</span><span class="p">:</span> <span class="dl">"</span><span class="s2">TRACK123456789</span><span class="dl">"</span><span class="p">,</span>
+            <span class="na">estimatedDeliveryDate</span><span class="p">:</span> <span class="dl">"</span><span class="s2">2025-05-10</span><span class="dl">"</span>
+        <span class="p">};</span>
+
+        <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Envio agendado com sucesso. Número de rastreamento: </span><span class="p">${</span><span class="nx">shipmentResponse</span><span class="p">.</span><span class="nx">trackingNumber</span><span class="p">}</span><span class="s2">. Data estimada de entrega: </span><span class="p">${</span><span class="nx">shipmentResponse</span><span class="p">.</span><span class="nx">estimatedDeliveryDate</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+
+        <span class="k">return</span> <span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="kc">true</span> <span class="p">};</span>
+    <span class="p">}</span> <span class="k">catch </span><span class="p">(</span><span class="nx">error</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Erro ao agendar o envio: </span><span class="p">${</span><span class="nx">error</span><span class="p">.</span><span class="nx">message</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+        <span class="k">return</span> <span class="p">{</span> <span class="na">success</span><span class="p">:</span> <span class="kc">false</span> <span class="p">};</span>
+    <span class="p">}</span>
+<span class="p">};</span>
+
+<span class="k">export</span> <span class="k">default</span> <span class="nx">ScheduleShipping</span><span class="p">;</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Por fim, <code>ScheduleShipping</code> simula o agendamento do envio. Recebe algo como <code>shipmentInfo</code> (no nosso caso, contendo o <code>orderId</code> e talvez endereço de entrega), e retorna <code>{ success: true }</code> simulando que o pedido foi enviado com sucesso. Se retornássemos false aqui, significaria que não foi possível despachar (imagina um erro na transportadora, por exemplo). Nesse caso, como vimos no orquestrador, o Saga acionaria <em>RefundPayment</em> e <em>ReleaseInventory</em> em seguida.</p>
+
+<p>Vale notar: sendo essa a última etapa, não temos uma função de compensação específica para envio – se o envio falha, a forma de compensar é basicamente cancelar tudo (estornar e liberar estoque). Se o envio dá certo, missão cumprida, não precisamos desfazer nada 🎉.</p>
+
+<p>Agora que todas as funções estão definidas, vamos <strong>rodar essa aplicação</strong> e ver o Saga funcionando!</p>
+
+<h2 id="rodando-tudo-localmente">Rodando tudo localmente 🚀
+</h2>
+
+<p>Para rodar local, vamos usar o Azure Functions Core Tools. Se você seguiu a estrutura sugerida, já deve ter um projeto de Azure Functions configurado. Caso contrário, aqui um resumão de como criar o projeto e as funções (usando o CLI do Functions):<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code><span class="c"># (Caso ainda não tenha o projeto configurado)</span>
+func init minha-saga-compras <span class="nt">--typescript</span>
+<span class="nb">cd </span>minha-saga-compras
+
+<span class="c"># Cria as funções Durable (Orchestrator e Activities)</span>
+func new <span class="nt">--template</span> <span class="s2">"Durable Functions Orchestration"</span> <span class="nt">--name</span> OrderOrchestrator
+func new <span class="nt">--template</span> <span class="s2">"Durable Functions Activity"</span> <span class="nt">--name</span> ReserveInventory
+func new <span class="nt">--template</span> <span class="s2">"Durable Functions Activity"</span> <span class="nt">--name</span> ProcessPayment
+func new <span class="nt">--template</span> <span class="s2">"Durable Functions Activity"</span> <span class="nt">--name</span> ScheduleShipping
+
+<span class="c"># (Crie manualmente ou usando o mesmo template as funções de compensação:)</span>
+func new <span class="nt">--template</span> <span class="s2">"Durable Functions Activity"</span> <span class="nt">--name</span> ReleaseInventory
+func new <span class="nt">--template</span> <span class="s2">"Durable Functions Activity"</span> <span class="nt">--name</span> RefundPayment
+</code></pre>
+
+</div>
+
+
+
+<p><em>Obs:</em> O Azure Functions Core Tools vai gerar alguns arquivos default para cada função (incluindo um <code>function.json</code> para configuração de triggers e bindings). Nossas funções de atividade usam trigger do tipo <strong>Activity</strong>, e o orquestrador é do tipo <strong>Orchestration</strong>. Você não precisa mexer nesses arquivos JSON manualmente, a não ser para ajustar algo específico. O importante é que nosso código acima esteja nos arquivos corretos (<code>OrderOrchestrator/index.ts</code>, <code>ReserveInventory/index.ts</code>, etc., por exemplo).</p>
+
+<p>Antes de rodar, certifique-se de que você tem uma <strong>Storage Account</strong> configurada para o Azure Functions usar (em local, o Core Tools geralmente usa o Azurite como storage emulado automaticamente). Se ao rodar aparecer erro de storage, instale/rode o Azurite ou configure a connection string de uma storage real no <code>local.settings.json</code> (chave <code>"AzureWebJobsStorage"</code>).</p>
+
+<p>Agora, para subir tudo localmente, basta rodar:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>func start
+</code></pre>
+
+</div>
+
+
+
+<p>Isso vai iniciar seu runtime do Azure Functions em <a href="http://localhost:7071" target="_blank" rel="noopener noreferrer">http://localhost:7071</a>. A função orquestradora do Durable Functions por padrão expõe um endpoint HTTP para iniciar a saga. Vamos fazer uma requisição para começar a simulação de compra. Você pode usar o <strong>cURL</strong> no terminal ou o <strong>Postman</strong> (ou qualquer ferramenta similar) para enviar uma requisição HTTP POST com um JSON contendo os dados do pedido.</p>
+
+<p>Exemplo usando cURL (no terminal) para iniciar a orquestração da compra:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>curl <span class="nt">-X</span> POST http://localhost:7071/api/orchestrators/OrderOrchestrator <span class="se">\</span>
+  <span class="nt">-H</span> <span class="s2">"Content-Type: application/json"</span> <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s1">'{
+    "orderDetails": { "orderId": "12345", "items": ["item1", "item2"] },
+    "paymentDetails": { "cardNumber": "4111111111111111", "amount": 99.90 },
+    "shippingAddress": "Rua Exemplo, 123, Cidade XYZ, Brasil"
+  }'</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Vamos entender esse comando:</p>
+
+<ul>
+<li>Estamos fazendo um POST para o endpoint padrão <code>/api/orchestrators/OrderOrchestrator</code>. Esse é um jeito rápido de disparar o orquestrador Durable Functions sem precisar escrever uma função HTTP separada. (Por baixo dos panos, o Durable Functions cuida de criar uma instância do nosso Orchestrator.)</li>
+<li>No corpo (<code>-d</code>) enviamos um JSON com <code>orderDetails</code>, <code>paymentDetails</code> e <code>shippingAddress</code>. Pode ajustar esses dados como quiser – eles vão aparecer no nosso contexto <code>input</code> do orquestrador.</li>
+<li>O header <code>Content-Type: application/json</code> é importante para a função receber o body corretamente.</li>
+</ul>
+
+<p>Se estiver usando Postman, é só criar uma nova request POST para <code>http://localhost:7071/api/orchestrators/OrderOrchestrator</code>, selecionar Body como JSON e mandar os mesmos campos.</p>
+
+<h3 id="o-que-esperar-de-resposta">O que esperar de resposta?
+</h3>
+
+<p>Quando você enviar essa requisição, a Durable Functions vai retornar imediatamente uma resposta HTTP <strong>202 Accepted</strong> com alguns dados no header/body indicando que a orquestração foi iniciada (incluindo um <strong>instance ID</strong> e URLs para consultar o status). Isso porque o processamento em si é assíncrono – acontece no background.</p>
+
+<p>Para simplificar nosso teste, podemos monitorar o <strong>log do console</strong> onde rodamos o <code>func start</code>. Lá você verá as mensagens que colocamos em cada função:</p>
+
+<ul>
+<li>Deve aparecer "Reservando estoque...", depois "Processando pagamento...", depois "Agendando envio...".</li>
+<li>Se tudo correu bem, a resposta final do orquestrador (success true) deve ser gravada também. Você pode ver o resultado final chamando o <strong>status endpoint</strong> que a resposta 202 fornece (o URL <code>/api/instances/&lt;ID&gt;</code>), mas não vamos complicar: no log já dá pra perceber o fluxo.</li>
+</ul>
+
+<p>Por exemplo, em uma execução <strong>bem-sucedida</strong>, você deverá ver no log algo como:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>Reservando estoque para o pedido 12345...
+Processando pagamento do cliente...
+Agendando envio do pedido 12345...
+</code></pre>
+
+</div>
+
+
+
+<p>E a orquestração finalizando com sucesso. Já em uma execução onde simulamos alguma falha (digamos que fizemos <code>ReserveInventory</code> retornar false), o log mostraria a falha e as compensações:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>Reservando estoque para o pedido 12345...
+** (falha simulada aqui) **
+Liberando estoque do pedido 12345 (compensando reserva)...
+</code></pre>
+
+</div>
+
+
+
+<p>E o orquestrador terminaria marcando <code>success: false</code> devido à falha.</p>
+
+<p>Show, né? Você acabou de rodar uma Saga completa localmente!</p>
+
+<h2 id="publicando-no-azure">Publicando no Azure ☁️
+</h2>
+
+<p>Testamos local, tudo certo; agora vamos <strong>deployar isso para o Azure</strong> pra usar de verdade em ambiente cloud. Os passos principais são:</p>
+
+<ol>
+<li><p><strong>Criar um Function App no Azure:</strong> Você pode fazer isso pelo portal do Azure (criando um recurso do tipo Azure Functions) ou via CLI. Certifique-se de associar uma Storage Account e tal (o portal normalmente faz automaticamente). Anote o nome do Function App (que será parte da URL).</p></li>
+<li><p><strong>Publicar o código:</strong> Com o Azure Functions Core Tools, é simples. Logue na sua conta Azure pelo CLI (<code>az login</code>) se ainda não fez, e então rode no diretório do projeto:<br>
+</p></li>
+</ol>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>   func azure functionapp publish NOME-DO-SEU-FUNCTIONAPP
+</code></pre>
+
+</div>
+
+
+
+<p>Onde <code>NOME-DO-SEU-FUNCTIONAPP</code> é o nome que você escolheu no passo 1. Esse comando empacota e envia todas as funções para o Azure. (Alternativamente, você pode usar a extensão do Azure no VS Code e clicar em "Deploy to Function App", tanto faz 👍.)</p>
+
+<ol>
+<li>
+<strong>Configurar app settings (se necessário):</strong> No Azure, o Functions precisa da string de conexão de storage (e qualquer outra configuração) nos <strong>Application Settings</strong>. Normalmente, ao publicar, o <code>local.settings.json</code> não é enviado por segurança. Então, pelo portal do Azure, configure a mesma chave <code>AzureWebJobsStorage</code> com a conexão da sua Storage Account do Azure (se o Function App não a pegou automaticamente). Nesse nosso exemplo, não temos outras configs específicas – os valores padrão bastam.</li>
+</ol>
+
+<p>Com isso, seu Saga Functions está ao vivo! 🌐</p>
+
+<h2 id="testando-a-fun%C3%A7%C3%A3o-no-azure-curlpostman">Testando a função no Azure (cURL/Postman)
+</h2>
+
+<p>A forma de testar na nuvem é parecida com local, só mudam as URLs e autenticação:</p>
+
+<ul>
+<li>No Azure, cada Function App ganha uma URL base: <code>https://&lt;seu-app&gt;.azurewebsites.net</code>.</li>
+<li>O endpoint para orquestrador será parecido: <code>POST https://&lt;seu-app&gt;.azurewebsites.net/api/orchestrators/OrderOrchestrator</code>.</li>
+</ul>
+
+<p>Por padrão, as funções no Azure exigem uma <strong>API key</strong> para serem chamadas. Você pode obter uma <strong>Function Key</strong> no portal do Azure (ou configurar a auth level como anonymous no <code>function.json</code> da função HttpStart se estivesse usando uma). Para facilitar o teste, vamos supor que você definiu a função de orquestração como anônima ou pegou a chave.</p>
+
+<p>No Postman ou cURL, você faria algo assim:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>curl <span class="nt">-X</span> POST <span class="s2">"https://&lt;seu-app&gt;.azurewebsites.net/api/orchestrators/OrderOrchestrator?code=&lt;sua-chave-aqui&gt;"</span> <span class="se">\</span>
+  <span class="nt">-H</span> <span class="s2">"Content-Type: application/json"</span> <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s1">'{ ... mesmo JSON de antes ... }'</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Se tudo estiver configurado certinho, isso retornará 202 Accepted e iniciará a orquestração na nuvem. Você pode então acompanhar o status via Portal do Azure (em Functions &gt; seu function app &gt; Durable Functions &gt; Instances, ou usando a URL de status fornecida na resposta).</p>
+
+<p>Novamente, dá pra verificar os logs (Application Insights ou log streaming) para ver as mensagens das funções rodando em sequência. A saída final de sucesso/falha da saga pode ser conferida consultando o endpoint de status até ver o <code>output</code> contendo nosso <code>{ success: true/false, message: "..." }</code>.</p>
+
+<p>E pronto! Sua saga de compra está rodando no Azure, pronta pra receber requisições de compra de verdade (ou melhor, nossas simulações 😜).</p>
+
+<h2 id="conclus%C3%A3o">Conclusão 🏁
+</h2>
+
+<p>Neste artigo, construímos passo a passo uma <strong>simulação de processo de compra</strong> usando Azure Durable Functions e implementamos o padrão <strong>Saga</strong> de forma bem prática. Orquestramos a sequência de <strong>reservar estoque → cobrar pagamento → agendar envio</strong>, garantindo que se qualquer passo falhar, os anteriores são desfeitos pelas funções de compensação correspondentes. Vimos como rodar tudo localmente e até publicar no Azure, além de testar a função via cURL/Postman.</p>
+
+<p>A grande sacada aqui é perceber como o Azure Durable Functions facilita a vida ao coordenar fluxos complexos: você escreve o “script” do processo no orquestrador (com as devidas compensações) e deixa o runtime gerenciar estado, reexecução em caso de falhas temporárias, etc. O padrão Saga nos assegura consistência no mundo dos microsserviços sem precisar de transações distribuídas malucas.</p>
+
+<p>Agora é com você! 🎮 Que tal brincar com o projeto? Você pode, por exemplo, alterar as funções de atividade para retornar falha em certos cenários e ver o Saga em ação desfazendo tudo. Ou acrescentar novas etapas (quem sabe um envio de e-mail de confirmação no final, ou uma etapa de notificar o vendedor no marketplace) e pensar em quais compensações seriam necessárias para elas.</p>
+
+<p>Fique à vontade para explorar e adaptar este exemplo ao seu caso de uso. O importante é <strong>meter a mão na massa</strong> e se divertir aprendendo. Espero que tenha curtido essa jornada descontraída pelo mundo das Durable Functions e Sagas. Qualquer dúvida ou ideia, manda aí nos comentários do dev.to! 🚀 Bora codar! Boas compras... digo, bom código! 😉</p>
+
+<h2 id="refer%C3%AAncias">Referências
+</h2>
+
+<p><a href="https://learn.microsoft.com/pt-br/azure/architecture/patterns/saga?wt.mc_id=MVP_324660" target="_blank" rel="noopener noreferrer">Microsoft Learn</a><br>
+<a href="https://azure-elevate.hashnode.dev/" target="_blank" rel="noopener noreferrer">Azure Elevate`s blog</a></p>

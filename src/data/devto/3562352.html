@@ -1,0 +1,240 @@
+<h3 id="1-introduction">1. Introduction
+</h3>
+
+<p>Scaling cloud-native systems often results in a massive, highly interconnected web of services where a single corrupted payload or regional brownout can trigger a global outage. Cellular Architecture mitigates this by decomposing the system into completely independent, isolated failure domains known as "cells." In this tutorial, you will build a highly resilient event-driven architecture using Microsoft Azure, combining the cellular pattern with an asynchronous workflow (Azure Cosmos DB, Azure Functions, and Azure Service Bus).</p>
+
+<p>Instead of relying on a single monolithic data and compute plane, you will deploy multiple identical infrastructure stamps. A thin edge routing layer will inspect incoming requests and route them to the appropriate cell based on a partition key (such as a <code>TenantId</code>). If a localized infrastructure degradation or a "poison pill" event impacts one cell, the blast radius is strictly contained within that specific boundary, ensuring maximum availability for tenants residing in other cells. This pattern represents the ultimate fault isolation strategy for mission-critical enterprise systems on Azure.</p>
+
+<h3 id="2-prerequisites">2. Prerequisites
+</h3>
+
+<p>To successfully deploy this architecture, your environment must be equipped with the following:</p>
+
+<ul>
+<li>An active Azure Subscription with Owner or User Access Administrator privileges to provision compute, database, messaging, and Role-Based Access Control (RBAC) resources.</li>
+<li>The Azure CLI installed and authenticated locally (<code>az login</code>).</li>
+<li>Terraform (version 1.3.0 or higher) installed and accessible from your terminal.</li>
+<li>A solid understanding of the separation between a Control Plane (global routing state) and a Data Plane (the actual processing cells).</li>
+<li>Familiarity with Domain-Driven Design (DDD) to accurately define the partition keys that will dictate cell placement without creating cross-boundary data dependencies.</li>
+</ul>
+
+<h3 id="3-stepbystep">3. Step-by-Step
+</h3>
+
+<h4 id="step-1-defining-the-data-plane-cell-module">Step 1: Defining the Data Plane Cell Module
+</h4>
+
+<p><strong>What to do:</strong> Create a reusable Terraform module that encapsulates the entire event-driven pipeline (Resource Group, Cosmos DB, Service Bus, Storage, and Azure Functions). This module represents a single, mathematically isolated cell.</p>
+
+<p><strong>Why do it:</strong> The core tenet of cellular architecture is absolute repeatability and isolation. By packaging the data plane into a module, every cell becomes an identical, deterministic stamp of infrastructure. Provisioning a dedicated Cosmos DB account and Service Bus namespace per cell guarantees that a noisy neighbor or an overloaded queue in "Cell Alpha" consumes zero compute or IOPS from "Cell Beta."</p>
+
+<p><strong>Screenshot/Example:</strong> Save this configuration as <code>modules/azure_cell/main.tf</code>.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">variable</span> <span class="s2">"cell_id"</span> <span class="p">{</span>
+  <span class="nx">description</span> <span class="p">=</span> <span class="s2">"Unique identifier for the cell (e.g., alpha, beta)"</span>
+  <span class="nx">type</span>        <span class="p">=</span> <span class="nx">string</span>
+<span class="p">}</span>
+
+<span class="nx">variable</span> <span class="s2">"location"</span> <span class="p">{</span>
+  <span class="nx">description</span> <span class="p">=</span> <span class="s2">"Azure region for the cell"</span>
+  <span class="nx">type</span>        <span class="p">=</span> <span class="nx">string</span>
+  <span class="nx">default</span>     <span class="p">=</span> <span class="s2">"East US"</span>
+<span class="p">}</span>
+
+<span class="c1"># Dedicated Resource Group for the Cell</span>
+<span class="nx">resource</span> <span class="s2">"azurerm_resource_group"</span> <span class="s2">"cell_rg"</span> <span class="p">{</span>
+  <span class="nx">name</span>     <span class="p">=</span> <span class="s2">"rg-cell-${var.cell_id}"</span>
+  <span class="nx">location</span> <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">location</span>
+<span class="p">}</span>
+
+<span class="c1"># Isolated Cosmos DB Account for the Cell</span>
+<span class="nx">resource</span> <span class="s2">"azurerm_cosmosdb_account"</span> <span class="s2">"cell_db"</span> <span class="p">{</span>
+  <span class="nx">name</span>                <span class="p">=</span> <span class="s2">"cosmos-data-cell-${var.cell_id}"</span>
+  <span class="nx">location</span>            <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">cell_rg</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">resource_group_name</span> <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">cell_rg</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">offer_type</span>          <span class="p">=</span> <span class="s2">"Standard"</span>
+  <span class="nx">kind</span>                <span class="p">=</span> <span class="s2">"GlobalDocumentDB"</span>
+
+  <span class="nx">consistency_policy</span> <span class="p">{</span> <span class="nx">consistency_level</span> <span class="p">=</span> <span class="s2">"Session"</span> <span class="p">}</span>
+  <span class="nx">geo_location</span> <span class="p">{</span> <span class="nx">location</span> <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">cell_rg</span><span class="p">.</span><span class="nx">location</span><span class="p">,</span> <span class="nx">failover_priority</span> <span class="p">=</span> <span class="mi">0</span> <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># Isolated Service Bus Namespace for the Cell</span>
+<span class="nx">resource</span> <span class="s2">"azurerm_servicebus_namespace"</span> <span class="s2">"cell_sb"</span> <span class="p">{</span>
+  <span class="nx">name</span>                <span class="p">=</span> <span class="s2">"sb-namespace-cell-${var.cell_id}"</span>
+  <span class="nx">location</span>            <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">cell_rg</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">resource_group_name</span> <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">cell_rg</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">sku</span>                 <span class="p">=</span> <span class="s2">"Standard"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_servicebus_topic"</span> <span class="s2">"cell_topic"</span> <span class="p">{</span>
+  <span class="nx">name</span>         <span class="p">=</span> <span class="s2">"processing-topic"</span>
+  <span class="nx">namespace_id</span> <span class="p">=</span> <span class="nx">azurerm_servicebus_namespace</span><span class="p">.</span><span class="nx">cell_sb</span><span class="p">.</span><span class="nx">id</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_servicebus_subscription"</span> <span class="s2">"cell_sub"</span> <span class="p">{</span>
+  <span class="nx">name</span>               <span class="p">=</span> <span class="s2">"processing-subscription"</span>
+  <span class="nx">topic_id</span>           <span class="p">=</span> <span class="nx">azurerm_servicebus_topic</span><span class="p">.</span><span class="nx">cell_topic</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">max_delivery_count</span> <span class="p">=</span> <span class="mi">5</span> <span class="c1"># Built-in poison pill protection</span>
+<span class="p">}</span>
+
+<span class="c1"># Note: In a complete module, you would also define the azurerm_linux_function_app </span>
+<span class="c1"># resources here for the Producer (Change Feed Trigger) and Consumer (Service Bus Trigger),</span>
+<span class="c1"># utilizing SystemAssigned managed identities for secure communication within the cell.</span>
+</code></pre>
+
+</div>
+
+
+
+<h4 id="step-2-instantiating-the-independent-cells">Step 2: Instantiating the Independent Cells
+</h4>
+
+<p><strong>What to do:</strong> In your root Terraform configuration, instantiate the cell module multiple times to create your physical failure domains.</p>
+
+<p><strong>Why do it:</strong> Deploying multiple instances generates the actual physical boundaries. You can assign high-tier enterprise tenants to their own dedicated cells or group smaller tenants into shared cells. Because the modules are parameterized, you can easily deploy cells across different Azure regions to combine cellular isolation with geographic high availability.</p>
+
+<p><strong>Screenshot/Example:</strong> Add this to your root <code>main.tf</code>.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">module</span> <span class="s2">"cell_alpha"</span> <span class="p">{</span>
+  <span class="nx">source</span>   <span class="p">=</span> <span class="s2">"./modules/azure_cell"</span>
+  <span class="nx">cell_id</span>  <span class="p">=</span> <span class="s2">"alpha"</span>
+  <span class="nx">location</span> <span class="p">=</span> <span class="s2">"East US 2"</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"cell_beta"</span> <span class="p">{</span>
+  <span class="nx">source</span>   <span class="p">=</span> <span class="s2">"./modules/azure_cell"</span>
+  <span class="nx">cell_id</span>  <span class="p">=</span> <span class="s2">"beta"</span>
+  <span class="nx">location</span> <span class="p">=</span> <span class="s2">"West US 2"</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"cell_gamma"</span> <span class="p">{</span>
+  <span class="nx">source</span>   <span class="p">=</span> <span class="s2">"./modules/azure_cell"</span>
+  <span class="nx">cell_id</span>  <span class="p">=</span> <span class="s2">"gamma"</span>
+  <span class="nx">location</span> <span class="p">=</span> <span class="s2">"North Europe"</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h4 id="step-3-building-the-control-plane-mapping">Step 3: Building the Control Plane Mapping
+</h4>
+
+<p><strong>What to do:</strong> Provision a highly available, globally distributed Cosmos DB account that acts as the Control Plane data store. This database maps your tenant identifiers to their assigned Cell ID.</p>
+
+<p><strong>Why do it:</strong> The routing layer must dynamically know where to forward incoming requests. This global mapping table is queried by the edge router. It must be decoupled from the data plane and highly available; if the routing map goes down, traffic cannot reach the perfectly healthy data plane cells behind it.</p>
+
+<p><strong>Screenshot/Example:</strong> Create a <code>control_plane.tf</code> file.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">resource</span> <span class="s2">"azurerm_resource_group"</span> <span class="s2">"routing_rg"</span> <span class="p">{</span>
+  <span class="nx">name</span>     <span class="p">=</span> <span class="s2">"rg-global-routing"</span>
+  <span class="nx">location</span> <span class="p">=</span> <span class="s2">"East US"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_cosmosdb_account"</span> <span class="s2">"routing_db"</span> <span class="p">{</span>
+  <span class="nx">name</span>                <span class="p">=</span> <span class="s2">"cosmos-global-tenant-map"</span>
+  <span class="nx">location</span>            <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">routing_rg</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">resource_group_name</span> <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">routing_rg</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">offer_type</span>          <span class="p">=</span> <span class="s2">"Standard"</span>
+  <span class="nx">kind</span>                <span class="p">=</span> <span class="s2">"GlobalDocumentDB"</span>
+
+  <span class="nx">consistency_policy</span> <span class="p">{</span> <span class="nx">consistency_level</span> <span class="p">=</span> <span class="s2">"Eventual"</span> <span class="p">}</span> <span class="c1"># Optimize for fast reads</span>
+
+  <span class="nx">geo_location</span> <span class="p">{</span> <span class="nx">location</span> <span class="p">=</span> <span class="s2">"East US"</span><span class="p">,</span> <span class="nx">failover_priority</span> <span class="p">=</span> <span class="mi">0</span> <span class="p">}</span>
+  <span class="nx">geo_location</span> <span class="p">{</span> <span class="nx">location</span> <span class="p">=</span> <span class="s2">"West Europe"</span><span class="p">,</span> <span class="nx">failover_priority</span> <span class="p">=</span> <span class="mi">1</span> <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_cosmosdb_sql_database"</span> <span class="s2">"map_db"</span> <span class="p">{</span>
+  <span class="nx">name</span>                <span class="p">=</span> <span class="s2">"RoutingDB"</span>
+  <span class="nx">resource_group_name</span> <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">routing_rg</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">account_name</span>        <span class="p">=</span> <span class="nx">azurerm_cosmosdb_account</span><span class="p">.</span><span class="nx">routing_db</span><span class="p">.</span><span class="nx">name</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_cosmosdb_sql_container"</span> <span class="s2">"tenant_map"</span> <span class="p">{</span>
+  <span class="nx">name</span>                  <span class="p">=</span> <span class="s2">"TenantCellMap"</span>
+  <span class="nx">resource_group_name</span>   <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">routing_rg</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">account_name</span>          <span class="p">=</span> <span class="nx">azurerm_cosmosdb_account</span><span class="p">.</span><span class="nx">routing_db</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">database_name</span>         <span class="p">=</span> <span class="nx">azurerm_cosmosdb_sql_database</span><span class="p">.</span><span class="nx">map_db</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">partition_key_path</span>    <span class="p">=</span> <span class="s2">"/tenantId"</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h4 id="step-4-implementing-the-thin-cell-router">Step 4: Implementing the Thin Cell Router
+</h4>
+
+<p><strong>What to do:</strong> Deploy an Azure Function App with an HTTP trigger acting as the "Cell Router". This function extracts the <code>TenantId</code> from the incoming HTTP payload, queries the global Cosmos DB mapping table to resolve the destination cell, and then forwards the payload to that specific cell's Cosmos DB.</p>
+
+<p><strong>Why do it:</strong> The cell router is the critical entry point and must remain computationally "thin." Complex business logic belongs strictly inside the data plane cells, not the router. By keeping the router simple, you minimize its execution time and failure modes. Once the router successfully writes the data to the target cell's Cosmos DB, the localized event-driven pipeline (Change Feed -&gt; Producer Function -&gt; Service Bus -&gt; Consumer Function) takes over autonomously.</p>
+
+<p><strong>Screenshot/Example:</strong> Create a <code>router.tf</code> file.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="c1"># Storage Account and App Service Plan for the Router Function</span>
+<span class="nx">resource</span> <span class="s2">"azurerm_storage_account"</span> <span class="s2">"router_storage"</span> <span class="p">{</span>
+  <span class="nx">name</span>                     <span class="p">=</span> <span class="s2">"stglobalrouterfunc"</span>
+  <span class="nx">resource_group_name</span>      <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">routing_rg</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">location</span>                 <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">routing_rg</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">account_tier</span>             <span class="p">=</span> <span class="s2">"Standard"</span>
+  <span class="nx">account_replication_type</span> <span class="p">=</span> <span class="s2">"LRS"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_service_plan"</span> <span class="s2">"router_plan"</span> <span class="p">{</span>
+  <span class="nx">name</span>                <span class="p">=</span> <span class="s2">"asp-router-plan"</span>
+  <span class="nx">resource_group_name</span> <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">routing_rg</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">location</span>            <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">routing_rg</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">os_type</span>             <span class="p">=</span> <span class="s2">"Linux"</span>
+  <span class="nx">sku_name</span>            <span class="p">=</span> <span class="s2">"Y1"</span>
+<span class="p">}</span>
+
+<span class="c1"># The Thin Router Function</span>
+<span class="nx">resource</span> <span class="s2">"azurerm_linux_function_app"</span> <span class="s2">"cell_router"</span> <span class="p">{</span>
+  <span class="nx">name</span>                       <span class="p">=</span> <span class="s2">"func-global-edge-router"</span>
+  <span class="nx">resource_group_name</span>        <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">routing_rg</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">location</span>                   <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">routing_rg</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">service_plan_id</span>            <span class="p">=</span> <span class="nx">azurerm_service_plan</span><span class="p">.</span><span class="nx">router_plan</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">storage_account_name</span>       <span class="p">=</span> <span class="nx">azurerm_storage_account</span><span class="p">.</span><span class="nx">router_storage</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">storage_account_access_key</span> <span class="p">=</span> <span class="nx">azurerm_storage_account</span><span class="p">.</span><span class="nx">router_storage</span><span class="p">.</span><span class="nx">primary_access_key</span>
+
+  <span class="nx">site_config</span> <span class="p">{</span> <span class="nx">application_stack</span> <span class="p">{</span> <span class="nx">node_version</span> <span class="p">=</span> <span class="s2">"20"</span> <span class="p">}</span> <span class="p">}</span>
+
+  <span class="nx">identity</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="s2">"SystemAssigned"</span> <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># RBAC: Allow Router to read the mapping table</span>
+<span class="nx">resource</span> <span class="s2">"azurerm_role_assignment"</span> <span class="s2">"router_map_reader"</span> <span class="p">{</span>
+  <span class="nx">scope</span>                <span class="p">=</span> <span class="nx">azurerm_cosmosdb_account</span><span class="p">.</span><span class="nx">routing_db</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">role_definition_name</span> <span class="p">=</span> <span class="s2">"Cosmos DB Account Reader Role"</span> <span class="c1"># Note: Use custom data plane roles in production</span>
+  <span class="nx">principal_id</span>         <span class="p">=</span> <span class="nx">azurerm_linux_function_app</span><span class="p">.</span><span class="nx">cell_router</span><span class="p">.</span><span class="nx">identity</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">principal_id</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="4-common-troubleshooting">4. Common Troubleshooting
+</h3>
+
+<ol>
+<li> <strong>Cross-Cell Dependencies:</strong> The most critical anti-pattern in cellular architecture is allowing cells to communicate with each other or share a backend data store. If "Cell Alpha" synchronously queries an API in "Cell Beta", the isolation boundary is compromised. Ensure strict domain boundaries; data required to process an event within a cell must reside entirely within that cell's Cosmos DB.</li>
+<li> <strong>Control Plane Bottlenecks (Router Fatigue):</strong> The Cell Router represents a single point of failure. If the HTTP-triggered Azure Function queries the global Cosmos DB mapping table on every single request, you will encounter latency and potential RU/s (Request Unit) throttling. You must implement aggressive in-memory caching (e.g., using <code>MemoryCache</code> in C# or standard dictionary caching in Node.js) within the router's execution context so that tenant-to-cell mappings are resolved locally and instantly after the first lookup.</li>
+<li> <strong>Poison Pills and Service Bus Dead-Lettering:</strong> If a malformed payload triggers the Cosmos DB Change Feed but crashes the Consumer Azure Function, the message will be returned to the Service Bus Subscription. Because this is a cellular architecture, this poison pill will only degrade the specific cell it entered. To resolve this automatically, the Terraform module is configured with <code>max_delivery_count = 5</code>. Service Bus will automatically move the failing message to the Dead-Letter Queue (DLQ) after 5 attempts, restoring the cell's processing health.</li>
+</ol>
+
+<h3 id="5-conclusion">5. Conclusion
+</h3>
+
+<p>By embedding an asynchronous event-driven flow within a cellular architecture on Microsoft Azure, you have constructed a system optimized for extreme resilience and strictly controlled blast radiuses. The rigid separation between a global routing control plane and fully isolated data plane cells ensures that infrastructure failures, bad deployments, or tenant-specific traffic spikes remain mathematically contained. Utilizing Terraform modules to stamp out these cells guarantees environmental consistency and facilitates rapid horizontal scaling. As your system matures, consider enhancing the edge routing layer by placing Azure Front Door in front of your Cell Router Functions to provide global load balancing, WAF protection, and seamless traffic shifting during cell migrations or disaster recovery events.</p>

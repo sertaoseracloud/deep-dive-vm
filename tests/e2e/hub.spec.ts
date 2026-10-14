@@ -267,6 +267,73 @@ test.describe("Hub UX", () => {
   });
 });
 
+test.describe("Hub blog (dev.to)", () => {
+  test("aba Blog mostra 9 artigos, 'Mostrar mais' traz mais 9 e leva o foco", async ({ page }) => {
+    await page.goto("./");
+    await page.getByRole("link", { name: /artigos no blog/ }).click();
+    const aba = page.getByRole("tab", { name: "Blog" });
+    await expect(aba).toHaveAttribute("aria-selected", "true");
+    await expect(page).toHaveURL(/#blog$/);
+
+    const painel = page.getByRole("tabpanel", { name: "Blog" });
+    const visiveis = painel.locator(".post-card:visible");
+    await expect(visiveis).toHaveCount(9);
+    const primeiro = visiveis.first();
+    await expect(primeiro.getByRole("link", { name: /^Ler artigo/ })).toHaveAttribute("href", /^\/blog\/[a-z0-9-]+\/$/);
+    await expect(primeiro.getByRole("link", { name: /no dev\.to \(abre em nova aba\)/ })).toHaveAttribute("href", /^https:\/\/dev\.to\/sertaoseracloud\//);
+
+    await painel.getByRole("button", { name: /Mostrar mais artigos/ }).click();
+    await expect(visiveis).toHaveCount(18);
+    await expect(painel.locator(".post-card").nth(9).getByRole("link", { name: /^Ler artigo/ })).toBeFocused();
+    await expect(painel.locator("[data-anuncio-blog]")).toHaveText(/Mostrando 18 de \d+ artigos/);
+  });
+
+  test("filtro por idioma e títulos em inglês marcados com lang=en", async ({ page }) => {
+    await page.goto("./#blog");
+    const painel = page.getByRole("tabpanel", { name: "Blog" });
+    await painel.getByRole("button", { name: /^English/ }).click();
+    await expect(painel.getByRole("button", { name: /^English/ })).toHaveAttribute("aria-pressed", "true");
+    const visiveis = painel.locator(".post-card:visible");
+    expect(await visiveis.count()).toBeGreaterThan(0);
+    for (const card of await visiveis.all()) {
+      await expect(card).toHaveAttribute("data-idioma", "en");
+      await expect(card.locator("h3")).toHaveAttribute("lang", "en");
+    }
+    await painel.getByRole("button", { name: /^Português/ }).click();
+    for (const card of await painel.locator(".post-card:visible").all()) {
+      await expect(card.locator("h3")).not.toHaveAttribute("lang", /.+/);
+    }
+    await expect(painel.locator("[data-anuncio-blog]")).toHaveText(/\d+ artigos?\./);
+  });
+
+  test("o artigo abre dentro do site, com canonical no dev.to e volta para o Blog", async ({ page }) => {
+    await page.goto("./#blog");
+    const painel = page.getByRole("tabpanel", { name: "Blog" });
+    const card = painel.locator(".post-card").first();
+    const titulo = (await card.locator("h3").textContent())!.trim();
+    await card.getByRole("link", { name: /^Ler artigo/ }).click();
+
+    await expect(page).toHaveURL(/\/blog\/[a-z0-9-]+\/$/);
+    await expect(page.locator("h1")).toHaveText(titulo);
+    await expect(page.locator("h1")).toHaveCount(1);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /^https:\/\/dev\.to\/sertaoseracloud\//);
+    await expect(page.locator(".artigo-corpo")).not.toBeEmpty();
+    // Blocos de código roláveis pelo teclado
+    const pre = page.locator(".artigo-corpo pre").first();
+    if (await pre.count()) await expect(pre).toHaveAttribute("tabindex", "0");
+    await expect(page.getByRole("link", { name: /Comentar ou reagir no dev\.to/ })).toHaveAttribute("href", /^https:\/\/dev\.to\//);
+
+    await page.getByRole("link", { name: /Blog/ }).first().click();
+    await expect(page.getByRole("tab", { name: "Blog" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("no serious axe-core violations on the Blog tab", async ({ page }) => {
+    await page.goto("./#blog");
+    const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag22aa"]).analyze();
+    expect(results.violations.filter((v) => v.impact === "critical" || v.impact === "serious")).toEqual([]);
+  });
+});
+
 test.describe("Hub accessibility", () => {
   test("skip link has href='#conteudo-principal' and correct text", async ({ page }) => {
     await page.goto("./");

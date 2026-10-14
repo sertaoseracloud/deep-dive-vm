@@ -470,7 +470,9 @@
 
 .course-star {
   border: 1px solid var(--hairline-strong);
+  background: transparent; /* também usado em <button> ("Mostrar mais") */
   color: var(--texto-principal);
+  cursor: pointer;
 }
 
 .course-star:hover {
@@ -569,4 +571,123 @@
   .course-card.active:hover {
     transform: none;
   }
+}
+
+/* ── Blog (dev.to) ── */
+.post-card {
+  padding: 0 0 20px;
+  overflow: hidden;
+}
+
+.post-card > :not(.post-capa) {
+  margin-inline: 20px;
+}
+
+.post-card[hidden] {
+  display: none;
+}
+
+.post-capa {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1000 / 420;
+  object-fit: cover;
+  border-bottom: 1px solid var(--hairline);
+  background: rgb(var(--rgb-ciano) / 0.06);
+}
+
+.post-capa-vazia {
+  display: flex;
+  align-items: flex-end;
+  padding: 16px 20px;
+  box-sizing: border-box;
+  background:
+    linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(135deg, rgb(var(--rgb-cobalto) / 0.35), rgb(var(--rgb-ciano) / 0.12));
+}
+
+.post-capa-vazia span {
+  font-family: var(--font-mono);
+  font-size: 1.125rem;
+  color: var(--texto-principal);
+}
+
+.post-meta {
+  margin-top: 4px;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  color: var(--texto-terciario);
+}
+
+.post-titulo {
+  font-size: 1.125rem;
+  line-height: 1.3;
+}
+
+.post-resumo {
+  font-size: 0.9375rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.post-reacoes {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  color: var(--texto-terciario);
+}
+
+.blog-filtro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.blog-filtro[hidden] {
+  display: none;
+}
+
+.blog-filtro button {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  color: var(--texto-secundario);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.blog-filtro button:hover {
+  border-color: var(--nucleo-eletrico);
+  color: var(--texto-principal);
+}
+
+.blog-filtro button[aria-pressed="true"] {
+  background: var(--chama-primaria);
+  border-color: var(--chama-primaria);
+  color: #ffffff;
+}
+
+.blog-rodape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 24px;
+  margin: 0;
+}
+
+.blog-rodape [hidden] {
+  display: none;
+}
+
+.painel-intro a {
+  color: var(--nucleo-eletrico);
 }

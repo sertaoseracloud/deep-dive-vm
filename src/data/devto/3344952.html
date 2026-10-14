@@ -1,0 +1,379 @@
+<p><strong>Open Journal Systems (OJS)</strong> is the engine behind thousands of scientific publications worldwide. However, educational institutions, from high schools running literary magazines to universities managing peer-reviewed journals, share a massive pain point: they want to publish research, but they lack the internal IT resources to manage complex PHP monoliths, backups, and server security.</p>
+
+<p>Blending my experience in the classroom with software architecture, I realized this is a massive opportunity. We can move beyond just "hosting" OJS and transform it into a fully automated, <strong>Zero-Touch B2B SaaS platform</strong> targeted globally at the education sector.</p>
+
+<p>This article details the design, infrastructure, and product strategy to build a highly available, multi-tenant OJS SaaS on <strong>Amazon Web Services (AWS)</strong> using Terraform, Go, and GitHub Actions.</p>
+
+
+<hr>
+
+<h2 id="1-the-reference-architecture-on-aws">🏗️ 1. The Reference Architecture on AWS
+</h2>
+
+<p>To sell this globally, we cannot afford manual interventions or local server disks. We must adopt a distributed, <em>stateless</em>, and 100% managed topology.</p>
+
+<h3 id="core-components">Core Components:
+</h3>
+
+<ul>
+<li>
+<strong>Compute:</strong> <strong>Amazon ECS with AWS Fargate</strong>. We run the OJS Docker image in a <em>serverless</em> manner. We pay only for the CPU/RAM consumed, which is crucial for maximizing profit margins.</li>
+<li>
+<strong>Database:</strong> <strong>Amazon RDS for MySQL</strong>. Fully managed, automated backups, and isolated data tiers.</li>
+<li>
+<strong>File Persistence:</strong> OJS requires a persistent directory (<code>files_dir</code>) for articles and PDFs. We mount <strong>Amazon EFS (Elastic File System)</strong> directly to the ECS Task via the NFS protocol.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="2-the-zerotouch-provisioning-engine">⚙️ 2. The "Zero-Touch" Provisioning Engine
+</h2>
+
+<p>To turn this infrastructure into a product, the entire customer lifecycle must be automated. Here is how the provisioning engine works:</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Ftro7h6xlpywnjfbrj862.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Ftro7h6xlpywnjfbrj862.png" alt="Engine" loading="lazy" width="800" height="672"></a></p>
+
+<ol>
+<li>
+<strong>The Storefront:</strong> A university administrator selects a plan on your landing page and checks out.</li>
+<li>
+<strong>The Orchestrator (Golang API):</strong> For high concurrency and low footprint, a lightweight backend API built in <strong>Go</strong> listens for the payment gateway webhook (e.g., Stripe).</li>
+<li>
+<strong>The Trigger:</strong> The Go API automatically calls the <strong>GitHub Actions API</strong>, passing the <code>tenant_name</code>, <code>region</code>, and <code>tier</code> as JSON payloads.</li>
+<li>
+<strong>The Magic:</strong> GitHub Actions runs the Terraform scripts. Within minutes, the isolated AWS infrastructure is provisioned, Route53 updates the DNS (<code>journal.university.edu</code>), and the client receives an automated email with their admin credentials. </li>
+</ol>
+
+<h3 id="level-1-the-system-context-diagram-business-view">🌍 Level 1: The System Context Diagram (Business View)
+</h3>
+
+<p><strong>Who it's for:</strong> Executives, Investors, University Directors, and non-technical Stakeholders.<br>
+<strong>What it shows:</strong> The "Big Picture." It places our <strong>OJS SaaS Platform</strong> at the center of the universe and focuses exclusively on answering two questions: <em>Who uses the system?</em> and <em>What other systems do we talk to?</em></p>
+
+<ul>
+<li>
+<strong>The Actors:</strong> It makes it clear that we have different user profiles (the Admin who pays, the Author who publishes, the Reader who consumes).</li>
+<li>
+<strong>The External Boundaries:</strong> It shows that we didn't build a payment processor from scratch (we use <strong>Stripe</strong>), we didn't reinvent infrastructure pipelines (we use <strong>GitHub Actions</strong>), and we integrate with academic industry standards (<strong>Crossref</strong>).</li>
+<li>
+<strong>The Value:</strong> Here, technology doesn't matter. There is no AWS, Go, or PHP in this diagram. The focus is purely on the business value flow.</li>
+</ul>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fierybgtw58y6oubbfa0v.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fierybgtw58y6oubbfa0v.png" alt="Systems Context" loading="lazy" width="800" height="565"></a></p>
+<h3 id="level-2-the-container-diagram-solutioncloud-view">Level 2: The Container Diagram (Solution/Cloud View)
+</h3>
+
+<p><strong>Who it's for:</strong> Cloud Architects, DevOps Engineers, Tech Leads, and Security Teams.<br>
+<strong>What it shows:</strong> How the central system (the blue box from Level 1) is divided internally.<br>
+<em>(Architectural Note: In the C4 Model, a "Container" means an independently deployable/runnable unit, not necessarily a Docker container, although in our case, they coincide).</em></p>
+
+<ul>
+<li>
+<strong>Separation of Concerns:</strong> The division between the <strong>Storefront Web</strong> (React Front-end), the <strong>Provisioning API</strong> (our Go engine), and the <strong>Tenant Infrastructure</strong> (the client's OJS) is crystal clear.</li>
+<li>
+<strong>Technology Choices:</strong> This is where the cloud "magic" appears. We show that OJS runs on <strong>ECS Fargate</strong> (Compute), uses <strong>Amazon RDS</strong> (Relational Database), and <strong>Amazon EFS</strong> (Network persistence for PDFs).</li>
+<li>
+<strong>Communication Flow:</strong> It shows that the Admin doesn't access the database directly; the communication flows from the Browser to the Load Balancer, to the container, and only then to the database via port 3306.</li>
+</ul>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fud5pyvu4a8vh42skqk10.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fud5pyvu4a8vh42skqk10.png" alt="Container Context" loading="lazy" width="800" height="713"></a></p>
+<h3 id="level-3-the-component-diagram-engineeringcode-view">🧩 Level 3: The Component Diagram (Engineering/Code View)
+</h3>
+
+<p><strong>Who it's for:</strong> Software Developers (Backend).<br>
+<strong>What it shows:</strong> We take just one of the containers from Level 2 (in this case, our <strong>Go Provisioning API</strong>) and open the hood to see how the code is structured internally.</p>
+
+<ul>
+<li>
+<strong>Domain Isolation:</strong> This is the perfect level to demonstrate <strong>Domain-Driven Design (DDD)</strong> principles. The <code>Tenant Manager</code> component represents the heart of our domain (where the business rules live).</li>
+<li>
+<strong>Dependency Inversion:</strong> The diagram shows components like the <code>GitHub API Client</code> and the <code>Metadata Repository</code>. As architects, we want our domain (<code>Tenant Manager</code>) to not depend on specific infrastructure implementations, but rather on interfaces (ports and adapters). The visual flow shows how the business rule delegates the heavy I/O lifting to external clients.</li>
+<li>
+<strong>The Webhook Lifecycle:</strong> It explains the exact path of the data: The request hits the <code>Router</code>, passes through validation in the <code>Payment Handler</code>, updates the database via the <code>Metadata Repo</code>, and finally triggers the infrastructure via the <code>GitHub Client</code>.</li>
+</ul>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fiqdgo3vaqy1dd2p65kyq.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fiqdgo3vaqy1dd2p65kyq.png" alt="Component Diagram" loading="lazy" width="513" height="1080"></a></p>
+
+<p>Here is the GitHub Actions workflow that your Go API triggers:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight yaml"><code><span class="na">name</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Zero-Touch</span><span class="nv"> </span><span class="s">SaaS</span><span class="nv"> </span><span class="s">Provisioning'</span>
+<span class="na">on</span><span class="pi">:</span>
+  <span class="na">workflow_dispatch</span><span class="pi">:</span>
+    <span class="na">inputs</span><span class="pi">:</span>
+      <span class="na">tenant_name</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">description</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Tenant</span><span class="nv"> </span><span class="s">Name'</span><span class="pi">,</span> <span class="nv">required</span><span class="pi">:</span> <span class="nv">true</span> <span class="pi">}</span>
+      <span class="na">environment</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">description</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Tier</span><span class="nv"> </span><span class="s">(basic/premium)'</span><span class="pi">,</span> <span class="nv">required</span><span class="pi">:</span> <span class="nv">true</span> <span class="pi">}</span>
+      <span class="na">aws_region</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">description</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Target</span><span class="nv"> </span><span class="s">Region'</span><span class="pi">,</span> <span class="nv">required</span><span class="pi">:</span> <span class="nv">true</span> <span class="pi">}</span>
+
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">deploy</span><span class="pi">:</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v4</span>
+
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Configure AWS Credentials</span>
+        <span class="na">uses</span><span class="pi">:</span> <span class="s">aws-actions/configure-aws-credentials@v4</span>
+        <span class="na">with</span><span class="pi">:</span>
+          <span class="na">aws-access-key-id</span><span class="pi">:</span> <span class="s">${{ secrets.AWS_ACCESS_KEY_ID }}</span>
+          <span class="na">aws-secret-access-key</span><span class="pi">:</span> <span class="s">${{ secrets.AWS_SECRET_ACCESS_KEY }}</span>
+          <span class="na">aws-region</span><span class="pi">:</span> <span class="s">${{ github.event.inputs.aws_region }}</span>
+
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Terraform Init &amp; Apply</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">terraform init -backend-config="key=${{ github.event.inputs.tenant_name }}.tfstate"</span>
+          <span class="s">terraform apply -var-file="envs/${{ github.event.inputs.environment }}.tfvars.json" -auto-approve</span>
+
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="3-global-scaling-and-data-compliance">🌍 3. Global Scaling and Data Compliance
+</h2>
+
+<p>Selling to the global education market means navigating strict data privacy laws. Because our infrastructure is codified with Terraform, deploying a compliant environment is just a matter of dynamically injecting the <code>aws_region</code> variable:</p>
+
+<ul>
+<li>
+<strong>GDPR (Europe):</strong> If a German university signs up, the automation deploys to <code>eu-central-1</code> (Frankfurt). The data never leaves Europe.</li>
+<li>
+<strong>LGPD (Brazil):</strong> For Brazilian institutions, the automation targets <code>sa-east-1</code> (São Paulo).</li>
+<li>
+<strong>FERPA/HIPAA (USA):</strong> Medical universities publishing clinical trials can be hosted in isolated, dedicated environments in the US.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="4-tiered-product-strategy-finops">💎 4. Tiered Product Strategy (FinOps)
+</h2>
+
+<p>We can structure the SaaS offerings to capture both ends of the academic spectrum, leveraging AWS FinOps strategies:</p>
+
+<h3 id="tier-1-high-school-amp-small-college-plan-high-volume">Tier 1: High School &amp; Small College Plan (High Volume)
+</h3>
+
+<ul>
+<li>
+<strong>Use Case:</strong> High school science fairs or small departmental newsletters.</li>
+<li>
+<strong>Architecture:</strong> Shared ECS resources and a single shared RDS instance with logical separation (different schemas per school).</li>
+<li>
+<strong>FinOps:</strong> We use <strong>Fargate Spot</strong> to utilize spare AWS compute capacity for up to a <strong>70% discount</strong>. We also use EventBridge to scale the environments down to zero during weekends and school holidays.</li>
+</ul>
+
+<h3 id="tier-2-university-amp-research-institute-plan-high-margin">Tier 2: University &amp; Research Institute Plan (High Margin)
+</h3>
+
+<ul>
+<li>
+<strong>Use Case:</strong> Official university peer-reviewed journals indexing globally with Crossref and DOIs.</li>
+<li>
+<strong>Architecture:</strong> Dedicated ECS Tasks, isolated RDS instances powered by Graviton (ARM) processors for better price/performance, and custom domain mapping.</li>
+<li>
+<strong>Price Point:</strong> Premium recurring revenue with strict SLA guarantees and daily automated snapshots.</li>
+</ul>
+
+<h2 id="5-dockerizing-ojs">🐳 5. Dockerizing OJS
+</h2>
+
+<p>The Docker image remains very similar to any standard containerized environment, focusing heavily on the required PHP extensions:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight docker"><code><span class="k">FROM</span><span class="s"> php:8.2-apache</span>
+
+<span class="c"># System dependencies and PHP extensions required for OJS on AWS</span>
+<span class="k">RUN </span>apt-get update <span class="o">&amp;&amp;</span> apt-get <span class="nb">install</span> <span class="nt">-y</span> <span class="se">\
+</span>    libpng-dev libjpeg-dev libxml2-dev libzip-dev zlib1g-dev libicu-dev g++ <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> docker-php-ext-configure gd <span class="nt">--with-jpeg</span> <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> docker-php-ext-install gd mysqli opcache zip intl gettext
+
+<span class="c"># Upload Optimizations</span>
+<span class="k">RUN </span><span class="o">{</span> <span class="se">\
+</span>    <span class="nb">echo</span> <span class="s1">'opcache.memory_consumption=128'</span><span class="p">;</span> <span class="se">\
+</span>    <span class="nb">echo</span> <span class="s1">'upload_max_filesize=64M'</span><span class="p">;</span> <span class="se">\
+</span>    <span class="nb">echo</span> <span class="s1">'post_max_size=64M'</span><span class="p">;</span> <span class="se">\
+</span>    <span class="o">}</span> <span class="o">&gt;</span> /usr/local/etc/php/conf.d/ojs-optimization.ini
+
+<span class="k">COPY</span><span class="s"> . /var/www/html/</span>
+<span class="k">RUN </span><span class="nb">chown</span> <span class="nt">-R</span> www-data:www-data /var/www/html/
+
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="6-infrastructure-as-code-terraform">🛠️ 6. Infrastructure as Code (Terraform)
+</h2>
+
+<p>Governance across the AWS environment is managed via Terraform. The state (<code>.tfstate</code>) is securely stored in <strong>Amazon S3</strong> with State Locking handled by <strong>DynamoDB</strong>.</p>
+
+<p>Below is the critical snippet that connects ECS (Fargate) to EFS to persist the PDFs:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="c1"># 1. Amazon RDS MySQL</span>
+<span class="nx">resource</span> <span class="s2">"aws_db_instance"</span> <span class="s2">"ojs_db"</span> <span class="p">{</span>
+  <span class="nx">identifier</span>           <span class="p">=</span> <span class="s2">"ojs-db-${var.environment}"</span>
+  <span class="nx">allocated_storage</span>    <span class="p">=</span> <span class="mi">20</span>
+  <span class="nx">engine</span>               <span class="p">=</span> <span class="s2">"mysql"</span>
+  <span class="nx">engine_version</span>       <span class="p">=</span> <span class="s2">"8.0"</span>
+  <span class="nx">instance_class</span>       <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">db_instance_class</span>
+  <span class="nx">username</span>             <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">db_user</span>
+  <span class="nx">password</span>             <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">db_password</span>
+  <span class="nx">vpc_security_group_ids</span> <span class="p">=</span> <span class="p">[</span><span class="nx">aws_security_group</span><span class="p">.</span><span class="nx">rds_sg</span><span class="p">.</span><span class="nx">id</span><span class="p">]</span>
+  <span class="nx">db_subnet_group_name</span> <span class="p">=</span> <span class="nx">aws_db_subnet_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">skip_final_snapshot</span>  <span class="p">=</span> <span class="kc">true</span>
+<span class="p">}</span>
+
+<span class="c1"># 2. Amazon EFS for the files directory</span>
+<span class="nx">resource</span> <span class="s2">"aws_efs_file_system"</span> <span class="s2">"ojs_files"</span> <span class="p">{</span>
+  <span class="nx">creation_token</span> <span class="p">=</span> <span class="s2">"ojs-efs-${var.environment}"</span>
+  <span class="nx">encrypted</span>      <span class="p">=</span> <span class="kc">true</span>
+<span class="p">}</span>
+
+<span class="c1"># 3. ECS Task Definition (Fargate) with EFS Volume</span>
+<span class="nx">resource</span> <span class="s2">"aws_ecs_task_definition"</span> <span class="s2">"ojs_task"</span> <span class="p">{</span>
+  <span class="nx">family</span>                   <span class="p">=</span> <span class="s2">"ojs-app-${var.environment}"</span>
+  <span class="nx">requires_compatibilities</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"FARGATE"</span><span class="p">]</span>
+  <span class="nx">network_mode</span>             <span class="p">=</span> <span class="s2">"awsvpc"</span>
+  <span class="nx">cpu</span>                      <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">fargate_cpu</span>
+  <span class="nx">memory</span>                   <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">fargate_memory</span>
+
+  <span class="nx">container_definitions</span> <span class="p">=</span> <span class="nx">jsonencode</span><span class="p">([{</span>
+    <span class="nx">name</span>  <span class="p">=</span> <span class="s2">"ojs-container"</span>
+    <span class="nx">image</span> <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">ecr_image_url</span>
+    <span class="nx">mountPoints</span> <span class="p">=</span> <span class="p">[{</span>
+      <span class="nx">sourceVolume</span>  <span class="p">=</span> <span class="s2">"ojs-efs-volume"</span>
+      <span class="nx">containerPath</span> <span class="p">=</span> <span class="s2">"/var/www/ojsdata"</span>
+    <span class="p">}]</span>
+    <span class="nx">environment</span> <span class="p">=</span> <span class="p">[</span>
+      <span class="p">{</span> <span class="nx">name</span> <span class="p">=</span> <span class="s2">"MYSQL_HOST"</span><span class="p">,</span> <span class="nx">value</span> <span class="p">=</span> <span class="nx">aws_db_instance</span><span class="p">.</span><span class="nx">ojs_db</span><span class="p">.</span><span class="nx">address</span> <span class="p">}</span>
+    <span class="p">]</span>
+  <span class="p">}])</span>
+
+  <span class="nx">volume</span> <span class="p">{</span>
+    <span class="nx">name</span> <span class="p">=</span> <span class="s2">"ojs-efs-volume"</span>
+    <span class="nx">efs_volume_configuration</span> <span class="p">{</span>
+      <span class="nx">file_system_id</span> <span class="p">=</span> <span class="nx">aws_efs_file_system</span><span class="p">.</span><span class="nx">ojs_files</span><span class="p">.</span><span class="nx">id</span>
+      <span class="nx">transit_encryption</span> <span class="p">=</span> <span class="s2">"ENABLED"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+</code></pre>
+
+</div>
+
+
+
+<h3 id="variable-injection-finops">Variable Injection (FinOps)
+</h3>
+
+<p>We define instance sizes via JSON (<code>prod.tfvars.json</code>) to control costs per environment:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"environment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"prod"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"region"</span><span class="p">:</span><span class="w"> </span><span class="s2">"us-east-1"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"fargate_cpu"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1024"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"fargate_memory"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2048"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"db_instance_class"</span><span class="p">:</span><span class="w"> </span><span class="s2">"db.t4g.medium"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"db_user"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ojsadmin"</span><span class="w">
+</span><span class="p">}</span><span class="w">
+
+</span></code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="7-cicd-with-github-actions">🚀 7. CI/CD with GitHub Actions
+</h2>
+
+<p>The automated deployment pipeline checks out the code, configures AWS credentials, and updates the infrastructure via Terraform.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight yaml"><code><span class="na">name</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Deploy</span><span class="nv"> </span><span class="s">OJS</span><span class="nv"> </span><span class="s">AWS'</span>
+<span class="na">on</span><span class="pi">:</span>
+  <span class="na">workflow_dispatch</span><span class="pi">:</span>
+    <span class="na">inputs</span><span class="pi">:</span>
+      <span class="na">tenant_name</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">description</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Tenant</span><span class="nv"> </span><span class="s">Name'</span><span class="pi">,</span> <span class="nv">required</span><span class="pi">:</span> <span class="nv">true</span> <span class="pi">}</span>
+      <span class="na">environment</span><span class="pi">:</span> <span class="pi">{</span> <span class="nv">description</span><span class="pi">:</span> <span class="s1">'</span><span class="s">Environment</span><span class="nv"> </span><span class="s">(dev/hom/prod)'</span><span class="pi">,</span> <span class="nv">required</span><span class="pi">:</span> <span class="nv">true</span> <span class="pi">}</span>
+
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">deploy</span><span class="pi">:</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v4</span>
+
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Configure AWS Credentials</span>
+        <span class="na">uses</span><span class="pi">:</span> <span class="s">aws-actions/configure-aws-credentials@v4</span>
+        <span class="na">with</span><span class="pi">:</span>
+          <span class="na">aws-access-key-id</span><span class="pi">:</span> <span class="s">${{ secrets.AWS_ACCESS_KEY_ID }}</span>
+          <span class="na">aws-secret-access-key</span><span class="pi">:</span> <span class="s">${{ secrets.AWS_SECRET_ACCESS_KEY }}</span>
+          <span class="na">aws-region</span><span class="pi">:</span> <span class="s">us-east-1</span>
+
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Terraform Init (S3 Backend)</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">terraform init \</span>
+            <span class="s">-backend-config="bucket=ojs-terraform-state-central" \</span>
+            <span class="s">-backend-config="key=${{ github.event.inputs.tenant_name }}.${{ github.event.inputs.environment }}.tfstate" \</span>
+            <span class="s">-backend-config="dynamodb_table=terraform-lock"</span>
+
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Terraform Apply</span>
+        <span class="na">env</span><span class="pi">:</span>
+          <span class="na">TF_VAR_db_password</span><span class="pi">:</span> <span class="s">${{ secrets.DB_PASSWORD }}</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">terraform apply \</span>
+            <span class="s">-var-file="envs/${{ github.event.inputs.environment }}.tfvars.json" \</span>
+            <span class="s">-auto-approve</span>
+
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="8-finops-cost-optimization-on-aws">💰 8. FinOps: Cost Optimization on AWS
+</h2>
+
+<p>AWS provides fantastic mechanisms to slash costs in non-production environments:</p>
+
+<ol>
+<li>
+<strong>Fargate Spot:</strong> In <strong>Dev/Hom</strong> environments, we configure the ECS <em>Capacity Provider</em> to use <strong>Fargate Spot</strong>, utilizing spare AWS compute capacity for up to a <strong>70% discount</strong>.</li>
+<li>
+<strong>Graviton (ARM):</strong> We use RDS instances powered by Graviton processors (<code>db.t4g</code>), which deliver better performance at a lower price point than the x86 architecture.</li>
+<li>
+<strong>Scheduling Automation:</strong> We leverage <strong>Amazon EventBridge</strong> to trigger an <strong>AWS Lambda</strong> function that stops the RDS instance and scales the ECS <em>Desired Count</em> to <code>0</code> outside of regular business hours.</li>
+</ol>
+
+
+<hr>
+
+<h2 id="conclusion">🎯 Conclusion
+</h2>
+
+<p>By bridging the gap between software architecture and the needs of the classroom, we can transform Open Journal Systems from a complex IT burden into a seamless, globally scalable SaaS product. The combination of AWS ECS Fargate for horizontal scalability, Go for rapid API orchestration, and Terraform for compliant IaC delivers a true, zero-touch EdTech platform.</p>
+
+<p>Have you ever thought about productizing open-source software into a niche B2B SaaS? Share your thoughts and architectural approaches in the comments! 👇</p>

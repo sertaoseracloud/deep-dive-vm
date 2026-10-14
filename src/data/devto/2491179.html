@@ -1,0 +1,204 @@
+<p>Você já tentou procurar uma palavra em um dicionário físico? 📖 Se sim, provavelmente não começou pela primeira página. Em vez disso, você foi direto para o meio, viu em que letra estava, e então ajustou sua busca para frente ou para trás. Parabéns! Sem saber, você já usou o princípio da <strong>pesquisa binária</strong>.</p>
+
+<p>Neste artigo, vamos explorar esse algoritmo de forma bem tranquila, como se estivéssemos conversando. Vamos entender o que ele faz, por que é tão eficiente e como implementá-lo em Python 🐍 — mesmo que você esteja dando seus primeiros passos na programação.</p>
+
+
+<hr>
+
+<h2 id="o-que-%C3%A9-pesquisa-bin%C3%A1ria">🧠 O que é Pesquisa Binária?
+</h2>
+
+<p>A pesquisa binária é um método para encontrar um item dentro de uma <strong>lista ordenada</strong>. Isso é importante: a lista precisa estar em ordem crescente (ou decrescente, com ajustes). O algoritmo funciona dividindo a lista ao meio repetidamente, até encontrar o que você está procurando — ou até ter certeza de que o item não está lá.</p>
+
+<p>Imagine que você tem uma lista com 1000 números. Em vez de verificar um por um (como na busca linear), a pesquisa binária começa no meio. Se o número do meio for menor que o que você procura, ela ignora toda a metade esquerda. Isso reduz o número de comparações drasticamente. É como mágica, mas com lógica! ✨</p>
+
+
+<hr>
+
+<h2 id="um-exemplo-do-mundo-real">🧪 Um Exemplo do Mundo Real
+</h2>
+
+<p>Vamos imaginar que você está procurando o número <strong>9</strong> em uma lista ordenada como esta:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">15</span><span class="p">]</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Você começa olhando para o número do meio: é o <strong>7</strong>. Como 9 é maior que 7, você ignora todos os números à esquerda de 7. Agora sua nova lista é:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="p">[</span><span class="mi">9</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">15</span><span class="p">]</span>
+</code></pre>
+
+</div>
+
+
+
+<p>O novo meio é <strong>11</strong>. Mas 9 é menor que 11, então você ignora os números à direita. Agora só resta o <strong>9</strong>. E voilà! 🎯</p>
+
+
+<hr>
+
+<h2 id="como-implementar-em-python">🛠️ Como Implementar em Python
+</h2>
+
+<p>Vamos construir o código juntos, passo a passo. Não se preocupe se você nunca fez isso antes — vou explicar cada linha com carinho 💡</p>
+
+<h3 id="1-come%C3%A7ando-a-fun%C3%A7%C3%A3o">1. Começando a função
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="k">def</span> <span class="nf">pesquisa_binaria</span><span class="p">(</span><span class="n">lista</span><span class="p">,</span> <span class="n">alvo</span><span class="p">):</span>
+    <span class="n">inicio</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">fim</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">lista</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Aqui estamos criando uma função chamada <code>pesquisa_binaria</code>. Ela recebe dois parâmetros: a <code>lista</code> (que deve estar ordenada) e o <code>alvo</code> (o número que queremos encontrar). As variáveis <code>inicio</code> e <code>fim</code> representam os limites da parte da lista que estamos analisando.</p>
+
+
+<hr>
+
+<h3 id="2-o-cora%C3%A7%C3%A3o-da-busca">2. O coração da busca
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code>    <span class="k">while</span> <span class="n">inicio</span> <span class="o">&lt;=</span> <span class="n">fim</span><span class="p">:</span>
+        <span class="n">meio</span> <span class="o">=</span> <span class="p">(</span><span class="n">inicio</span> <span class="o">+</span> <span class="n">fim</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="n">chute</span> <span class="o">=</span> <span class="n">lista</span><span class="p">[</span><span class="n">meio</span><span class="p">]</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Enquanto ainda houver elementos para verificar, calculamos o índice do meio da lista. O <code>//</code> é uma divisão inteira — ele garante que o resultado seja um número inteiro. O <code>chute</code> é o valor que está nesse índice.</p>
+
+
+<hr>
+
+<h3 id="3-comparando-o-chute-com-o-alvo">3. Comparando o chute com o alvo
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code>        <span class="k">if</span> <span class="n">chute</span> <span class="o">==</span> <span class="n">alvo</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">meio</span>
+        <span class="k">elif</span> <span class="n">chute</span> <span class="o">&lt;</span> <span class="n">alvo</span><span class="p">:</span>
+            <span class="n">inicio</span> <span class="o">=</span> <span class="n">meio</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">fim</span> <span class="o">=</span> <span class="n">meio</span> <span class="o">-</span> <span class="mi">1</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Aqui é onde a mágica acontece ✨:</p>
+
+<ul>
+<li>Se o <code>chute</code> for igual ao <code>alvo</code>, encontramos o número e retornamos sua posição.</li>
+<li>Se o <code>chute</code> for menor, descartamos a metade esquerda da lista.</li>
+<li>Se for maior, descartamos a metade direita.</li>
+</ul>
+
+
+<hr>
+
+<h3 id="4-e-se-n%C3%A3o-encontrarmos">4. E se não encontrarmos?
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code>    <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Se o loop terminar e não encontrarmos o número, retornamos <code>-1</code> para indicar que ele não está na lista.</p>
+
+
+<hr>
+
+<h2 id="c%C3%B3digo-completo">✅ Código Completo
+</h2>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="k">def</span> <span class="nf">pesquisa_binaria</span><span class="p">(</span><span class="n">lista</span><span class="p">,</span> <span class="n">alvo</span><span class="p">):</span>
+    <span class="n">inicio</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">fim</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">lista</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+
+    <span class="k">while</span> <span class="n">inicio</span> <span class="o">&lt;=</span> <span class="n">fim</span><span class="p">:</span>
+        <span class="n">meio</span> <span class="o">=</span> <span class="p">(</span><span class="n">inicio</span> <span class="o">+</span> <span class="n">fim</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="n">chute</span> <span class="o">=</span> <span class="n">lista</span><span class="p">[</span><span class="n">meio</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">chute</span> <span class="o">==</span> <span class="n">alvo</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">meio</span>
+        <span class="k">elif</span> <span class="n">chute</span> <span class="o">&lt;</span> <span class="n">alvo</span><span class="p">:</span>
+            <span class="n">inicio</span> <span class="o">=</span> <span class="n">meio</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">fim</span> <span class="o">=</span> <span class="n">meio</span> <span class="o">-</span> <span class="mi">1</span>
+
+    <span class="k">return</span> <span class="o">-</span><span class="mi">1</span>
+
+<span class="c1"># Testando a função
+</span><span class="n">numeros</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">15</span><span class="p">]</span>
+<span class="n">procurado</span> <span class="o">=</span> <span class="mi">9</span>
+
+<span class="n">resultado</span> <span class="o">=</span> <span class="nf">pesquisa_binaria</span><span class="p">(</span><span class="n">numeros</span><span class="p">,</span> <span class="n">procurado</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">resultado</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Encontrado no índice </span><span class="si">{</span><span class="n">resultado</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Número não encontrado</span><span class="sh">"</span><span class="p">)</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="por-que-usar-pesquisa-bin%C3%A1ria">🚀 Por que usar Pesquisa Binária?
+</h2>
+
+<p>A pesquisa binária é incrivelmente eficiente. Enquanto a busca linear pode levar até <strong>n</strong> passos (no pior caso), a pesquisa binária leva no máximo <strong>log₂(n)</strong> passos. Isso significa que, para uma lista com 1.000.000 de itens, você só precisa de cerca de 20 comparações! 😲</p>
+
+
+<hr>
+
+<h2 id="cuidados-importantes">⚠️ Cuidados Importantes
+</h2>
+
+<ul>
+<li>A lista <strong>precisa estar ordenada</strong>. Se não estiver, o algoritmo pode falhar.</li>
+<li>Funciona com números, strings ou qualquer coisa que possa ser comparada com <code>&lt;</code>, <code>&gt;</code> e <code>==</code>.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="conclus%C3%A3o">🧠 Conclusão
+</h2>
+
+<p>A pesquisa binária é um daqueles algoritmos que parecem simples, mas são incrivelmente poderosos. Saber usá-la é um passo importante na sua jornada como programador(a). E o melhor: agora você já sabe como ela funciona! 🎉</p>

@@ -1,0 +1,338 @@
+<h2 id="1-introduction">1. Introduction
+</h2>
+
+<p>As cloud applications scale to serve global audiences, relying on a single centralized infrastructure stack introduces critical vulnerabilities. A localized failure or a noisy neighbor can trigger a systemic outage. Cell-Based Architecture mitigates this by partitioning the system into isolated, identical, and self-contained units called "cells." By routing specific tenants or users to dedicated cells, you constrain the blast radius of any degradation strictly to that cell, preserving the availability of the rest of the system.</p>
+
+<p>By the end of this tutorial, you will be able to design and provision a cellular architecture on Microsoft Azure. We will utilize Azure Front Door as the global ingress, Azure Functions (Python) for dynamic traffic routing and compute, and Azure Cosmos DB for isolated state management. Mastering this pattern on Azure not only hardens your current workloads but also reinforces foundational multicloud principles, as the concepts of decoupled routing and state isolation are directly transferable across different cloud providers in a unified enterprise landscape.</p>
+
+<h2 id="2-prerequisites">2. Prerequisites
+</h2>
+
+<p>To execute the configurations and code in this tutorial, ensure you have the following tools and access levels:</p>
+
+<ul>
+<li>An active Microsoft Azure subscription with Owner or Contributor permissions to create Resource Groups, Cosmos DB accounts, Azure Functions, and Azure Front Door.</li>
+<li>Terraform CLI (version 1.0 or higher) installed locally for provisioning the Infrastructure as Code (IaC).</li>
+<li>Python (version 3.9 or higher) installed locally, along with the Azure Functions Core Tools for local development and packaging.</li>
+<li>Azure CLI installed and authenticated (<code>az login</code>) on your local environment.</li>
+<li>Fundamental understanding of partitioning concepts and Terraform HCL syntax.</li>
+</ul>
+
+<h2 id="3-stepbystep">3. Step-by-Step
+</h2>
+
+<p>Before diving into the infrastructure code, let's visualize the execution flow. The sequence diagram below details how a global request is securely intercepted, evaluated, and forwarded to a strictly isolated cellular stack within Azure.</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fb41axbpax2r7t18yxjvt.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fb41axbpax2r7t18yxjvt.png" alt="Sequence Diagram" loading="lazy" width="800" height="537"></a></p>
+
+<h3 id="31-defining-the-cell-blueprint-terraform-module">3.1 Defining the Cell Blueprint (Terraform Module)
+</h3>
+
+<p><strong>What to do:</strong> Create a reusable Terraform module representing a single, isolated "Cell." This includes a dedicated Storage Account, Application Service Plan, Azure Function (Worker), and a Cosmos DB database.</p>
+
+<p><strong>Why do it:</strong> The primary rule of cellular architecture is absolute consistency across environments. By encapsulating the infrastructure in a Terraform module, you ensure that every generated cell is an exact replica, preventing configuration drift and simplifying horizontal scaling. </p>
+
+<p><strong>Example:</strong><br>
+Create a directory named <code>modules/cell</code> and add a <code>main.tf</code> file.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="c1"># modules/cell/main.tf</span>
+<span class="nx">variable</span> <span class="s2">"location"</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"resource_group_name"</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"cell_id"</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_cosmosdb_account"</span> <span class="s2">"cell_db"</span> <span class="p">{</span>
+  <span class="nx">name</span>                <span class="p">=</span> <span class="s2">"cosmos-cell-${var.cell_id}"</span>
+  <span class="nx">location</span>            <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">resource_group_name</span> <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">resource_group_name</span>
+  <span class="nx">offer_type</span>          <span class="p">=</span> <span class="s2">"Standard"</span>
+  <span class="nx">kind</span>                <span class="p">=</span> <span class="s2">"GlobalDocumentDB"</span>
+
+  <span class="nx">consistency_policy</span> <span class="p">{</span>
+    <span class="nx">consistency_level</span> <span class="p">=</span> <span class="s2">"Session"</span>
+  <span class="p">}</span>
+
+  <span class="nx">geo_location</span> <span class="p">{</span>
+    <span class="nx">location</span>          <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">location</span>
+    <span class="nx">failover_priority</span> <span class="p">=</span> <span class="mi">0</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_cosmosdb_sql_database"</span> <span class="s2">"cell_sqldb"</span> <span class="p">{</span>
+  <span class="nx">name</span>                <span class="p">=</span> <span class="s2">"app-state"</span>
+  <span class="nx">resource_group_name</span> <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">resource_group_name</span>
+  <span class="nx">account_name</span>        <span class="p">=</span> <span class="nx">azurerm_cosmosdb_account</span><span class="p">.</span><span class="nx">cell_db</span><span class="p">.</span><span class="nx">name</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_storage_account"</span> <span class="s2">"cell_storage"</span> <span class="p">{</span>
+  <span class="nx">name</span>                     <span class="p">=</span> <span class="s2">"stcell${var.cell_id}"</span>
+  <span class="nx">resource_group_name</span>      <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">resource_group_name</span>
+  <span class="nx">location</span>                 <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">account_tier</span>             <span class="p">=</span> <span class="s2">"Standard"</span>
+  <span class="nx">account_replication_type</span> <span class="p">=</span> <span class="s2">"LRS"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_service_plan"</span> <span class="s2">"cell_plan"</span> <span class="p">{</span>
+  <span class="nx">name</span>                <span class="p">=</span> <span class="s2">"plan-cell-${var.cell_id}"</span>
+  <span class="nx">location</span>            <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">resource_group_name</span> <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">resource_group_name</span>
+  <span class="nx">os_type</span>             <span class="p">=</span> <span class="s2">"Linux"</span>
+  <span class="nx">sku_name</span>            <span class="p">=</span> <span class="s2">"Y1"</span> <span class="c1"># Consumption plan</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_linux_function_app"</span> <span class="s2">"cell_worker"</span> <span class="p">{</span>
+  <span class="nx">name</span>                       <span class="p">=</span> <span class="s2">"func-worker-${var.cell_id}"</span>
+  <span class="nx">location</span>                   <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">resource_group_name</span>        <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">resource_group_name</span>
+  <span class="nx">service_plan_id</span>            <span class="p">=</span> <span class="nx">azurerm_service_plan</span><span class="p">.</span><span class="nx">cell_plan</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">storage_account_name</span>       <span class="p">=</span> <span class="nx">azurerm_storage_account</span><span class="p">.</span><span class="nx">cell_storage</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">storage_account_access_key</span> <span class="p">=</span> <span class="nx">azurerm_storage_account</span><span class="p">.</span><span class="nx">cell_storage</span><span class="p">.</span><span class="nx">primary_access_key</span>
+
+  <span class="nx">site_config</span> <span class="p">{</span>
+    <span class="nx">application_stack</span> <span class="p">{</span>
+      <span class="nx">python_version</span> <span class="p">=</span> <span class="s2">"3.11"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="nx">app_settings</span> <span class="p">=</span> <span class="p">{</span>
+    <span class="s2">"CELL_ID"</span>             <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">cell_id</span>
+    <span class="s2">"COSMOS_DB_ENDPOINT"</span>  <span class="p">=</span> <span class="nx">azurerm_cosmosdb_account</span><span class="p">.</span><span class="nx">cell_db</span><span class="p">.</span><span class="nx">endpoint</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">output</span> <span class="s2">"function_default_hostname"</span> <span class="p">{</span>
+  <span class="nx">value</span> <span class="p">=</span> <span class="nx">azurerm_linux_function_app</span><span class="p">.</span><span class="nx">cell_worker</span><span class="p">.</span><span class="nx">default_hostname</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="32-stamping-out-multiple-cells">3.2 Stamping Out Multiple Cells
+</h3>
+
+<p><strong>What to do:</strong> In your root Terraform configuration, define the base resource group and iterate over a collection of identifiers to deploy multiple cells simultaneously.</p>
+
+<p><strong>Why do it:</strong> This translates the theoretical module into physical, isolated environments. Using a <code>for_each</code> loop allows you to effortlessly scale from two cells to fifty cells simply by updating a local variable, abstracting the complexity of managing parallel infrastructures.</p>
+
+<p><strong>Example:</strong><br>
+In your root directory, create <code>main.tf</code>.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="c1"># main.tf</span>
+<span class="nx">terraform</span> <span class="p">{</span>
+  <span class="nx">required_providers</span> <span class="p">{</span>
+    <span class="nx">azurerm</span> <span class="p">=</span> <span class="p">{</span>
+      <span class="nx">source</span>  <span class="p">=</span> <span class="s2">"hashicorp/azurerm"</span>
+      <span class="nx">version</span> <span class="p">=</span> <span class="s2">"~&gt; 3.0"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">provider</span> <span class="s2">"azurerm"</span> <span class="p">{</span>
+  <span class="nx">features</span> <span class="p">{}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_resource_group"</span> <span class="s2">"rg"</span> <span class="p">{</span>
+  <span class="nx">name</span>     <span class="p">=</span> <span class="s2">"rg-cellular-architecture"</span>
+  <span class="nx">location</span> <span class="p">=</span> <span class="s2">"East US"</span>
+<span class="p">}</span>
+
+<span class="nx">locals</span> <span class="p">{</span>
+  <span class="nx">cells</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"alpha"</span><span class="p">,</span> <span class="s2">"beta"</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"isolated_cells"</span> <span class="p">{</span>
+  <span class="nx">source</span>   <span class="p">=</span> <span class="s2">"./modules/cell"</span>
+  <span class="nx">for_each</span> <span class="p">=</span> <span class="nx">toset</span><span class="p">(</span><span class="nx">local</span><span class="p">.</span><span class="nx">cells</span><span class="p">)</span>
+
+  <span class="nx">cell_id</span>             <span class="p">=</span> <span class="nx">each</span><span class="p">.</span><span class="nx">key</span>
+  <span class="nx">location</span>            <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">rg</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">resource_group_name</span> <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">rg</span><span class="p">.</span><span class="nx">name</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="33-developing-the-cell-router-in-python">3.3 Developing the Cell Router in Python
+</h3>
+
+<p><strong>What to do:</strong> Write the Azure Function code in Python that will act as the global ingress router. It must inspect incoming HTTP requests, determine the appropriate tenant mapping, and proxy the request to the correct cell.</p>
+
+<p><strong>Why do it:</strong> The router abstracts the internal topology from the client. Applications interact with a single API endpoint, oblivious to the fact that their request is being routed to <code>cell-alpha</code> or <code>cell-beta</code>. This dynamic mapping is what allows you to perform live migrations of tenants between cells to balance load without downtime.</p>
+
+<p><strong>Example:</strong><br>
+Create the Python code for your router function (<code>__init__.py</code> inside your Azure Function folder).<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="kn">import</span> <span class="n">logging</span>
+<span class="kn">import</span> <span class="n">json</span>
+<span class="kn">import</span> <span class="n">os</span>
+<span class="kn">import</span> <span class="n">urllib.request</span>
+<span class="kn">import</span> <span class="n">azure.functions</span> <span class="k">as</span> <span class="n">func</span>
+
+<span class="c1"># In production, fetch this from Cosmos DB (Tenant Registry)
+</span><span class="n">CELL_ENDPOINTS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="sh">"</span><span class="s">alpha</span><span class="sh">"</span><span class="p">:</span> <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">CELL_ALPHA_URL</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">https://func-worker-alpha.azurewebsites.net</span><span class="sh">"</span><span class="p">),</span>
+    <span class="sh">"</span><span class="s">beta</span><span class="sh">"</span><span class="p">:</span> <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">CELL_BETA_URL</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">https://func-worker-beta.azurewebsites.net</span><span class="sh">"</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="k">def</span> <span class="nf">get_target_cell</span><span class="p">(</span><span class="n">tenant_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="c1"># Mocking a Cosmos DB registry lookup
+</span>    <span class="c1"># A real implementation would query the global metadata database
+</span>    <span class="k">if</span> <span class="n">tenant_id</span><span class="p">.</span><span class="nf">startswith</span><span class="p">(</span><span class="sh">"</span><span class="s">A</span><span class="sh">"</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sh">"</span><span class="s">alpha</span><span class="sh">"</span>
+    <span class="k">return</span> <span class="sh">"</span><span class="s">beta</span><span class="sh">"</span>
+
+<span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">req</span><span class="p">:</span> <span class="n">func</span><span class="p">.</span><span class="n">HttpRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">func</span><span class="p">.</span><span class="n">HttpResponse</span><span class="p">:</span>
+    <span class="n">logging</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sh">'</span><span class="s">Global Router processing a request.</span><span class="sh">'</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">req_body</span> <span class="o">=</span> <span class="n">req</span><span class="p">.</span><span class="nf">get_json</span><span class="p">()</span>
+        <span class="n">tenant_id</span> <span class="o">=</span> <span class="n">req_body</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">'</span><span class="s">tenant_id</span><span class="sh">'</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">tenant_id</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">func</span><span class="p">.</span><span class="nc">HttpResponse</span><span class="p">(</span>
+                <span class="sh">"</span><span class="s">Missing partition key: tenant_id</span><span class="sh">"</span><span class="p">,</span> 
+                <span class="n">status_code</span><span class="o">=</span><span class="mi">400</span>
+            <span class="p">)</span>
+
+        <span class="n">target_cell</span> <span class="o">=</span> <span class="nf">get_target_cell</span><span class="p">(</span><span class="n">tenant_id</span><span class="p">)</span>
+        <span class="n">target_url</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">CELL_ENDPOINTS</span><span class="p">[</span><span class="n">target_cell</span><span class="p">]</span><span class="si">}</span><span class="s">/api/process</span><span class="sh">"</span>
+
+        <span class="c1"># Proxy the request to the isolated cell
+</span>        <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">req_body</span><span class="p">).</span><span class="nf">encode</span><span class="p">(</span><span class="sh">'</span><span class="s">utf-8</span><span class="sh">'</span><span class="p">)</span>
+        <span class="n">proxy_req</span> <span class="o">=</span> <span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nc">Request</span><span class="p">(</span>
+            <span class="n">target_url</span><span class="p">,</span> 
+            <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="sh">'</span><span class="s">Content-Type</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">application/json</span><span class="sh">'</span><span class="p">}</span>
+        <span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">urllib</span><span class="p">.</span><span class="n">request</span><span class="p">.</span><span class="nf">urlopen</span><span class="p">(</span><span class="n">proxy_req</span><span class="p">)</span> <span class="k">as</span> <span class="n">response</span><span class="p">:</span>
+            <span class="n">cell_response</span> <span class="o">=</span> <span class="n">response</span><span class="p">.</span><span class="nf">read</span><span class="p">().</span><span class="nf">decode</span><span class="p">(</span><span class="sh">'</span><span class="s">utf-8</span><span class="sh">'</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">func</span><span class="p">.</span><span class="nc">HttpResponse</span><span class="p">(</span>
+            <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">({</span>
+                <span class="sh">"</span><span class="s">status</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">success</span><span class="sh">"</span><span class="p">,</span>
+                <span class="sh">"</span><span class="s">x_routed_to</span><span class="sh">"</span><span class="p">:</span> <span class="n">target_cell</span><span class="p">,</span>
+                <span class="sh">"</span><span class="s">data</span><span class="sh">"</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">loads</span><span class="p">(</span><span class="n">cell_response</span><span class="p">)</span>
+            <span class="p">}),</span>
+            <span class="n">mimetype</span><span class="o">=</span><span class="sh">"</span><span class="s">application/json</span><span class="sh">"</span><span class="p">,</span>
+            <span class="n">status_code</span><span class="o">=</span><span class="mi">200</span>
+        <span class="p">)</span>
+
+    <span class="k">except</span> <span class="nb">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logging</span><span class="p">.</span><span class="nf">error</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Routing error: </span><span class="si">{</span><span class="nf">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">func</span><span class="p">.</span><span class="nc">HttpResponse</span><span class="p">(</span><span class="sh">"</span><span class="s">Internal Server Error</span><span class="sh">"</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="34-provisioning-the-global-routing-layer">3.4 Provisioning the Global Routing Layer
+</h3>
+
+<p><strong>What to do:</strong> Deploy the central routing Azure Function and configure an Azure Front Door profile to sit in front of it. </p>
+
+<p><strong>Why do it:</strong> Azure Front Door acts as a secure, globally distributed entry point. It absorbs DDoS attacks at the edge, provides WAF capabilities, and ensures that the Global Router Function is protected from direct, unauthenticated internet exposure. </p>
+
+<p><strong>Example:</strong><br>
+Append the routing infrastructure to your root <code>main.tf</code>.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="c1"># Shared storage for the Global Router</span>
+<span class="nx">resource</span> <span class="s2">"azurerm_storage_account"</span> <span class="s2">"router_storage"</span> <span class="p">{</span>
+  <span class="nx">name</span>                     <span class="p">=</span> <span class="s2">"stglobalrouter"</span>
+  <span class="nx">resource_group_name</span>      <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">rg</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">location</span>                 <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">rg</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">account_tier</span>             <span class="p">=</span> <span class="s2">"Standard"</span>
+  <span class="nx">account_replication_type</span> <span class="p">=</span> <span class="s2">"LRS"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_service_plan"</span> <span class="s2">"router_plan"</span> <span class="p">{</span>
+  <span class="nx">name</span>                <span class="p">=</span> <span class="s2">"plan-global-router"</span>
+  <span class="nx">location</span>            <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">rg</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">resource_group_name</span> <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">rg</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">os_type</span>             <span class="p">=</span> <span class="s2">"Linux"</span>
+  <span class="nx">sku_name</span>            <span class="p">=</span> <span class="s2">"Y1"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_linux_function_app"</span> <span class="s2">"global_router"</span> <span class="p">{</span>
+  <span class="nx">name</span>                       <span class="p">=</span> <span class="s2">"func-global-router-gateway"</span>
+  <span class="nx">location</span>                   <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">rg</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">resource_group_name</span>        <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">rg</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">service_plan_id</span>            <span class="p">=</span> <span class="nx">azurerm_service_plan</span><span class="p">.</span><span class="nx">router_plan</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">storage_account_name</span>       <span class="p">=</span> <span class="nx">azurerm_storage_account</span><span class="p">.</span><span class="nx">router_storage</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">storage_account_access_key</span> <span class="p">=</span> <span class="nx">azurerm_storage_account</span><span class="p">.</span><span class="nx">router_storage</span><span class="p">.</span><span class="nx">primary_access_key</span>
+
+  <span class="nx">site_config</span> <span class="p">{</span>
+    <span class="nx">application_stack</span> <span class="p">{</span>
+      <span class="nx">python_version</span> <span class="p">=</span> <span class="s2">"3.11"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="nx">app_settings</span> <span class="p">=</span> <span class="p">{</span>
+    <span class="s2">"CELL_ALPHA_URL"</span> <span class="p">=</span> <span class="s2">"https://${module.isolated_cells["</span><span class="nx">alpha</span><span class="s2">"].function_default_hostname}"</span>
+    <span class="s2">"CELL_BETA_URL"</span>  <span class="p">=</span> <span class="s2">"https://${module.isolated_cells["</span><span class="nx">beta</span><span class="s2">"].function_default_hostname}"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Run <code>terraform init</code>, <code>terraform plan</code>, and <code>terraform apply</code> to deploy the entire multi-cell architecture.</p>
+
+<h2 id="4-common-troubleshooting">4. Common Troubleshooting
+</h2>
+
+<p>Transitioning to a cellular architecture requires a shift in how you manage state and traffic. Here are common issues you may encounter:</p>
+
+<ol>
+<li>
+<p><strong>Cosmos DB Throttling (HTTP 429) in a Specific Cell:</strong></p>
+
+<ul>
+<li>
+<strong>Problem:</strong> One cell begins rejecting requests, while others operate normally. This usually indicates a "noisy neighbor" – a tenant whose workload has suddenly spiked, exhausting the Request Units (RUs) provisioned for that specific cell's database.</li>
+<li>
+<strong>Solution:</strong> Verify the metrics in Azure Monitor. If a tenant has outgrown the shared cell, you must execute a live migration. Update the Global Tenant Registry (Metadata DB) to point that specific <code>tenant_id</code> to a newly provisioned, dedicated cell, seamlessly redirecting their traffic.</li>
+</ul>
+</li>
+<li>
+<p><strong>Latency Overhead at the Routing Layer:</strong></p>
+
+<ul>
+<li>
+<strong>Problem:</strong> Requests take significantly longer because they must pass through Front Door, the Router Function, and finally the Cell Function.</li>
+<li>
+<strong>Solution:</strong> The router logic must be aggressively optimized. Implement caching at the Global Router level using Azure Cache for Redis so the function doesn't need to query Cosmos DB for the tenant mapping on every single request.</li>
+</ul>
+</li>
+<li>
+<p><strong>Cold Starts in Azure Functions:</strong></p>
+
+<ul>
+<li>
+<strong>Problem:</strong> The first request to a specific cell takes several seconds to execute.</li>
+<li>
+<strong>Solution:</strong> Since we used the Consumption Plan (<code>Y1</code>) for cost-effectiveness in this tutorial, cold starts are expected. For production workloads, switch the Application Service Plan to Premium (<code>EP1</code> or higher) to keep instances pre-warmed, ensuring consistent low-latency responses.</li>
+</ul>
+</li>
+</ol>
+
+<h2 id="5-conclusion">5. Conclusion
+</h2>
+
+<p>Building a Cell-Based Architecture on Azure transforms monolithic vulnerabilities into contained, manageable units. By utilizing Terraform, we established a reproducible baseline for isolated environments, and implemented a Python routing layer to dynamically proxy traffic. </p>
+
+<p>This decoupling ensures that massive traffic spikes or bad deployments are restricted to single domains. As you mature this architecture, focus on automating the "Tenant Migration" process—moving live data between Cosmos DB instances without downtime—and standardizing your Terraform modules to ensure this pattern can be rapidly adopted across multiple cloud environments.</p>

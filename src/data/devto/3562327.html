@@ -1,0 +1,225 @@
+<h3 id="1-introduction">1. Introduction
+</h3>
+
+<p>In the cloud-native era, scaling an architecture often leads to a massive, interconnected system where a single failure can cause a global outage. Cellular Architecture solves this by decomposing the system into independent, isolated failure domains called "cells." In this tutorial, you will build a highly resilient event-driven architecture by combining the cellular pattern with an asynchronous flow (DynamoDB Streams, AWS Lambda, Amazon SNS, and Amazon SQS). </p>
+
+<p>Instead of a single monolithic data plane, you will deploy multiple identical infrastructure stamps (cells). A thin edge routing layer will inspect incoming requests and route them to the appropriate cell based on a partition key (such as a Tenant ID). If a poison pill event or a localized infrastructure degradation impacts one cell, the blast radius is strictly contained, ensuring maximum availability for tenants in other cells. This approach provides the ultimate fault isolation boundary for mission-critical distributed systems.</p>
+
+<h3 id="2-prerequisites">2. Prerequisites
+</h3>
+
+<p>To execute this deployment, your environment must be equipped with the following tools and foundational knowledge:</p>
+
+<ul>
+<li>An active AWS account with administrative privileges to provision IAM, compute, database, and messaging resources.</li>
+<li>Terraform (version 1.3.0 or higher) installed locally, alongside the AWS CLI authenticated with your credentials.</li>
+<li>A clear understanding of the separation between the Control Plane (global routing state) and the Data Plane (the actual processing cells).</li>
+<li>Familiarity with Domain-Driven Design (DDD) to correctly define the partition keys that will dictate cell placement without creating cross-boundary data dependencies.</li>
+</ul>
+
+<h3 id="3-stepbystep">3. Step-by-Step
+</h3>
+
+<h4 id="step-1-defining-the-data-plane-cell-module">Step 1: Defining the Data Plane Cell Module
+</h4>
+
+<p><strong>What to do:</strong> Create a reusable Terraform module that encapsulates the entire event-driven pipeline (DynamoDB, SNS, SQS, and Lambdas). This module represents a single, self-contained cell.</p>
+
+<p><strong>Why do it:</strong> The core tenet of cellular architecture is repeatability. By packaging the data plane into a module, you ensure that every cell is an identical, deterministic stamp of infrastructure. This structural isolation guarantees that an overloaded SQS queue or a throttling DynamoDB table in Cell Alpha has absolutely zero impact on the compute resources in Cell Beta.</p>
+
+<p><strong>Screenshot/Example:</strong> Save this configuration as <code>modules/event_driven_cell/main.tf</code>.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">variable</span> <span class="s2">"cell_id"</span> <span class="p">{</span>
+  <span class="nx">description</span> <span class="p">=</span> <span class="s2">"Unique identifier for the cell (e.g., alpha, beta)"</span>
+  <span class="nx">type</span>        <span class="p">=</span> <span class="nx">string</span>
+<span class="p">}</span>
+
+<span class="c1"># DynamoDB Table restricted to this specific cell</span>
+<span class="nx">resource</span> <span class="s2">"aws_dynamodb_table"</span> <span class="s2">"cell_table"</span> <span class="p">{</span>
+  <span class="nx">name</span>           <span class="p">=</span> <span class="s2">"app-data-cell-${var.cell_id}"</span>
+  <span class="nx">billing_mode</span>   <span class="p">=</span> <span class="s2">"PAY_PER_REQUEST"</span>
+  <span class="nx">hash_key</span>       <span class="p">=</span> <span class="s2">"id"</span>
+
+  <span class="nx">attribute</span> <span class="p">{</span>
+    <span class="nx">name</span> <span class="p">=</span> <span class="s2">"id"</span>
+    <span class="nx">type</span> <span class="p">=</span> <span class="s2">"S"</span>
+  <span class="p">}</span>
+
+  <span class="nx">stream_enabled</span>   <span class="p">=</span> <span class="kc">true</span>
+  <span class="nx">stream_view_type</span> <span class="p">=</span> <span class="s2">"NEW_AND_OLD_IMAGES"</span>
+<span class="p">}</span>
+
+<span class="c1"># SNS Topic and SQS Queue strictly bound to this cell</span>
+<span class="nx">resource</span> <span class="s2">"aws_sns_topic"</span> <span class="s2">"cell_topic"</span> <span class="p">{</span>
+  <span class="nx">name</span> <span class="p">=</span> <span class="s2">"processing-topic-cell-${var.cell_id}"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_sqs_queue"</span> <span class="s2">"cell_queue"</span> <span class="p">{</span>
+  <span class="nx">name</span> <span class="p">=</span> <span class="s2">"processing-queue-cell-${var.cell_id}"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_sns_topic_subscription"</span> <span class="s2">"cell_sub"</span> <span class="p">{</span>
+  <span class="nx">topic_arn</span> <span class="p">=</span> <span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">cell_topic</span><span class="p">.</span><span class="nx">arn</span>
+  <span class="nx">protocol</span>  <span class="p">=</span> <span class="s2">"sqs"</span>
+  <span class="nx">endpoint</span>  <span class="p">=</span> <span class="nx">aws_sqs_queue</span><span class="p">.</span><span class="nx">cell_queue</span><span class="p">.</span><span class="nx">arn</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_sqs_queue_policy"</span> <span class="s2">"cell_queue_policy"</span> <span class="p">{</span>
+  <span class="nx">queue_url</span> <span class="p">=</span> <span class="nx">aws_sqs_queue</span><span class="p">.</span><span class="nx">cell_queue</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">policy</span> <span class="p">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
+    <span class="nx">Version</span> <span class="p">=</span> <span class="s2">"2012-10-17"</span>
+    <span class="nx">Statement</span> <span class="p">=</span> <span class="p">[</span>
+      <span class="p">{</span>
+        <span class="nx">Effect</span>    <span class="p">=</span> <span class="s2">"Allow"</span>
+        <span class="nx">Principal</span> <span class="p">=</span> <span class="p">{</span> <span class="nx">Service</span> <span class="p">=</span> <span class="s2">"sns.amazonaws.com"</span> <span class="p">}</span>
+        <span class="nx">Action</span>    <span class="p">=</span> <span class="s2">"sqs:SendMessage"</span>
+        <span class="nx">Resource</span>  <span class="p">=</span> <span class="nx">aws_sqs_queue</span><span class="p">.</span><span class="nx">cell_queue</span><span class="p">.</span><span class="nx">arn</span>
+        <span class="nx">Condition</span> <span class="p">=</span> <span class="p">{</span>
+          <span class="nx">ArnEquals</span> <span class="p">=</span> <span class="p">{</span> <span class="s2">"aws:SourceArn"</span> <span class="p">=</span> <span class="nx">aws_sns_topic</span><span class="p">.</span><span class="nx">cell_topic</span><span class="p">.</span><span class="nx">arn</span> <span class="p">}</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">]</span>
+  <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="c1"># Producer Lambda Event Source Mapping</span>
+<span class="nx">resource</span> <span class="s2">"aws_lambda_event_source_mapping"</span> <span class="s2">"dynamo_trigger"</span> <span class="p">{</span>
+  <span class="nx">event_source_arn</span>  <span class="p">=</span> <span class="nx">aws_dynamodb_table</span><span class="p">.</span><span class="nx">cell_table</span><span class="p">.</span><span class="nx">stream_arn</span>
+  <span class="nx">function_name</span>     <span class="p">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">cell_producer</span><span class="p">.</span><span class="nx">arn</span>
+  <span class="nx">starting_position</span> <span class="p">=</span> <span class="s2">"LATEST"</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h4 id="step-2-instantiating-the-independent-cells">Step 2: Instantiating the Independent Cells
+</h4>
+
+<p><strong>What to do:</strong> In your root Terraform configuration, instantiate the cell module multiple times to create your isolated failure domains.</p>
+
+<p><strong>Why do it:</strong> Deploying multiple instances generates the physical infrastructure boundaries. For example, assigning high-tier enterprise tenants to their own dedicated cells prevents noisy neighbor problems. While this deployment runs natively on AWS, establishing decoupled infrastructure stamps is the fundamental prerequisite for extending your architecture to active-active multi-cloud environments in the future.</p>
+
+<p><strong>Screenshot/Example:</strong> Add this to your root <code>main.tf</code>.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">module</span> <span class="s2">"cell_alpha"</span> <span class="p">{</span>
+  <span class="nx">source</span>  <span class="p">=</span> <span class="s2">"./modules/event_driven_cell"</span>
+  <span class="nx">cell_id</span> <span class="p">=</span> <span class="s2">"alpha"</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"cell_beta"</span> <span class="p">{</span>
+  <span class="nx">source</span>  <span class="p">=</span> <span class="s2">"./modules/event_driven_cell"</span>
+  <span class="nx">cell_id</span> <span class="p">=</span> <span class="s2">"beta"</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"cell_gamma"</span> <span class="p">{</span>
+  <span class="nx">source</span>  <span class="p">=</span> <span class="s2">"./modules/event_driven_cell"</span>
+  <span class="nx">cell_id</span> <span class="p">=</span> <span class="s2">"gamma"</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h4 id="step-3-building-the-control-plane-mapping">Step 3: Building the Control Plane Mapping
+</h4>
+
+<p><strong>What to do:</strong> Create a global DynamoDB table that acts as the Control Plane data store. This table maps your partition keys (e.g., Tenant ID) to their assigned Cell ID.</p>
+
+<p><strong>Why do it:</strong> The routing layer must know where to send incoming requests without utilizing hardcoded logic. This global mapping table is queried by the edge router dynamically. It must be highly available, as its failure would prevent traffic from reaching the perfectly healthy data plane cells behind it.</p>
+
+<p><strong>Screenshot/Example:</strong> Create a <code>control_plane.tf</code> file.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">resource</span> <span class="s2">"aws_dynamodb_table"</span> <span class="s2">"tenant_routing_map"</span> <span class="p">{</span>
+  <span class="nx">name</span>           <span class="p">=</span> <span class="s2">"global-tenant-cell-mapping"</span>
+  <span class="nx">billing_mode</span>   <span class="p">=</span> <span class="s2">"PAY_PER_REQUEST"</span>
+  <span class="nx">hash_key</span>       <span class="p">=</span> <span class="s2">"tenant_id"</span>
+
+  <span class="nx">attribute</span> <span class="p">{</span>
+    <span class="nx">name</span> <span class="p">=</span> <span class="s2">"tenant_id"</span>
+    <span class="nx">type</span> <span class="p">=</span> <span class="s2">"S"</span>
+  <span class="p">}</span>
+
+  <span class="nx">tags</span> <span class="p">=</span> <span class="p">{</span>
+    <span class="nx">Layer</span> <span class="p">=</span> <span class="s2">"ControlPlane"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h4 id="step-4-implementing-the-thin-cell-router">Step 4: Implementing the Thin Cell Router
+</h4>
+
+<p><strong>What to do:</strong> Deploy an Amazon API Gateway linked to a Lambda function. This function serves as the "Cell Router". It extracts the Tenant ID from the incoming HTTP payload, queries the global mapping table to resolve the destination cell, and then forwards the data to that specific cell's DynamoDB table.</p>
+
+<p><strong>Why do it:</strong> The cell router is the critical entry point and must remain computationally "thin". Any complex business logic belongs inside the cell, not the router. By keeping the router simple, you minimize its failure modes. Once the router successfully writes the initial data to the target cell's DynamoDB table, the localized event-driven pipeline (Streams -&gt; Producer Lambda -&gt; SNS -&gt; SQS -&gt; Consumer Lambda) takes over autonomously.</p>
+
+<p><strong>Screenshot/Example:</strong> Create a <code>router.tf</code> file.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="c1"># IAM Role granting the Router permission to read the map and write to ALL cells</span>
+<span class="nx">resource</span> <span class="s2">"aws_iam_role"</span> <span class="s2">"router_role"</span> <span class="p">{</span>
+  <span class="nx">name</span> <span class="p">=</span> <span class="s2">"edge-cell-router-role"</span>
+  <span class="nx">assume_role_policy</span> <span class="p">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
+    <span class="nx">Version</span> <span class="p">=</span> <span class="s2">"2012-10-17"</span>
+    <span class="nx">Statement</span> <span class="p">=</span> <span class="p">[{</span> <span class="nx">Action</span> <span class="p">=</span> <span class="s2">"sts:AssumeRole"</span><span class="p">,</span> <span class="nx">Effect</span> <span class="p">=</span> <span class="s2">"Allow"</span><span class="p">,</span> <span class="nx">Principal</span> <span class="p">=</span> <span class="p">{</span> <span class="nx">Service</span> <span class="p">=</span> <span class="s2">"lambda.amazonaws.com"</span> <span class="p">}</span> <span class="p">}]</span>
+  <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_iam_role_policy"</span> <span class="s2">"router_permissions"</span> <span class="p">{</span>
+  <span class="nx">role</span> <span class="p">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">router_role</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">policy</span> <span class="p">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
+    <span class="nx">Version</span> <span class="p">=</span> <span class="s2">"2012-10-17"</span>
+    <span class="nx">Statement</span> <span class="p">=</span> <span class="p">[</span>
+      <span class="p">{</span>
+        <span class="nx">Effect</span>   <span class="p">=</span> <span class="s2">"Allow"</span>
+        <span class="nx">Action</span>   <span class="p">=</span> <span class="p">[</span><span class="s2">"dynamodb:GetItem"</span><span class="p">]</span>
+        <span class="nx">Resource</span> <span class="p">=</span> <span class="nx">aws_dynamodb_table</span><span class="p">.</span><span class="nx">tenant_routing_map</span><span class="p">.</span><span class="nx">arn</span>
+      <span class="p">},</span>
+      <span class="p">{</span>
+        <span class="nx">Effect</span>   <span class="p">=</span> <span class="s2">"Allow"</span>
+        <span class="nx">Action</span>   <span class="p">=</span> <span class="p">[</span><span class="s2">"dynamodb:PutItem"</span><span class="p">]</span>
+        <span class="nx">Resource</span> <span class="p">=</span> <span class="s2">"arn:aws:dynamodb:*:*:table/app-data-cell-*"</span>
+      <span class="p">}</span>
+    <span class="p">]</span>
+  <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"cell_router"</span> <span class="p">{</span>
+  <span class="nx">function_name</span> <span class="p">=</span> <span class="s2">"global-edge-router"</span>
+  <span class="nx">handler</span>       <span class="p">=</span> <span class="s2">"router.handler"</span>
+  <span class="nx">runtime</span>       <span class="p">=</span> <span class="s2">"nodejs20.x"</span>
+  <span class="nx">role</span>          <span class="p">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">router_role</span><span class="p">.</span><span class="nx">arn</span>
+  <span class="c1"># Code package implementation omitted for brevity</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="4-common-troubleshooting">4. Common Troubleshooting
+</h3>
+
+<ol>
+<li> <strong>Cross-Cell Dependencies and Shared State:</strong> The most destructive error in cellular architecture is allowing cells to communicate with each other or share a backend resource (like a single centralized RDS instance or S3 bucket). If Cell Alpha synchronously queries data from Cell Beta, the isolation boundary is broken. Ensure strict domain boundaries; data required by a cell must reside entirely within that cell.</li>
+<li> <strong>Control Plane Bottlenecks (Router Fatigue):</strong> The Cell Router represents a single point of failure. If the Lambda router queries the global mapping table on every single request, you will encounter latency and DynamoDB read throttling. You must implement aggressive in-memory caching within the router's execution context so that tenant-to-cell mappings are resolved instantly locally.</li>
+<li> <strong>Poison Pills and Asynchronous Failures:</strong> If a malformed payload triggers the DynamoDB Stream but crashes the Consumer Lambda, the message will cycle continuously in the SQS queue. Because this is a cellular architecture, this poison pill will only degrade the specific cell it entered. To resolve the localized issue, ensure your cell module includes a Dead Letter Queue (DLQ) to automatically eject failing messages after a set number of retries.</li>
+</ol>
+
+<h3 id="5-conclusion">5. Conclusion
+</h3>
+
+<p>By embedding an event-driven flow within a cellular architecture, you have constructed a system optimized for extreme resilience and strictly controlled blast radiuses. The separation between a global routing control plane and isolated data plane cells ensures that infrastructure or deployment failures remain mathematically contained. Utilizing Terraform modules to stamp out these cells guarantees environmental consistency and facilitates rapid, linear horizontal scaling. As your system matures, consider enhancing the edge routing layer using Amazon Route 53 Application Recovery Controller (ARC) for advanced DNS-level cell shifting and disaster recovery automation.</p>

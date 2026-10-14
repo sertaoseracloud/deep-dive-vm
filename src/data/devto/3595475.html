@@ -1,0 +1,318 @@
+<h3 id="1-introduction">1. Introduction
+</h3>
+
+<p>Welcome to this comprehensive tutorial on building a Serverless Data Lake Foundation using AWS Glue. By the end of this guide, you will be able to design and implement a robust, automated pipeline that extracts raw data from Amazon S3, transforms it into an optimized analytics-ready format, and makes it available for querying via Amazon Athena. This architectural pattern is highly useful because it completely eliminates the need to manage underlying servers, clusters, or infrastructure, allowing you to focus entirely on your core data logic. Furthermore, it automatically scales out alongside your data volume, ensuring long-term cost-effectiveness since you only pay for the exact compute resources consumed during the active transformation process. Whether you are dealing with daily batch processing operations or aggregating vast amounts of historical data, mastering this foundational architectural pattern is a critical and necessary milestone in modern data engineering.</p>
+
+<h3 id="2-prerequisites">2. Prerequisites
+</h3>
+
+<p>Before starting this step-by-step implementation, ensure you have the following tools and foundational knowledge prepared:</p>
+
+<ul>
+<li>
+<strong>AWS Account:</strong> An active Amazon Web Services account with administrative or sufficient permissions to create S3 buckets, configure IAM roles, and deploy AWS Glue jobs.</li>
+<li>
+<strong>Basic Python or PySpark Knowledge:</strong> Familiarity with basic data manipulation concepts, variables, and data structures using Python or Apache Spark.</li>
+<li>
+<strong>Understanding of Cloud Storage:</strong> General knowledge of how object storage systems function, specifically Amazon S3 concepts including buckets and prefixes.</li>
+<li>
+<strong>IAM Fundamentals:</strong> A foundational understanding of Identity and Access Management principles to allow distinct AWS services to communicate securely.</li>
+</ul>
+
+<h3 id="3-stepbystep">3. Step-by-Step
+</h3>
+
+<h4 id="step-1-architecting-the-serverless-data-lake-foundation">Step 1: Architecting the Serverless Data Lake Foundation
+</h4>
+
+<p><strong>What to do:</strong> Review the end-to-end data flow and understand the specific roles of each AWS service before provisioning any cloud resources. The architecture requires Amazon S3 for storage, Amazon EventBridge for orchestration, AWS Glue for processing and metadata management, and Amazon Athena for consumption.</p>
+
+<p><strong>Why do it:</strong> Establishing a clear mental model and a visual blueprint prevents configuration errors later in the process. It ensures that all AWS services are logically connected, network paths are understood, and the separation between storage and compute is maintained throughout the pipeline design.</p>
+
+<p><strong>Example:</strong> <br>
+<a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F5jot29rybvf2vq8dr4uh.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F5jot29rybvf2vq8dr4uh.png" alt="Solution Diagram" loading="lazy" width="800" height="326"></a></p>
+<h4 id="step-2-configuring-amazon-s3-storage-zones">Step 2: Configuring Amazon S3 Storage Zones
+</h4>
+
+<p><strong>What to do:</strong> Access the Amazon S3 console and create a new S3 bucket with a unique name. Inside this bucket, create two distinct folders (prefixes). Name the first folder <code>raw/</code> to represent the landing zone for your incoming, unprocessed data. Name the second folder <code>curated/</code> to represent the destination for your clean, transformed data.</p>
+
+<p><strong>Why do it:</strong> Segregating data by its processing state is a fundamental best practice in data engineering. It prevents accidental overwrites of source data, simplifies access control policies, and optimizes query performance by keeping raw, unoptimized files strictly separated from the analytical query engine.</p>
+
+<p><strong>Example:</strong><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="c1"># 1. Define the core S3 Data Lake Bucket</span>
+<span class="nx">resource</span> <span class="s2">"aws_s3_bucket"</span> <span class="s2">"datalake_production"</span> <span class="p">{</span>
+  <span class="nx">bucket</span> <span class="p">=</span> <span class="s2">"enterprise-datalake-production"</span>
+
+  <span class="nx">tags</span> <span class="p">=</span> <span class="p">{</span>
+    <span class="nx">Environment</span> <span class="p">=</span> <span class="s2">"Production"</span>
+    <span class="nx">Purpose</span>     <span class="p">=</span> <span class="s2">"Serverless Data Lake Foundation"</span>
+    <span class="nx">ManagedBy</span>   <span class="p">=</span> <span class="s2">"Terraform"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># 2. Enable Bucket Versioning (Recommended Data Lake Best Practice)</span>
+<span class="nx">resource</span> <span class="s2">"aws_s3_bucket_versioning"</span> <span class="s2">"datalake_versioning"</span> <span class="p">{</span>
+  <span class="nx">bucket</span> <span class="p">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">datalake_production</span><span class="p">.</span><span class="nx">id</span>
+
+  <span class="nx">versioning_configuration</span> <span class="p">{</span>
+    <span class="nx">status</span> <span class="p">=</span> <span class="s2">"Enabled"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># 3. Create the 'raw' subdirectory (Landing Zone)</span>
+<span class="nx">resource</span> <span class="s2">"aws_s3_object"</span> <span class="s2">"raw_zone"</span> <span class="p">{</span>
+  <span class="nx">bucket</span> <span class="p">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">datalake_production</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">key</span>    <span class="p">=</span> <span class="s2">"raw/"</span>
+
+  <span class="c1"># Defines the object as a directory rather than a standard file</span>
+  <span class="nx">content_type</span> <span class="p">=</span> <span class="s2">"application/x-directory"</span>
+<span class="p">}</span>
+
+<span class="c1"># 4. Create the 'curated' subdirectory (Gold/Analytics Zone)</span>
+<span class="nx">resource</span> <span class="s2">"aws_s3_object"</span> <span class="s2">"curated_zone"</span> <span class="p">{</span>
+  <span class="nx">bucket</span> <span class="p">=</span> <span class="nx">aws_s3_bucket</span><span class="p">.</span><span class="nx">datalake_production</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">key</span>    <span class="p">=</span> <span class="s2">"curated/"</span>
+
+  <span class="nx">content_type</span> <span class="p">=</span> <span class="s2">"application/x-directory"</span>
+<span class="p">}</span>
+
+</code></pre>
+
+</div>
+
+
+
+<h4 id="step-3-setting-up-iam-permissions">Step 3: Setting Up IAM Permissions
+</h4>
+
+<p><strong>What to do:</strong> Navigate to the AWS Identity and Access Management console and create a new Service Role specifically assigned to AWS Glue. Attach the AWS managed policy named <code>AWSGlueServiceRole</code>. Additionally, create and attach an inline policy that explicitly grants <code>s3:GetObject</code> and <code>s3:PutObject</code> permissions targeted strictly at the S3 bucket you created in the previous step.</p>
+
+<p><strong>Why do it:</strong> AWS services operate under the strict principle of least privilege. AWS Glue cannot access your raw data, write processed files to S3, or publish execution logs to Amazon CloudWatch without explicit, cryptographically secure permissions defined by an IAM Role.</p>
+
+<p><strong>Example:</strong><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="c1"># 1. Define the Trust Relationship (Assume Role Policy) for AWS Glue</span>
+<span class="nx">data</span> <span class="s2">"aws_iam_policy_document"</span> <span class="s2">"glue_assume_role_policy"</span> <span class="p">{</span>
+  <span class="nx">statement</span> <span class="p">{</span>
+    <span class="nx">actions</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"sts:AssumeRole"</span><span class="p">]</span>
+
+    <span class="nx">principals</span> <span class="p">{</span>
+      <span class="nx">type</span>        <span class="p">=</span> <span class="s2">"Service"</span>
+      <span class="nx">identifiers</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"glue.amazonaws.com"</span><span class="p">]</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># 2. Create the IAM Role</span>
+<span class="nx">resource</span> <span class="s2">"aws_iam_role"</span> <span class="s2">"glue_execution_role"</span> <span class="p">{</span>
+  <span class="nx">name</span>               <span class="p">=</span> <span class="s2">"GlueDataLakeExecutionRole"</span>
+  <span class="nx">assume_role_policy</span> <span class="p">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_iam_policy_document</span><span class="p">.</span><span class="nx">glue_assume_role_policy</span><span class="p">.</span><span class="nx">json</span>
+
+  <span class="nx">tags</span> <span class="p">=</span> <span class="p">{</span>
+    <span class="nx">Environment</span> <span class="p">=</span> <span class="s2">"Production"</span>
+    <span class="nx">Purpose</span>     <span class="p">=</span> <span class="s2">"Serverless Data Lake Foundation"</span>
+    <span class="nx">ManagedBy</span>   <span class="p">=</span> <span class="s2">"Terraform"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># 3. Attach the core AWS Managed Policy for Glue Service operations</span>
+<span class="c1"># This grants necessary permissions for CloudWatch logging, ENI creation (if VPC bounded), etc.</span>
+<span class="nx">resource</span> <span class="s2">"aws_iam_role_policy_attachment"</span> <span class="s2">"glue_service_managed_policy"</span> <span class="p">{</span>
+  <span class="nx">role</span>       <span class="p">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">glue_execution_role</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">policy_arn</span> <span class="p">=</span> <span class="s2">"arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"</span>
+<span class="p">}</span>
+
+<span class="c1"># 4. Define a restrictive inline policy for the specific Data Lake S3 bucket</span>
+<span class="nx">data</span> <span class="s2">"aws_iam_policy_document"</span> <span class="s2">"s3_datalake_access_policy"</span> <span class="p">{</span>
+  <span class="nx">statement</span> <span class="p">{</span>
+    <span class="nx">sid</span>    <span class="p">=</span> <span class="s2">"AllowDataLakeReadWrite"</span>
+    <span class="nx">effect</span> <span class="p">=</span> <span class="s2">"Allow"</span>
+
+    <span class="nx">actions</span> <span class="p">=</span> <span class="p">[</span>
+      <span class="s2">"s3:GetObject"</span><span class="p">,</span>
+      <span class="s2">"s3:PutObject"</span>
+    <span class="p">]</span>
+
+    <span class="nx">resources</span> <span class="p">=</span> <span class="p">[</span>
+      <span class="c1"># Restrict access exclusively to the specific bucket and defined prefixes</span>
+      <span class="s2">"arn:aws:s3:::enterprise-datalake-production/raw/*"</span><span class="p">,</span>
+      <span class="s2">"arn:aws:s3:::enterprise-datalake-production/curated/*"</span>
+    <span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># 5. Create and attach the inline S3 policy to the IAM Role</span>
+<span class="nx">resource</span> <span class="s2">"aws_iam_role_policy"</span> <span class="s2">"s3_datalake_inline_policy"</span> <span class="p">{</span>
+  <span class="nx">name</span>   <span class="p">=</span> <span class="s2">"RestrictedS3DataLakeAccess"</span>
+  <span class="nx">role</span>   <span class="p">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">glue_execution_role</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">policy</span> <span class="p">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_iam_policy_document</span><span class="p">.</span><span class="nx">s3_datalake_access_policy</span><span class="p">.</span><span class="nx">json</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h4 id="step-4-orchestrating-the-pipeline-execution-flow">Step 4: Orchestrating the Pipeline Execution Flow
+</h4>
+
+<p><strong>What to do:</strong> Define the exact sequence of automated events that will trigger and execute your ETL process. Configure an Amazon EventBridge rule that listens for an <code>ObjectCreated</code> event in your S3 <code>raw/</code> prefix. Set the target of this rule to invoke your AWS Glue Job automatically whenever a new file finishes uploading.</p>
+
+<p><strong>Why do it:</strong> Automation entirely removes the need for manual intervention and scheduling guesswork. By structurally mapping the sequence, you ensure that compute resources are only utilized when new data is actually present, maximizing efficiency and minimizing idle costs.</p>
+
+<p><strong>Example:</strong> </p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F4ofkeynmdsjdzn9kxqes.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F4ofkeynmdsjdzn9kxqes.png" alt="Sequence Diagram" loading="lazy" width="779" height="310"></a></p>
+
+<h4 id="step-5-authoring-the-aws-glue-transformation-job">Step 5: Authoring the AWS Glue Transformation Job
+</h4>
+
+<p><strong>What to do:</strong> Open the AWS Glue Studio visual editor and create a new Spark ETL job. Configure the source node to read from your S3 <code>raw/</code> path. Add a transformation node to clean the data, such as dropping null values, mapping column names to standard conventions, and casting data types correctly. Finally, configure the target node to write the data back to your S3 <code>curated/</code> path, explicitly selecting Parquet as the output format.</p>
+
+<p><strong>Why do it:</strong> The transformation phase is where raw information becomes valuable data. Writing the output in Apache Parquet format is critical. Parquet is a highly optimized, columnar storage format that compresses data heavily, dramatically reduces long-term S3 storage costs, and exponentially speeds up subsequent analytical queries by allowing engines to skip irrelevant columns.</p>
+
+<p><strong>Example (Terraform):</strong><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">resource</span> <span class="s2">"aws_glue_job"</span> <span class="s2">"datalake_curation_job"</span> <span class="p">{</span>
+  <span class="nx">name</span>     <span class="p">=</span> <span class="s2">"raw-to-curated-parquet-job"</span>
+  <span class="nx">role_arn</span> <span class="p">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">glue_execution_role</span><span class="p">.</span><span class="nx">arn</span> <span class="c1"># From the previous IAM step</span>
+
+  <span class="c1"># Defines the execution engine and script location</span>
+  <span class="nx">command</span> <span class="p">{</span>
+    <span class="nx">name</span>            <span class="p">=</span> <span class="s2">"glueetl"</span>
+    <span class="nx">script_location</span> <span class="p">=</span> <span class="s2">"s3://enterprise-datalake-production/scripts/etl_job.py"</span>
+    <span class="nx">python_version</span>  <span class="p">=</span> <span class="s2">"3"</span>
+  <span class="p">}</span>
+
+  <span class="nx">default_arguments</span> <span class="p">=</span> <span class="p">{</span>
+    <span class="s2">"--job-language"</span>                     <span class="p">=</span> <span class="s2">"python"</span>
+    <span class="s2">"--enable-metrics"</span>                   <span class="p">=</span> <span class="s2">"true"</span>
+    <span class="s2">"--enable-continuous-cloudwatch-log"</span> <span class="p">=</span> <span class="s2">"true"</span>
+  <span class="p">}</span>
+
+  <span class="c1"># Cost and performance optimization</span>
+  <span class="nx">glue_version</span>      <span class="p">=</span> <span class="s2">"4.0"</span>
+  <span class="nx">worker_type</span>       <span class="p">=</span> <span class="s2">"G.1X"</span>
+  <span class="nx">number_of_workers</span> <span class="p">=</span> <span class="mi">2</span>
+
+  <span class="nx">tags</span> <span class="p">=</span> <span class="p">{</span>
+    <span class="nx">Environment</span> <span class="p">=</span> <span class="s2">"Production"</span>
+    <span class="nx">Purpose</span>     <span class="p">=</span> <span class="s2">"Serverless Data Lake Foundation"</span>
+    <span class="nx">ManagedBy</span>   <span class="p">=</span> <span class="s2">"Terraform"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p><strong>Example (Glue Job):</strong><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="kn">import</span> <span class="n">sys</span>
+<span class="kn">from</span> <span class="n">awsglue.transforms</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="n">awsglue.utils</span> <span class="kn">import</span> <span class="n">getResolvedOptions</span>
+<span class="kn">from</span> <span class="n">pyspark.context</span> <span class="kn">import</span> <span class="n">SparkContext</span>
+<span class="kn">from</span> <span class="n">awsglue.context</span> <span class="kn">import</span> <span class="n">GlueContext</span>
+<span class="kn">from</span> <span class="n">awsglue.job</span> <span class="kn">import</span> <span class="n">Job</span>
+
+<span class="n">sc</span> <span class="o">=</span> <span class="n">SparkContext</span><span class="p">.</span><span class="nf">getOrCreate</span><span class="p">()</span>
+<span class="n">glueContext</span> <span class="o">=</span> <span class="nc">GlueContext</span><span class="p">(</span><span class="n">sc</span><span class="p">)</span>
+<span class="n">spark</span> <span class="o">=</span> <span class="n">glueContext</span><span class="p">.</span><span class="n">spark_session</span>
+<span class="n">job</span> <span class="o">=</span> <span class="nc">Job</span><span class="p">(</span><span class="n">glueContext</span><span class="p">)</span>
+
+<span class="c1"># ==============================================================================
+# Node 1: S3 Source (Reads raw CSV data)
+# ==============================================================================
+</span><span class="n">S3Source_node1</span> <span class="o">=</span> <span class="n">glueContext</span><span class="p">.</span><span class="n">create_dynamic_frame</span><span class="p">.</span><span class="nf">from_options</span><span class="p">(</span>
+    <span class="n">format_options</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">quoteChar</span><span class="sh">"</span><span class="p">:</span> <span class="sh">'"'</span><span class="p">,</span> <span class="sh">"</span><span class="s">withHeader</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span> <span class="sh">"</span><span class="s">separator</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">,</span><span class="sh">"</span><span class="p">},</span>
+    <span class="n">connection_type</span><span class="o">=</span><span class="sh">"</span><span class="s">s3</span><span class="sh">"</span><span class="p">,</span>
+    <span class="nb">format</span><span class="o">=</span><span class="sh">"</span><span class="s">csv</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">connection_options</span><span class="o">=</span><span class="p">{</span>
+        <span class="sh">"</span><span class="s">paths</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">s3://enterprise-datalake-production/raw/</span><span class="sh">"</span><span class="p">],</span> 
+        <span class="sh">"</span><span class="s">recurse</span><span class="sh">"</span><span class="p">:</span> <span class="bp">True</span>
+    <span class="p">},</span>
+    <span class="n">transformation_ctx</span><span class="o">=</span><span class="sh">"</span><span class="s">S3Source_node1</span><span class="sh">"</span>
+<span class="p">)</span>
+
+<span class="c1"># ==============================================================================
+# Node 2: Transform - ApplyMapping (Cleans and maps data types)
+# ==============================================================================
+</span><span class="n">ApplyMapping_node2</span> <span class="o">=</span> <span class="n">ApplyMapping</span><span class="p">.</span><span class="nf">apply</span><span class="p">(</span>
+    <span class="n">frame</span><span class="o">=</span><span class="n">S3Source_node1</span><span class="p">,</span>
+    <span class="n">mappings</span><span class="o">=</span><span class="p">[</span>
+        <span class="p">(</span><span class="sh">"</span><span class="s">id</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">string</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">user_id</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">string</span><span class="sh">"</span><span class="p">),</span>
+        <span class="p">(</span><span class="sh">"</span><span class="s">name</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">string</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">full_name</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">string</span><span class="sh">"</span><span class="p">),</span>
+        <span class="p">(</span><span class="sh">"</span><span class="s">timestamp</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">string</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">event_time</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">timestamp</span><span class="sh">"</span><span class="p">)</span>
+    <span class="p">],</span>
+    <span class="n">transformation_ctx</span><span class="o">=</span><span class="sh">"</span><span class="s">ApplyMapping_node2</span><span class="sh">"</span>
+<span class="p">)</span>
+
+<span class="c1"># ==============================================================================
+# Node 3: S3 Target (Writes optimized Parquet data)
+# ==============================================================================
+</span><span class="n">S3Target_node3</span> <span class="o">=</span> <span class="n">glueContext</span><span class="p">.</span><span class="n">write_dynamic_frame</span><span class="p">.</span><span class="nf">from_options</span><span class="p">(</span>
+    <span class="n">frame</span><span class="o">=</span><span class="n">ApplyMapping_node2</span><span class="p">,</span>
+    <span class="n">connection_type</span><span class="o">=</span><span class="sh">"</span><span class="s">s3</span><span class="sh">"</span><span class="p">,</span>
+    <span class="nb">format</span><span class="o">=</span><span class="sh">"</span><span class="s">glueparquet</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">connection_options</span><span class="o">=</span><span class="p">{</span>
+        <span class="sh">"</span><span class="s">path</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">s3://enterprise-datalake-production/curated/</span><span class="sh">"</span><span class="p">,</span> 
+        <span class="sh">"</span><span class="s">partitionKeys</span><span class="sh">"</span><span class="p">:</span> <span class="p">[]</span>
+    <span class="p">},</span>
+    <span class="n">format_options</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">compression</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">snappy</span><span class="sh">"</span><span class="p">},</span>
+    <span class="n">transformation_ctx</span><span class="o">=</span><span class="sh">"</span><span class="s">S3Target_node3</span><span class="sh">"</span>
+<span class="p">)</span>
+
+<span class="n">job</span><span class="p">.</span><span class="nf">commit</span><span class="p">()</span>
+</code></pre>
+
+</div>
+
+
+
+<p><strong>Example (Glue Studio):</strong> </p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fndzf8ajjlbo5jmp62ee1.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fndzf8ajjlbo5jmp62ee1.png" alt="Glue Nodes" loading="lazy" width="730" height="138"></a></p>
+
+<h4 id="step-6-cataloging-the-data-with-aws-glue-crawlers">Step 6: Cataloging the Data with AWS Glue Crawlers
+</h4>
+
+<p><strong>What to do:</strong> Navigate to the Crawlers section within the AWS Glue console. Create a new crawler and configure its target repository to point directly at your <code>curated/</code> S3 folder. Assign the IAM role created in Step 3 to the crawler. Set the crawler to run on a daily schedule or to be triggered immediately after the AWS Glue transformation job completes successfully.</p>
+
+<p><strong>Why do it:</strong> Data sitting in S3 is useless to business analysts without structural context. The Crawler automatically inspects your Parquet files, infers the underlying schema including column names and data types, and registers this structural definition as a logical table within the centralized AWS Glue Data Catalog.</p>
+
+<h4 id="step-7-querying-the-transformed-data-with-amazon-athena">Step 7: Querying the Transformed Data with Amazon Athena
+</h4>
+
+<p><strong>What to do:</strong> Navigate to the Amazon Athena console. Ensure you have set up an Athena query result location in a separate S3 bucket. Select the database created by your Glue Crawler from the dropdown menu. Write and execute standard SQL queries against your newly cataloged table to analyze the data.</p>
+
+<p><strong>Why do it:</strong> This final step validates the structural integrity of your entire pipeline. Athena uses the metadata schema stored in the Data Catalog to seamlessly execute SQL queries directly against the compressed Parquet files residing in S3. This proves that your serverless architecture is fully operational and ready for business intelligence workloads.</p>
+
+<h3 id="4-common-troubleshooting">4. Common Troubleshooting
+</h3>
+
+<p><strong>Problem 1: Out of Memory Errors in Glue Jobs</strong><br>
+This issue frequently occurs due to data skew, where one worker node attempts to process significantly more data than others, or when attempting to process thousands of excessively small files simultaneously. <br>
+<strong>Solution:</strong> Resolve this by navigating to the Glue Job details and increasing the worker type from the standard configuration to <code>G.1X</code> or <code>G.2X</code>, providing more memory per executor. Alternatively, utilize Spark's <code>.repartition()</code> command within your script to evenly distribute the workload across the entire serverless cluster before executing wide transformations.</p>
+
+<p><strong>Problem 2: Glue Crawler Creates Multiple Unwanted Tables</strong><br>
+If your curated S3 data utilizes a deeply nested, highly partitioned, or logically inconsistent folder structure, the AWS Glue Crawler might misinterpret the subfolders as entirely separate tables instead of partitions of a single dataset.<br>
+<strong>Solution:</strong> To rectify this, edit the Crawler configuration settings. Locate the section labeled "Grouping behavior for S3 data" and explicitly check the option to "Create a single schema for each S3 path". This forces the crawler to treat all files under the root prefix as part of the same table.</p>
+
+<p><strong>Problem 3: Amazon Athena Queries Return Zero Records</strong><br>
+If the table successfully appears in the Data Catalog but standard <code>SELECT</code> queries return absolutely empty results, the S3 data is highly likely partitioned, but the Data Catalog remains unaware of the new partition directories.<br>
+<strong>Solution:</strong> Execute the <code>MSCK REPAIR TABLE your_table_name;</code> command directly within the Athena query editor. This command scans the S3 path, loads the missing partition metadata into the Data Catalog, and immediately makes the data queryable.</p>
+
+<h3 id="5-conclusion">5. Conclusion
+</h3>
+
+<p>Congratulations on successfully architecting and understanding the Serverless Data Lake Foundation. You have learned how to decouple storage from compute layers, automate data transformations using event-driven principles, and seamlessly bridge raw information into a highly optimized, queryable state. By mastering these core components, you now possess the foundational engineering skills required to build scalable, enterprise-grade data platforms. As a logical next step, consider exploring AWS Step Functions to orchestrate more complex, multi-job dependencies, or experiment with Apache Iceberg within your AWS Glue jobs to introduce robust transactional capabilities and time-travel querying to your data lake.</p>

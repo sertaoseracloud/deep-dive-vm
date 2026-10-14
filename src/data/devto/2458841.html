@@ -1,0 +1,486 @@
+<p>Na primeira parte dessa série, a gente construiu uma Function App que recebe uma imagem por HTTP e salva no Azure Blob Storage de forma segura, usando identidade gerenciada. Na segunda parte, registramos no banco de dados (Azure Postgres SQL) os metadados dessas imagens, seguindo uma arquitetura em camadas com boas práticas de SOLID.</p>
+
+<p>Agora vamos dar o próximo passo: processar de verdade o OCR das imagens pendentes usando uma Azure Function com <strong>Timer Trigger</strong>. <strong>Spoiler:</strong> vamos usar Azure Cognitive Services para extrair o texto, atualizar o banco com o resultado (e marcar se o conteúdo é uma receita médica), tudo isso aplicado com um modelo DDD leve e foco em separação de responsabilidades. Bora lá?</p>
+
+
+<hr>
+
+<h2 id="por-que-usar-um-timer-trigger-no-processamento-ocr">⏰ Por que usar um Timer Trigger no processamento OCR?
+</h2>
+
+<p>Você deve estar se perguntando: por que não processar o OCR assim que a imagem chega? Poderíamos acoplar o OCR no upload (ou usar um Blob Trigger para cada imagem), mas usar um <strong>Timer Trigger</strong> traz benefícios importantes:</p>
+
+<ul>
+<li>
+<strong>Processamento assíncrono:</strong> O usuário não precisa esperar o OCR completar no momento do upload. A imagem é enviada e armazenada rapidamente como "pendente", e o processamento pesado acontece em segundo plano.</li>
+<li>
+<strong>Resiliência e retries:</strong> Com um timer rodando periodicamente, se algum processamento falhar (por exemplo, serviço OCR indisponível), a próxima execução pode tentar de novo, ou podemos lidar com falhas marcando status de erro sem travar a experiência do usuário.</li>
+<li>
+<strong>Lote e escalonamento:</strong> Podemos processar várias imagens em uma única execução do timer. Em momentos de pico, as Functions escalam e processam pendentes no próximo intervalo, dando flexibilidade para ajustar frequência conforme volume.</li>
+<li>
+<strong>Separação de responsabilidades:</strong> Mantemos a Function HTTP focada apenas em receber e armazenar a imagem, enquanto a lógica de OCR fica isolada em outra Function. Isso deixa cada função menor, mais simples de entender e testar.</li>
+</ul>
+
+<p>No final o Timer Trigger atua como um <strong>cron job</strong> na nossa arquitetura serverless, acionando periodicamente o código que verifica imagens pendentes e realiza o OCR. Essa abordagem melhora a experiência (upload rápido) e a robustez do sistema.</p>
+
+<h2 id="vis%C3%A3o-geral-do-fluxo-de-processamento-ocr">🔄 Visão geral do fluxo de processamento OCR
+</h2>
+
+<p>Antes de meter a mão no código, vamos entender o fluxo completo agora com o Timer Trigger no pedaço. Reaproveitando a arquitetura dos artigos anteriores, o processo fica assim:</p>
+
+<ol>
+<li>
+<strong>Upload &amp; Cadastro:</strong> A imagem é enviada via HTTP (Function de upload), validada e armazenada no Blob Storage. No mesmo passo, inserimos um registro no banco de dados <code>OcrImages</code> com status "pending" (pendente) e outras infos (nome do arquivo, URL, etc.).</li>
+<li>
+<strong>Timer dispara:</strong> Periodicamente (por exemplo, a cada 5 minutos), a Function Timer Trigger é executada.</li>
+<li>
+<strong>Busca pendentes:</strong> A Function de timer consulta no banco quais imagens estão com status "pending".</li>
+<li>
+<strong>Processa cada imagem:</strong> Para cada imagem pendente, o código busca o arquivo no Blob Storage, envia para o serviço de OCR do Azure Cognitive Services e obtém o texto extraído.</li>
+<li>
+<strong>Analisa resultado:</strong> Com o texto em mãos, aplicamos uma regra simples para identificar se aquele texto parece ser de uma receita médica (por exemplo, procurando palavras-chave específicas).</li>
+<li>
+<strong>Atualiza banco:</strong> Marcamos o registro da imagem no banco como "processed" (processado), armazenando o texto extraído e indicando se é uma receita (<code>IsPrescription = true/false</code>). Em caso de falha no OCR, podemos marcar o status como "error" para evitar retries infinitos ou analisar depois.</li>
+<li>
+<strong>(Opcional) Próximos passos:</strong> Com os dados processados, poderíamos ter outra Function para expor o resultado via API ou notificar quem enviou a imagem. (Isso fica como gancho para possíveis melhorias futuras!)</li>
+</ol>
+
+<p>Esse fluxo garante que nenhuma imagem fique esquecida: qualquer arquivo pendente será eventualmente processado pelo OCR na próxima execução do timer. Agora, vamos ver como implementar isso passo a passo em código, mantendo nosso projeto organizado.</p>
+
+<h2 id="atualiza%C3%A7%C3%A3o-da-arquitetura-do-projeto">🏗️ Atualização da arquitetura do projeto
+</h2>
+
+<p>Vamos adicionar alguns componentes novos à estrutura de pastas para suportar o processamento OCR e o Timer Trigger, seguindo a mesma pegada de organização limpa (DDD leve) dos artigos anteriores. Nossa arquitetura de projeto agora fica assim:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>/ocr-function-app
+├── application/
+│   ├── UploadImageService.ts
+│   └── ProcessImageService.ts         # Novo service de aplicação para processar OCR
+├── domain/
+│   ├── IImageStorage.ts
+│   ├── IImageRepository.ts
+│   └── IImageAnalyzer.ts             # Nova interface de domínio para serviço de OCR
+├── infrastructure/
+│   ├── AzureBlobStorage.ts
+│   ├── OcrImageRepository.ts
+│   └── AzureOcrService.ts            # Implementação do OCR usando Azure Cognitive Services
+├── validations/
+│   └── ContentTypeValidator.ts
+├── HttpAddToBlob/                    # Function HTTP (upload da imagem)
+│   ├── index.ts
+│   └── function.json
+├── TimerProcessOcr/                  # Function Timer (processamento OCR)
+│   ├── index.ts
+│   └── function.json
+├── host.json
+├── local.settings.json
+└── package.json
+</code></pre>
+
+</div>
+
+
+
+<p><strong>O que há de novo?</strong> Introduzimos a interface <code>IImageAnalyzer</code> e sua implementação <code>AzureOcrService</code> para encapsular a chamada ao serviço de OCR. Criamos também um <code>ProcessImageService</code> na camada de aplicação, que orquestra tudo: chama o repositório para pegar as imagens pendentes, usa o storage para obter o arquivo e o analyzer para extrair texto, então atualiza o repositório com o resultado.</p>
+
+<blockquote>
+<p>🎨 <em>Dica:</em> Atualize também o esquema da tabela no banco de dados para armazenar o resultado do OCR. Podemos adicionar uma coluna <code>TextContent</code> em <code>OcrImages</code> para guardar o texto extraído (NVARCHAR(MAX), por exemplo). Assim, além de <code>Status</code> e <code>IsPrescription</code>, teremos onde salvar o texto da receita.</p>
+</blockquote>
+
+<p>No arquivo <strong>function.json</strong> da nossa Timer Function, definimos um agendamento. Por exemplo, para rodar a cada 5 minutos:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"schedule"</span><span class="p">:</span><span class="w"> </span><span class="s2">"0 */5 * * * *"</span><span class="p">,</span><span class="w">  </span><span class="err">//</span><span class="w"> </span><span class="err">NCRONTAB</span><span class="w"> </span><span class="err">expression:</span><span class="w"> </span><span class="err">cada</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="err">minutos</span><span class="w">
+  </span><span class="nl">"useMonitor"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"myTimer"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"timerTrigger"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"direction"</span><span class="p">:</span><span class="w"> </span><span class="s2">"in"</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre>
+
+</div>
+
+
+
+<p>Com a casa arrumada, vamos implementar as peças novas começando pelo “contrato” de OCR.</p>
+
+<h2 id="definindo-o-contrato-de-an%C3%A1lise-de-imagem-ocr">📄 Definindo o contrato de análise de imagem (OCR)
+</h2>
+
+<p>Seguindo a abordagem de dependências invertidas, definimos uma interface de domínio para a análise de imagem. Essa interface abstrai o que o serviço de OCR precisa fazer, sem amarrar nosso código a um provider específico. No nosso caso, é basicamente “receber uma imagem e devolver o texto e flag de receita”.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">export</span> <span class="kr">interface</span> <span class="nx">IImageAnalyzer</span> <span class="p">{</span>
+  <span class="nf">analyze</span><span class="p">(</span><span class="nx">imageBuffer</span><span class="p">:</span> <span class="nx">Buffer</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span> <span class="na">text</span><span class="p">:</span> <span class="kr">string</span><span class="p">;</span> <span class="nl">isPrescription</span><span class="p">:</span> <span class="nx">boolean</span> <span class="p">}</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p><strong>O que essa interface diz?</strong> Que qualquer implementação de <code>IImageAnalyzer</code> deve ter um método <code>analyze</code> que recebe os bytes de uma imagem (<code>Buffer</code>) e retorna um objeto com o texto extraído (<code>text</code>) e um booleano indicando se é uma receita médica (<code>isPrescription</code>).</p>
+
+<p>Com isso, podemos implementar essa interface usando o serviço de OCR da Azure. Isso nos dá flexibilidade: se amanhã quisermos trocar o Azure Cognitive Services por outro OCR, é só criar outra classe que implemente <code>IImageAnalyzer</code> e tá feito, sem mexer no restante do código.</p>
+
+<h2 id="implementando-o-ocr-com-azure-cognitive-services">⚙️ Implementando o OCR com Azure Cognitive Services
+</h2>
+
+<p>Agora, vamos ao código que realmente faz o OCR usando a Azure. Para isso, vamos usar o Azure Cognitive Services Computer Vision (que oferece OCR tanto para texto impresso quanto manuscrito). Precisaremos de <strong>endpoint</strong> e <strong>chave</strong> de um recurso de Computer Vision (ou do serviço cognitivo específico de OCR). Armazene esses valores em variáveis de ambiente, por exemplo: <code>COGNITIVE_ENDPOINT</code> e <code>COGNITIVE_KEY</code> – nada de hardcode de segredos no código!</p>
+
+<p>Vamos à implementação da classe <code>AzureOcrService</code> dentro de <code>infrastructure/</code>:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">IImageAnalyzer</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">../domain/IImageAnalyzer</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">ComputerVisionClient</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@azure/cognitiveservices-computervision</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">ApiKeyCredentials</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@azure/ms-rest-js</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="kd">class</span> <span class="nc">AzureOcrService</span> <span class="k">implements</span> <span class="nx">IImageAnalyzer</span> <span class="p">{</span>
+  <span class="k">private</span> <span class="k">readonly</span> <span class="nx">client</span><span class="p">:</span> <span class="nx">ComputerVisionClient</span><span class="p">;</span>
+
+  <span class="nf">constructor</span><span class="p">(</span><span class="nx">endpointUrl</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">apiKey</span><span class="p">:</span> <span class="kr">string</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// Autentica no serviço de Computer Vision usando a chave de API</span>
+    <span class="kd">const</span> <span class="nx">creds</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ApiKeyCredentials</span><span class="p">({</span> <span class="na">inHeader</span><span class="p">:</span> <span class="p">{</span> <span class="dl">"</span><span class="s2">Ocp-Apim-Subscription-Key</span><span class="dl">"</span><span class="p">:</span> <span class="nx">apiKey</span> <span class="p">}</span> <span class="p">});</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">client</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ComputerVisionClient</span><span class="p">(</span><span class="nx">creds</span><span class="p">,</span> <span class="nx">endpointUrl</span><span class="p">);</span>
+  <span class="p">}</span>
+
+  <span class="k">async</span> <span class="nf">analyze</span><span class="p">(</span><span class="nx">imageBuffer</span><span class="p">:</span> <span class="nx">Buffer</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span> <span class="na">text</span><span class="p">:</span> <span class="kr">string</span><span class="p">;</span> <span class="nl">isPrescription</span><span class="p">:</span> <span class="nx">boolean</span> <span class="p">}</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="c1">// Chama a API de OCR da Azure passando a imagem (bytes) para reconhecimento</span>
+    <span class="kd">const</span> <span class="nx">ocrResult</span> <span class="o">=</span> <span class="k">await</span> <span class="k">this</span><span class="p">.</span><span class="nx">client</span><span class="p">.</span><span class="nf">recognizePrintedTextInStream</span><span class="p">(</span><span class="kc">true</span><span class="p">,</span> <span class="nx">imageBuffer</span><span class="p">);</span>
+
+    <span class="c1">// Concatena todas as palavras detectadas em uma única string</span>
+    <span class="kd">let</span> <span class="nx">fullText</span> <span class="o">=</span> <span class="dl">""</span><span class="p">;</span>
+    <span class="k">for </span><span class="p">(</span><span class="kd">const</span> <span class="nx">region</span> <span class="k">of</span> <span class="nx">ocrResult</span><span class="p">.</span><span class="nx">regions</span> <span class="o">||</span> <span class="p">[])</span> <span class="p">{</span>
+      <span class="k">for </span><span class="p">(</span><span class="kd">const</span> <span class="nx">line</span> <span class="k">of</span> <span class="nx">region</span><span class="p">.</span><span class="nx">lines</span> <span class="o">||</span> <span class="p">[])</span> <span class="p">{</span>
+        <span class="kd">const</span> <span class="nx">lineText</span> <span class="o">=</span> <span class="nx">line</span><span class="p">.</span><span class="nx">words</span><span class="p">.</span><span class="nf">map</span><span class="p">(</span><span class="nx">w</span> <span class="o">=&gt;</span> <span class="nx">w</span><span class="p">.</span><span class="nx">text</span><span class="p">).</span><span class="nf">join</span><span class="p">(</span><span class="dl">"</span><span class="s2"> </span><span class="dl">"</span><span class="p">);</span>
+        <span class="nx">fullText</span> <span class="o">+=</span> <span class="nx">lineText</span> <span class="o">+</span> <span class="dl">"</span><span class="se">\n</span><span class="dl">"</span><span class="p">;</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="nx">fullText</span> <span class="o">=</span> <span class="nx">fullText</span><span class="p">.</span><span class="nf">trim</span><span class="p">();</span>
+
+    <span class="c1">// Aplica uma lógica simples para identificar se o texto parece uma receita médica</span>
+    <span class="c1">// (por exemplo, contém palavras comuns em receitas, como "mg", "ml", ou "Receita")</span>
+    <span class="kd">const</span> <span class="nx">prescriptionRegex</span> <span class="o">=</span> <span class="sr">/receita|medicamento|mg|ml|dose/i</span><span class="p">;</span>
+    <span class="kd">const</span> <span class="nx">isPrescription</span> <span class="o">=</span> <span class="nx">prescriptionRegex</span><span class="p">.</span><span class="nf">test</span><span class="p">(</span><span class="nx">fullText</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="p">{</span> <span class="na">text</span><span class="p">:</span> <span class="nx">fullText</span><span class="p">,</span> <span class="nx">isPrescription</span> <span class="p">};</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Alguns pontos sobre o código acima:</p>
+
+<ul>
+<li>Usamos o cliente da Azure Cognitive Services para Computer Vision. Criamos o client com as credenciais da API (usando a chave de subscrição). Poderíamos usar DefaultAzureCredential aqui se o serviço Cognitivo suportasse AAD, mas geralmente o caminho rápido é a chave mesmo (mantendo ela segura em configs ou Azure Key Vault).</li>
+<li>O método <code>recognizePrintedTextInStream</code> tenta extrair texto da imagem. Passamos <code>true</code> como primeiro parâmetro para indicar que pode haver texto manuscrito (handwritten) também. Esse método retorna uma estrutura com regiões, linhas e palavras detectadas.</li>
+<li>Iteramos pelo resultado para montar uma string completa <code>fullText</code> com todo o texto encontrado. Separamos linhas com <code>\n</code> só para manter a formatação aproximada.</li>
+<li>Para identificar se é <strong>receita médica</strong>, fazemos uma verificação bem básica usando regex. Procuramos palavras-chave típicas. <strong>Claro</strong>, isso é uma simplificação: em produção, talvez envolveria um modelo ML ou validação mais elaborada. Mas para fins didáticos, essa heurística serve.</li>
+<li>Retornamos o texto extraído e o booleano <code>isPrescription</code> dentro de um objeto, conforme definido na interface.</li>
+</ul>
+
+<p>Com a parte de OCR pronta, vamos integrar isso no restante do sistema – precisamos buscar as imagens pendentes e atualizar o banco com esse resultado.</p>
+
+<h2 id="atualizando-o-reposit%C3%B3rio-para-incluir-resultados-do-ocr">🔗 Atualizando o repositório para incluir resultados do OCR
+</h2>
+
+<p>Nossa interface <code>IImageRepository</code> até então tinha apenas o método <code>save</code> (para inserir um novo registro no upload). Vamos estendê-la para suportar duas operações essenciais para o processamento OCR: <strong>buscar imagens pendentes</strong> e <strong>atualizar o registro após processamento</strong>.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">export</span> <span class="kr">interface</span> <span class="nx">IImageRepository</span> <span class="p">{</span>
+  <span class="nf">save</span><span class="p">(</span><span class="nx">fileName</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">url</span><span class="p">:</span> <span class="kr">string</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span><span class="p">;</span>
+  <span class="nf">findPending</span><span class="p">():</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span> <span class="na">id</span><span class="p">:</span> <span class="kr">number</span><span class="p">;</span> <span class="nl">fileName</span><span class="p">:</span> <span class="kr">string</span><span class="p">;</span> <span class="nl">url</span><span class="p">:</span> <span class="kr">string</span> <span class="p">}[]</span><span class="o">&gt;</span><span class="p">;</span>
+  <span class="nf">updateResult</span><span class="p">(</span><span class="nx">id</span><span class="p">:</span> <span class="kr">number</span><span class="p">,</span> <span class="nx">text</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">isPrescription</span><span class="p">:</span> <span class="nx">boolean</span><span class="p">,</span> <span class="nx">status</span><span class="p">:</span> <span class="kr">string</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Implementando esses novos métodos na nossa classe <code>OcrImageRepository</code> (que usa Postgres via <code>pg</code>):<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">Pool</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">pg</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">IImageRepository</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">../domain/IImageRepository</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="kd">class</span> <span class="nc">OcrImageRepository</span> <span class="k">implements</span> <span class="nx">IImageRepository</span> <span class="p">{</span>
+  <span class="nf">constructor</span><span class="p">(</span><span class="k">private</span> <span class="k">readonly</span> <span class="nx">pool</span><span class="p">:</span> <span class="nx">Pool</span><span class="p">)</span> <span class="p">{}</span>
+
+  <span class="k">async</span> <span class="nf">save</span><span class="p">(</span><span class="nx">fileName</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">url</span><span class="p">:</span> <span class="kr">string</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="c1">// (mesmo código do artigo anterior para inserir nova imagem)</span>
+    <span class="k">await</span> <span class="k">this</span><span class="p">.</span><span class="nx">pool</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span>
+      <span class="s2">`INSERT INTO OcrImages (FileName, Url) VALUES ($1, $2)`</span><span class="p">,</span>
+      <span class="p">[</span><span class="nx">fileName</span><span class="p">,</span> <span class="nx">url</span><span class="p">]</span>
+    <span class="p">);</span>
+  <span class="p">}</span>
+
+  <span class="k">async</span> <span class="nf">findPending</span><span class="p">():</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="p">{</span> <span class="na">id</span><span class="p">:</span> <span class="kr">number</span><span class="p">;</span> <span class="nl">fileName</span><span class="p">:</span> <span class="kr">string</span><span class="p">;</span> <span class="nl">url</span><span class="p">:</span> <span class="kr">string</span> <span class="p">}[]</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">result</span> <span class="o">=</span> <span class="k">await</span> <span class="k">this</span><span class="p">.</span><span class="nx">pool</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span><span class="s2">`SELECT Id, FileName, Url FROM OcrImages WHERE Status = 'pending'`</span><span class="p">);</span>
+    <span class="k">return</span> <span class="nx">result</span><span class="p">.</span><span class="nx">rows</span><span class="p">.</span><span class="nf">map</span><span class="p">(</span><span class="nx">row</span> <span class="o">=&gt;</span> <span class="p">({</span>
+      <span class="na">id</span><span class="p">:</span> <span class="nx">row</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span>
+      <span class="na">fileName</span><span class="p">:</span> <span class="nx">row</span><span class="p">.</span><span class="nx">filename</span><span class="p">,</span>
+      <span class="na">url</span><span class="p">:</span> <span class="nx">row</span><span class="p">.</span><span class="nx">url</span>
+    <span class="p">}));</span>
+  <span class="p">}</span>
+
+  <span class="k">async</span> <span class="nf">updateResult</span><span class="p">(</span><span class="nx">id</span><span class="p">:</span> <span class="kr">number</span><span class="p">,</span> <span class="nx">text</span><span class="p">:</span> <span class="kr">string</span><span class="p">,</span> <span class="nx">isPrescription</span><span class="p">:</span> <span class="nx">boolean</span><span class="p">,</span> <span class="nx">status</span><span class="p">:</span> <span class="kr">string</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="k">await</span> <span class="k">this</span><span class="p">.</span><span class="nx">pool</span><span class="p">.</span><span class="nf">query</span><span class="p">(</span>
+      <span class="s2">`UPDATE OcrImages 
+       SET TextContent = $1, IsPrescription = $2, Status = $3 
+       WHERE Id = $4`</span><span class="p">,</span>
+      <span class="p">[</span><span class="nx">text</span><span class="p">,</span> <span class="nx">isPrescription</span><span class="p">,</span> <span class="nx">status</span><span class="p">,</span> <span class="nx">id</span><span class="p">]</span>
+    <span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Notou como mantemos as responsabilidades bem separadas? O repositório cuida <strong>só</strong> da comunicação com o banco. Ele sabe como inserir, buscar e atualizar registros, mas não sabe nada sobre HTTP ou OCR em si. Assim, se amanhã mudarmos de Postgres para CosmosDB, por exemplo, só essa classe precisaria mudar (ou criaríamos outra implementando a interface).</p>
+
+<blockquote>
+<p><strong>Boas práticas aplicadas:</strong> Até aqui já reforçamos alguns princípios:</p>
+
+<ul>
+<li>
+<em>Single Responsibility:</em> cada classe/função tem um único propósito (UploadImageService só lida com upload, AzureOcrService só faz OCR, OcrImageRepository só mexe com banco, etc.).</li>
+<li>
+<em>Dependency Injection:</em> usamos interfaces (<code>IImageStorage</code>, <code>IImageRepository</code>, <code>IImageAnalyzer</code>) e injetamos implementações nas classes. Isso diminui o acoplamento e facilita testes (podemos mocar essas interfaces nos testes).</li>
+<li>
+<em>Configuração via ambiente:</em> nenhuma credencial sensível está hardcoded. Blob Storage e Postgres via Managed Identity, chave do Cognitive via variável de ambiente segura.</li>
+<li>
+<em>Resiliência:</em> pronto, com a coluna Status e o método <code>findPending</code>, conseguimos reprocessar ou identificar falhas facilmente. Se o OCR falhar, podemos marcar <code>Status = 'error'</code> e evitar ficar em loop infinito.</li>
+</ul>
+</blockquote>
+
+<h2 id="orquestrando-tudo-no-servi%C3%A7o-de-aplica%C3%A7%C3%A3o-processimageservice">🤝 Orquestrando tudo no serviço de aplicação (ProcessImageService)
+</h2>
+
+<p>Temos as peças: storage (Blob), repositório (Postgres) e OCR (Cognitive). Falta orquestrar o trabalho de pegar as imagens pendentes, obter seu conteúdo e guardar o resultado. Esse é o papel do nosso <strong>ProcessImageService</strong> na camada de aplicação. Ele será similar ao <code>UploadImageService</code> que fizemos antes, mas focado no fluxo de processamento:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">IImageStorage</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">../domain/IImageStorage</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">IImageRepository</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">../domain/IImageRepository</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">IImageAnalyzer</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">../domain/IImageAnalyzer</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="kd">class</span> <span class="nc">ProcessImageService</span> <span class="p">{</span>
+  <span class="nf">constructor</span><span class="p">(</span>
+    <span class="k">private</span> <span class="k">readonly</span> <span class="nx">imageStorage</span><span class="p">:</span> <span class="nx">IImageStorage</span><span class="p">,</span>
+    <span class="k">private</span> <span class="k">readonly</span> <span class="nx">imageRepository</span><span class="p">:</span> <span class="nx">IImageRepository</span><span class="p">,</span>
+    <span class="k">private</span> <span class="k">readonly</span> <span class="nx">imageAnalyzer</span><span class="p">:</span> <span class="nx">IImageAnalyzer</span>
+  <span class="p">)</span> <span class="p">{}</span>
+
+  <span class="k">async</span> <span class="nf">processPendingImages</span><span class="p">():</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="c1">// 1. Busca todas as imagens com status "pending" no banco</span>
+    <span class="kd">const</span> <span class="nx">pendingImages</span> <span class="o">=</span> <span class="k">await</span> <span class="k">this</span><span class="p">.</span><span class="nx">imageRepository</span><span class="p">.</span><span class="nf">findPending</span><span class="p">();</span>
+    <span class="k">if </span><span class="p">(</span><span class="nx">pendingImages</span><span class="p">.</span><span class="nx">length</span> <span class="o">===</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">return</span><span class="p">;</span> <span class="c1">// nada pendente, sai cedo</span>
+    <span class="p">}</span>
+
+    <span class="c1">// 2. Loop através das imagens pendentes para processar uma por uma</span>
+    <span class="k">for </span><span class="p">(</span><span class="kd">const</span> <span class="nx">image</span> <span class="k">of</span> <span class="nx">pendingImages</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">try</span> <span class="p">{</span>
+        <span class="c1">// Baixa o arquivo de imagem do Blob Storage (como Buffer)</span>
+        <span class="kd">const</span> <span class="nx">buffer</span> <span class="o">=</span> <span class="k">await</span> <span class="k">this</span><span class="p">.</span><span class="nx">imageStorage</span><span class="p">.</span><span class="nf">downloadImage</span><span class="p">(</span><span class="nx">image</span><span class="p">.</span><span class="nx">fileName</span><span class="p">);</span>
+        <span class="c1">// Extrai o texto e verifica se é receita usando o serviço de OCR</span>
+        <span class="kd">const</span> <span class="p">{</span> <span class="nx">text</span><span class="p">,</span> <span class="nx">isPrescription</span> <span class="p">}</span> <span class="o">=</span> <span class="k">await</span> <span class="k">this</span><span class="p">.</span><span class="nx">imageAnalyzer</span><span class="p">.</span><span class="nf">analyze</span><span class="p">(</span><span class="nx">buffer</span><span class="p">);</span>
+        <span class="c1">// Atualiza o registro no banco de dados com o resultado (texto, flag e status "processed")</span>
+        <span class="k">await</span> <span class="k">this</span><span class="p">.</span><span class="nx">imageRepository</span><span class="p">.</span><span class="nf">updateResult</span><span class="p">(</span><span class="nx">image</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span> <span class="nx">text</span><span class="p">,</span> <span class="nx">isPrescription</span><span class="p">,</span> <span class="dl">"</span><span class="s2">processed</span><span class="dl">"</span><span class="p">);</span>
+      <span class="p">}</span> <span class="k">catch </span><span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// Em caso de erro no processamento dessa imagem, registra o erro e atualiza status para "error"</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nf">error</span><span class="p">(</span><span class="s2">`Erro ao processar imagem </span><span class="p">${</span><span class="nx">image</span><span class="p">.</span><span class="nx">fileName</span><span class="p">}</span><span class="s2">:`</span><span class="p">,</span> <span class="nx">err</span><span class="p">);</span>
+        <span class="k">await</span> <span class="k">this</span><span class="p">.</span><span class="nx">imageRepository</span><span class="p">.</span><span class="nf">updateResult</span><span class="p">(</span><span class="nx">image</span><span class="p">.</span><span class="nx">id</span><span class="p">,</span> <span class="dl">""</span><span class="p">,</span> <span class="kc">false</span><span class="p">,</span> <span class="dl">"</span><span class="s2">error</span><span class="dl">"</span><span class="p">);</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Vamos dissecar o que acontece aqui:</p>
+
+<ul>
+<li>Buscamos as imagens pendentes via <code>imageRepository.findPending()</code>. Se não houver nenhuma (lista vazia), a função retorna imediatamente – nada para fazer.</li>
+<li>Para cada imagem pendente, fazemos um <code>try/catch</code> individualmente. Isso garante que um erro em uma imagem não interrompa o processamento das demais.</li>
+<li>
+<p>Dentro do try:</p>
+
+<ul>
+<li>
+<code>imageStorage.downloadImage(image.fileName)</code>: Precisamos obter os bytes da imagem do Blob Storage. <em>Detalhe:</em> No <code>AzureBlobStorage</code> podemos implementar um método <code>downloadImage</code> que usa o SDK do Azure para baixar o blob (por exemplo, <code>blobClient.downloadToBuffer()</code>). Aqui assumimos que nosso <code>IImageStorage</code> foi expandido para ter essa função. Novamente, abstraímos a fonte da imagem; poderia vir de outro lugar, mas para nós vem do Blob.</li>
+<li>
+<code>imageAnalyzer.analyze(buffer)</code>: Chama o serviço de OCR (AzureOcrService) para extrair o texto. Resultado: texto completo e indicação de receita.</li>
+<li>
+<code>imageRepository.updateResult(...)</code>: Atualiza o banco com o texto extraído, a flag de receita e define o status como "processed". Agora esse registro não será mais retornado em futuras consultas de pendentes.</li>
+</ul>
+
+
+</li>
+
+<li>
+
+<p>No catch, capturamos qualquer exceção durante o download ou OCR daquela imagem:</p>
+
+<ul>
+<li>Logamos o erro (aqui usei <code>console.error</code> só para ilustrar; numa Azure Function real, usaríamos <code>context.log.error</code> que veremos já já).</li>
+<li>Atualizamos o status no banco para "error". Poderíamos também guardar uma mensagem de erro se quiséssemos (talvez adicionando uma coluna de erro), mas simplificamos marcando que falhou. Assim evitamos tentar de novo toda vez uma imagem que já deu problema e precisa de intervenção.</li>
+</ul>
+
+
+</li>
+
+</ul>
+
+<p>Beleza! O serviço de aplicação está completo. Note como ele coordena as interfaces de domínio sem saber detalhes de implementação (não sabe <em>como</em> o blob é baixado, nem <em>como</em> o OCR funciona, nem detalhes do banco). Essa separação deixa tudo mais testável e modular.</p>
+
+<h2 id="implementando-a-azure-function-timer-trigger">🚀 Implementando a Azure Function Timer Trigger
+</h2>
+
+<p>Chegou a hora de codar a Function que amarra tudo isso e realmente roda de tempos em tempos. A nossa Azure Function Timer (<code>TimerProcessOcr/index.ts</code>) será o ponto de entrada que instancia as classes concretas, chama o <code>ProcessImageService</code> e lida com logs/erros de nível mais alto.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">AzureFunction</span><span class="p">,</span> <span class="nx">Context</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@azure/functions</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">DefaultAzureCredential</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@azure/identity</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">BlobServiceClient</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@azure/storage-blob</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">Pool</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">pg</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">import</span> <span class="p">{</span> <span class="nx">AzureBlobStorage</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">../infrastructure/AzureBlobStorage</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">AzureOcrService</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">../infrastructure/AzureOcrService</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">OcrImageRepository</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">../infrastructure/OcrImageRepository</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">ProcessImageService</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">../application/ProcessImageService</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="c1">// Carregando variáveis de ambiente necessárias</span>
+<span class="kd">const</span> <span class="nx">blobUrl</span> <span class="o">=</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">BLOB_STORAGE_URL</span><span class="o">!</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">containerName</span> <span class="o">=</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">BLOB_CONTAINER_NAME</span><span class="o">!</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">managedIdentityClientId</span> <span class="o">=</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">AZURE_STORAGEBLOB_CLIENTID</span><span class="o">!</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">cognitiveEndpoint</span> <span class="o">=</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">COGNITIVE_ENDPOINT</span><span class="o">!</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">cognitiveKey</span> <span class="o">=</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">COGNITIVE_KEY</span><span class="o">!</span><span class="p">;</span>
+<span class="kd">const</span> <span class="nx">dbConfig</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="na">host</span><span class="p">:</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">PGHOST</span><span class="o">!</span><span class="p">,</span>
+  <span class="na">database</span><span class="p">:</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">PGDATABASE</span><span class="o">!</span><span class="p">,</span>
+  <span class="na">user</span><span class="p">:</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">PGUSER</span><span class="o">!</span><span class="p">,</span>
+  <span class="c1">// A senha virá do token do Managed Identity, obtido adiante</span>
+  <span class="na">port</span><span class="p">:</span> <span class="nc">Number</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">PGPORT</span><span class="o">!</span><span class="p">)</span> <span class="o">||</span> <span class="mi">5432</span><span class="p">,</span>
+  <span class="na">ssl</span><span class="p">:</span> <span class="p">{</span> <span class="na">rejectUnauthorized</span><span class="p">:</span> <span class="kc">false</span> <span class="p">}</span>
+<span class="p">};</span>
+
+<span class="kd">const</span> <span class="nx">timerTrigger</span><span class="p">:</span> <span class="nx">AzureFunction</span> <span class="o">=</span> <span class="k">async</span> <span class="nf">function </span><span class="p">(</span><span class="nx">context</span><span class="p">:</span> <span class="nx">Context</span><span class="p">,</span> <span class="nx">myTimer</span><span class="p">:</span> <span class="kr">any</span><span class="p">):</span> <span class="nb">Promise</span><span class="o">&lt;</span><span class="k">void</span><span class="o">&gt;</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="nx">timeStamp</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Date</span><span class="p">().</span><span class="nf">toISOString</span><span class="p">();</span>
+  <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Timer trigger executado em: </span><span class="p">${</span><span class="nx">timeStamp</span><span class="p">}</span><span class="s2">`</span><span class="p">);</span>
+
+  <span class="k">try</span> <span class="p">{</span>
+    <span class="c1">// Instancia credenciais e clientes necessários</span>
+    <span class="kd">const</span> <span class="nx">credential</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">DefaultAzureCredential</span><span class="p">({</span> <span class="nx">managedIdentityClientId</span> <span class="p">});</span>
+    <span class="kd">const</span> <span class="nx">blobStorage</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AzureBlobStorage</span><span class="p">(</span><span class="nx">blobUrl</span><span class="p">,</span> <span class="nx">containerName</span><span class="p">,</span> <span class="nx">credential</span><span class="p">);</span>
+
+    <span class="c1">// Pega token de acesso ao Postgres via Managed Identity</span>
+    <span class="kd">const</span> <span class="p">{</span> <span class="na">token</span><span class="p">:</span> <span class="nx">dbPassword</span> <span class="p">}</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">credential</span><span class="p">.</span><span class="nf">getToken</span><span class="p">(</span><span class="dl">"</span><span class="s2">https://ossrdbms-aad.database.windows.net/.default</span><span class="dl">"</span><span class="p">);</span>
+    <span class="kd">const</span> <span class="nx">pool</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Pool</span><span class="p">({</span> <span class="p">...</span><span class="nx">dbConfig</span><span class="p">,</span> <span class="na">password</span><span class="p">:</span> <span class="nx">dbPassword</span> <span class="p">});</span>
+    <span class="kd">const</span> <span class="nx">repository</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">OcrImageRepository</span><span class="p">(</span><span class="nx">pool</span><span class="p">);</span>
+
+    <span class="c1">// Instancia serviço de OCR com endpoint e chave</span>
+    <span class="kd">const</span> <span class="nx">ocrService</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AzureOcrService</span><span class="p">(</span><span class="nx">cognitiveEndpoint</span><span class="p">,</span> <span class="nx">cognitiveKey</span><span class="p">);</span>
+
+    <span class="c1">// Cria o serviço de processamento e executa</span>
+    <span class="kd">const</span> <span class="nx">processService</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ProcessImageService</span><span class="p">(</span><span class="nx">blobStorage</span><span class="p">,</span> <span class="nx">repository</span><span class="p">,</span> <span class="nx">ocrService</span><span class="p">);</span>
+    <span class="k">await</span> <span class="nx">processService</span><span class="p">.</span><span class="nf">processPendingImages</span><span class="p">();</span>
+
+    <span class="nx">context</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">Processamento OCR concluído com sucesso.</span><span class="dl">"</span><span class="p">);</span>
+  <span class="p">}</span> <span class="k">catch </span><span class="p">(</span><span class="na">err</span><span class="p">:</span> <span class="kr">any</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nx">context</span><span class="p">.</span><span class="nx">log</span><span class="p">.</span><span class="nf">error</span><span class="p">(</span><span class="dl">"</span><span class="s2">Erro no processamento OCR:</span><span class="dl">"</span><span class="p">,</span> <span class="nx">err</span><span class="p">);</span>
+    <span class="c1">// Em caso de erro geral, podemos deixar explodir ou apenas logar.</span>
+    <span class="c1">// Aqui só logamos; a próxima execução do Timer tentará novamente pendentes que não foram processadas.</span>
+  <span class="p">}</span>
+<span class="p">};</span>
+
+<span class="k">export</span> <span class="k">default</span> <span class="nx">timerTrigger</span><span class="p">;</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Vamos destacar algumas coisas importantes nesta Function:</p>
+
+<ul>
+<li>
+<strong>Agendamento:</strong> O Timer Trigger passa um parâmetro <code>myTimer</code> (que não usamos diretamente aqui) e chamamos essa função de acordo com o cron definido. Usamos <code>context.log</code> para registrar quando a função é executada (bom para monitorar se está rodando nos horários esperados).</li>
+<li>
+<p><strong>Credenciais e serviços:</strong> Reutilizamos o <code>DefaultAzureCredential</code> com Managed Identity (mesma identidade do storage e do banco) para:</p>
+
+<ul>
+<li>Acessar o Blob Storage (instanciando <code>AzureBlobStorage</code> igualzinho à função HTTP de upload).</li>
+<li>Obter o token para o Postgres (mesma magia do Service Connector da parte 2) e criar o <code>Pool</code> do <code>pg</code> com as configs do banco.</li>
+</ul>
+
+
+</li>
+
+<li><p><strong>AzureOcrService:</strong> Instanciamos passando a URL do endpoint do Cognitive Services e a chave. (Lembre de configurar essas env vars no Azure Function App!). Aqui não usamos MI porque o serviço cognitivo ainda requer chave – então armazenamos de forma segura.</p></li>
+
+<li><p><strong>ProcessImageService:</strong> Injetamos as três dependências concretas (storage, repository, ocr) e mandamos ver no <code>processPendingImages()</code>, que implementamos anteriormente.</p></li>
+
+<li><p><strong>Logs e tratamento de erro:</strong> se tudo der certo, logamos uma mensagem de sucesso. Se qualquer etapa dentro do try falhar (por exemplo, erro de conexão com o banco ou credencial), caímos no catch e logamos o erro. Optamos por <strong>não</strong> re-lançar a exceção, assim a Function não fica marcando falhas contínuas; na próxima invocação do timer, ela tenta de novo processar o que ficou. Dependendo do cenário, você poderia querer algum alerta ou retry imediato, mas um log de erro já permite monitorar via Application Insights.</p></li>
+
+</ul>
+
+<p>Com isso, nossa função de Timer está pronta! Ela é bem enxuta, porque delegamos quase tudo para as classes de domínio/aplicação. Se comparar, a maior parte do código é inicializar dependências e tratar erros, a lógica de negócio mesmo (<code>processPendingImages</code>) está isolada e testável.</p>
+
+<h2 id="boas-pr%C3%A1ticas-aplicadas-e-considera%C3%A7%C3%B5es-finais">✅ Boas práticas aplicadas e considerações finais
+</h2>
+
+<p>Nesse artigo, consolidamos a arquitetura completa da nossa API OCR serverless, enfatizando vários pontos de boas práticas:</p>
+
+<ul>
+<li>
+<strong>Separation of Concerns (SoC):</strong> Cada camada e componente tem responsabilidades claras. As Azure Functions (HTTP e Timer) são apenas <strong>entry points</strong> finos que repassam o trabalho pesado para serviços de aplicação.</li>
+<li>
+<strong>DDD leve:</strong> Mesmo sem overengineering, organizamos o código em <em>domain</em>, <em>application</em> e <em>infrastructure</em>, o que nos deu uma estrutura limpa. Usamos interfaces para desacoplar implementações concretas (Blob Storage, Postgres, Cognitive Services) da lógica de negócio.</li>
+<li>
+<strong>SOLID/SRP:</strong> Viu como adicionamos funcionalidades (persistência, OCR) sem bagunçar o código existente? Fomos estendendo o sistema em vez de modificar drasticamente o que já funcionava. Isso graças ao respeito ao SRP e à extensão via novas classes.</li>
+<li>
+<strong>Tratamento de erros e logging:</strong> Implementamos validações (na parte 2 para uploads), usamos try/catch para evitar crash total no loop de OCR e adicionamos logs informativos. Em produção, esses logs integrados com o Application Insights ajudariam a monitorar quantas imagens foram processadas, tempos de execução e erros ocorridos.</li>
+<li>
+<strong>Escalabilidade:</strong> A solução aproveita o modelo serverless de Azure Functions, podendo escalar instâncias conforme necessário. O uso de Timer Trigger com processamento por lotes dá flexibilidade para ajustar o intervalo conforme a demanda. Além disso, separando upload e OCR, podemos escalar cada função de forma independente (por exemplo, muitas requisições HTTP de upload não sobrecarregarão o OCR, e vice-versa).</li>
+</ul>
+
+<h3 id="pr%C3%B3ximos-passos-e-melhorias">Próximos passos e melhorias
+</h3>
+
+<p>Com o pipeline básico de OCR funcionando, podemos pensar em evoluções:</p>
+
+<ul>
+<li>
+<strong>Endpoint de consulta:</strong> Criar uma nova Function HTTP que permita buscar o resultado do OCR (texto e flag) dado um ID ou nome de arquivo. Assim, clientes poderiam consultar o status/resultados da imagem enviada.</li>
+<li>
+<strong>Notificações/Async Response:</strong> Integrar com Azure SignalR ou enviar um webhook quando o processamento de uma imagem for concluído, para notificar outro sistema ou UI em tempo real.</li>
+<li>
+<strong>Monitoramento e métricas:</strong> Configurar alertas no Application Insights para erros no OCR ou tempos de processamento muito altos. Também métricas de quantas imagens são processadas por execução, backlog acumulado etc., para ajustar o cron ou escalar recursos.</li>
+<li>
+<strong>Melhorias de OCR:</strong> Usar modelos mais avançados do Azure (como o <strong>Azure Form Recognizer</strong> ou serviços específicos para leitura de prescrições médicas, se houver) para extrair não só texto bruto, mas campos estruturados (medicamento, dosagem, etc.). Também investir em uma detecção de "receita médica" mais robusta, talvez treinando um modelo de classificação de texto.</li>
+<li>
+<strong>Limpeza e otimização:</strong> Opcionalmente, mover imagens processadas para outro container ou deletá-las após X dias se não forem mais necessárias, economizando espaço. E claro, otimizar consultas (adicionar índices no banco para o campo Status, por exemplo, para buscar pendentes eficientemente).</li>
+</ul>
+
+<p>Chegamos ao final da série "Criando uma API OCR com FaaS na Azure"! 🎉 Vimos desde a concepção da arquitetura, upload seguro com Managed Identity, persistência de metadados, até o processamento OCR assíncrono. Espero que essa jornada passo-a-passo tenha mostrado na prática como construir uma solução serverless robusta, segura e escalável.</p>
+
+<p>Curtiu o conteúdo ou ficou com alguma dúvida? Deixa um comentário aqui embaixo para continuarmos a conversa. Obrigado por acompanhar até aqui – e <strong>bora codar</strong>! 🚀</p>

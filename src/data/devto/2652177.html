@@ -1,0 +1,246 @@
+<p>O <strong>Padrão Strategy</strong> (Estratégia) é um padrão de projeto de comportamento que permite definir uma família de algoritmos, encapsular cada um deles e torná-los intercambiáveis. Em outras palavras, você pode variar o algoritmo usado por um objeto em tempo de execução, escolhendo entre diferentes estratégias sem precisar alterar o código cliente. Essa flexibilidade evita estruturas rígidas no código e elimina a necessidade de múltiplos condicionais (ifs) para lidar com comportamentos diferentes. Em vez disso, cada comportamento variante é isolado em uma classe separada que implementa uma mesma interface de estratégia.</p>
+
+<p>De forma simples, o Strategy ajuda a separar <strong>o que se faz</strong> (a lógica ou algoritmo) de <strong>como se faz</strong> (a implementação específica). O objeto principal (chamado de <strong>Contexto</strong>) delega a execução da tarefa para um objeto estratégico, através de uma interface comum. Isso permite trocar facilmente a estratégia em uso, promovendo código <strong>aberto para extensão e fechado para modificação</strong> (princípio OCP), podemos adicionar novas estratégias no futuro sem alterar o código existente.</p>
+
+
+<hr>
+
+<h2 id="contexto-estrat%C3%A9gias-de-saque-banc%C3%A1rio">🏦 Contexto: Estratégias de Saque Bancário
+</h2>
+
+<p>Para ilustrar o uso do padrão Strategy, vamos considerar um cenário de <strong>saque bancário</strong>. Imagine que um sistema bancário precisa suportar diferentes formas de retirar dinheiro de uma conta, como: <strong>saque em dinheiro</strong> (no caixa eletrônico), <strong>transferência TED</strong> (uma transferência bancária agendada) e <strong>transferência PIX</strong> (uma transferência eletrônica instantânea). Todas essas operações têm o mesmo objetivo – retirar um valor da conta do cliente – mas cada uma segue um procedimento diferente. Sem o Strategy, poderíamos ter um método <code>sacar()</code> cheio de condicionais para cada tipo de saque, tornando o código difícil de manter e estender.</p>
+
+<p>Com o padrão Strategy, podemos criar uma interface <strong>EstrategiaSaque</strong> que declara o método geral de saque (por exemplo, <code>sacar(valor)</code>), e implementar uma classe concreta para cada modalidade: <strong>SaqueEmDinheiro</strong>, <strong>TransferenciaTed</strong> e <strong>TransferenciaPix</strong>. A classe de contexto, que pode ser a <strong>ContaBancaria</strong> ou um serviço de saque, vai manter uma referência a uma EstrategiaSaque e usá-la para realizar o saque solicitado. Dessa forma, a lógica de cada modalidade de saque fica isolada em sua própria classe, e a conta bancária não precisa saber os detalhes de cada procedimento, ela apenas delega à estratégia atual.</p>
+
+
+<hr>
+
+<h2 id="definindo-a-interface-de-estrat%C3%A9gia-e-as-estrat%C3%A9gias-concretas">🛠️ Definindo a Interface de Estratégia e as Estratégias Concretas
+</h2>
+
+<p>Vamos começar definindo a interface de estratégia de saque e implementando as estratégias concretas em TypeScript. Cada estratégia terá seu próprio algoritmo para realizar o saque, mas todas compartilham o mesmo contrato (a interface). Usaremos comentários no código para explicar cada parte:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="c1">// Interface que define o contrato para estratégias de saque</span>
+<span class="kr">interface</span> <span class="nx">EstrategiaSaque</span> <span class="p">{</span>
+  <span class="nf">sacar</span><span class="p">(</span><span class="nx">valor</span><span class="p">:</span> <span class="kr">number</span><span class="p">):</span> <span class="k">void</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// Estratégia concreta: Saque em Dinheiro (no caixa eletrônico)</span>
+<span class="kd">class</span> <span class="nc">SaqueEmDinheiro</span> <span class="k">implements</span> <span class="nx">EstrategiaSaque</span> <span class="p">{</span>
+  <span class="nf">sacar</span><span class="p">(</span><span class="nx">valor</span><span class="p">:</span> <span class="kr">number</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Sacando R$</span><span class="p">${</span><span class="nx">valor</span><span class="p">.</span><span class="nf">toFixed</span><span class="p">(</span><span class="mi">2</span><span class="p">)}</span><span class="s2"> em dinheiro...`</span><span class="p">);</span>
+    <span class="c1">// Aqui poderíamos ter lógica de interação com ATM, dispensador de cédulas, etc.</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">Dinheiro retirado da conta e entregue ao cliente.</span><span class="dl">"</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// Estratégia concreta: Transferência TED (transferência eletrônica agendada)</span>
+<span class="kd">class</span> <span class="nc">TransferenciaTed</span> <span class="k">implements</span> <span class="nx">EstrategiaSaque</span> <span class="p">{</span>
+  <span class="nf">sacar</span><span class="p">(</span><span class="nx">valor</span><span class="p">:</span> <span class="kr">number</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Iniciando transferência TED de R$</span><span class="p">${</span><span class="nx">valor</span><span class="p">.</span><span class="nf">toFixed</span><span class="p">(</span><span class="mi">2</span><span class="p">)}</span><span class="s2">...`</span><span class="p">);</span>
+    <span class="c1">// Lógica simulada: agendar transferência para o próximo dia útil, etc.</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">TED agendada com sucesso. Valor será debitado da conta e transferido.</span><span class="dl">"</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// Estratégia concreta: Transferência PIX (transferência eletrônica instantânea)</span>
+<span class="kd">class</span> <span class="nc">TransferenciaPix</span> <span class="k">implements</span> <span class="nx">EstrategiaSaque</span> <span class="p">{</span>
+  <span class="nf">sacar</span><span class="p">(</span><span class="nx">valor</span><span class="p">:</span> <span class="kr">number</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Realizando transferência PIX de R$</span><span class="p">${</span><span class="nx">valor</span><span class="p">.</span><span class="nf">toFixed</span><span class="p">(</span><span class="mi">2</span><span class="p">)}</span><span class="s2">...`</span><span class="p">);</span>
+    <span class="c1">// Lógica simulada: transferência instantânea via PIX</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">PIX concluído com sucesso. Valor debitado da conta imediatamente.</span><span class="dl">"</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Acima, definimos a interface <code>EstrategiaSaque</code> com o método <code>sacar(valor)</code> que todas as estratégias devem implementar. Em seguida, criamos três classes concretas, cada uma representando uma forma de saque bancário:</p>
+
+<ul>
+<li>
+<code>SaqueEmDinheiro</code>: Simula a retirada de dinheiro físico em um caixa eletrônico, imprimindo mensagens correspondentes.</li>
+<li>
+<code>TransferenciaTed</code>: Simula uma TED, que normalmente é concluída em horário comercial no mesmo dia ou dia seguinte.</li>
+<li>
+<code>TransferenciaPix</code>: Simula um PIX, que é uma transferência instantânea disponível 24/7.</li>
+</ul>
+
+<p>Cada classe implementa o método <code>sacar(valor)</code> de forma diferente, conforme a modalidade de saque. Note que usamos <code>console.log()</code> para representar as ações, mas em um sistema real aqui teríamos chamadas para serviços bancários, atualizações de saldo, etc. O importante é que a <strong>assinatura do método é igual para todas as estratégias</strong>, permitindo ao contexto usá-las de forma intercambiável.</p>
+
+
+<hr>
+
+<h2 id="classe-contexto-conta-banc%C3%A1ria-usando-uma-estrat%C3%A9gia">📦 Classe Contexto: Conta Bancária usando uma Estratégia
+</h2>
+
+<p>Agora, vamos implementar a classe de contexto. Essa classe vai usar uma estratégia para executar a operação de saque sem conhecer os detalhes de qual estratégia está em uso. Escolhemos usar uma classe <code>ContaBancaria</code> como contexto, representando a conta do cliente de onde o dinheiro será retirado. A conta terá um método para definir a estratégia desejada e um método <code>realizarSaque</code> que delega a operação à estratégia definida:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="kd">class</span> <span class="nc">ContaBancaria</span> <span class="p">{</span>
+  <span class="k">private</span> <span class="nx">estrategia</span><span class="p">:</span> <span class="nx">EstrategiaSaque</span><span class="p">;</span>  <span class="c1">// estratégia atual de saque</span>
+  <span class="k">private</span> <span class="nx">saldo</span><span class="p">:</span> <span class="kr">number</span><span class="p">;</span>
+
+  <span class="nf">constructor</span><span class="p">(</span><span class="nx">saldoInicial</span><span class="p">:</span> <span class="kr">number</span><span class="p">,</span> <span class="nx">estrategia</span><span class="p">:</span> <span class="nx">EstrategiaSaque</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span> <span class="o">=</span> <span class="nx">saldoInicial</span><span class="p">;</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">estrategia</span> <span class="o">=</span> <span class="nx">estrategia</span><span class="p">;</span>
+  <span class="p">}</span>
+
+  <span class="c1">// Permite alterar a estratégia de saque em tempo de execução</span>
+  <span class="nf">definirEstrategia</span><span class="p">(</span><span class="nx">estrategia</span><span class="p">:</span> <span class="nx">EstrategiaSaque</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">estrategia</span> <span class="o">=</span> <span class="nx">estrategia</span><span class="p">;</span>
+  <span class="p">}</span>
+
+  <span class="c1">// Realiza o saque utilizando a estratégia atual</span>
+  <span class="nf">realizarSaque</span><span class="p">(</span><span class="nx">valor</span><span class="p">:</span> <span class="kr">number</span><span class="p">):</span> <span class="k">void</span> <span class="p">{</span>
+    <span class="k">if </span><span class="p">(</span><span class="nx">valor</span> <span class="o">&gt;</span> <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span><span class="p">)</span> <span class="p">{</span>
+      <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="dl">"</span><span class="s2">Saldo insuficiente para realizar o saque.</span><span class="dl">"</span><span class="p">);</span>
+      <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`\nSaldo atual: R$</span><span class="p">${</span><span class="k">this</span><span class="p">.</span><span class="nx">saldo</span><span class="p">.</span><span class="nf">toFixed</span><span class="p">(</span><span class="mi">2</span><span class="p">)}</span><span class="s2">`</span><span class="p">);</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">estrategia</span><span class="p">.</span><span class="nf">sacar</span><span class="p">(</span><span class="nx">valor</span><span class="p">);</span>  <span class="c1">// delega a execução do saque à estratégia selecionada</span>
+    <span class="k">this</span><span class="p">.</span><span class="nx">saldo</span> <span class="o">-=</span> <span class="nx">valor</span><span class="p">;</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nf">log</span><span class="p">(</span><span class="s2">`Saldo pós-saque: R$</span><span class="p">${</span><span class="k">this</span><span class="p">.</span><span class="nx">saldo</span><span class="p">.</span><span class="nf">toFixed</span><span class="p">(</span><span class="mi">2</span><span class="p">)}</span><span class="s2">`</span><span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<p>No código acima, a classe <code>ContaBancaria</code> possui um atributo <code>saldo</code> para controle simples de saldo e um atributo <code>estrategia</code> do tipo <code>EstrategiaSaque</code>. No construtor, inicializamos a conta com um saldo inicial e uma estratégia de saque padrão (passada como parâmetro). O método <code>definirEstrategia</code> permite trocar a estratégia em tempo de execução, tornando o comportamento do saque flexível. Já o método <code>realizarSaque</code> verifica primeiro se há saldo suficiente e então registra o saldo atual, delega a operação de saque para o objeto <code>estrategia</code> atual (<code>this.estrategia.sacar(valor)</code>) e por fim atualiza e mostra o saldo restante.</p>
+
+<p>Observe que <code>ContaBancaria</code> <strong>não sabe</strong> qual estratégia exata está sendo usada – ela apenas confia que o objeto em <code>this.estrategia</code> sabe executar o método <code>sacar(valor)</code>. Assim, a conta bancária não precisa conter lógica específica para dinheiro, TED ou PIX; toda essa variação está encapsulada nas classes de estratégia. Isso ilustra o princípio do baixo acoplamento: o contexto (ContaBancaria) e as estratégias são fracamente ligados e podem variar independentemente.</p>
+
+
+<hr>
+
+<h2 id="exemplo-de-uso-do-strategy-pattern">🧪 Exemplo de Uso do Strategy Pattern
+</h2>
+
+<p>Vamos ver agora um exemplo de uso dessa implementação. Suponha que o cliente inicia com uma certa quantia em conta e deseja realizar diferentes tipos de saque. Podemos instanciar a <code>ContaBancaria</code> com uma estratégia inicial e depois alternar entre as estratégias para diferentes saques:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight typescript"><code><span class="c1">// Exemplo de uso do padrão Strategy</span>
+<span class="kd">const</span> <span class="nx">conta</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ContaBancaria</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="k">new</span> <span class="nc">SaqueEmDinheiro</span><span class="p">());</span>  <span class="c1">// saldo inicial de R$1000 e estratégia inicial: Saque em Dinheiro</span>
+
+<span class="nx">conta</span><span class="p">.</span><span class="nf">realizarSaque</span><span class="p">(</span><span class="mi">200</span><span class="p">);</span>  <span class="c1">// Saque R$200 em dinheiro</span>
+<span class="c1">// Saída esperada (resumida):</span>
+<span class="c1">// Saldo atual: R$1000.00</span>
+<span class="c1">// Sacando R$200.00 em dinheiro...</span>
+<span class="c1">// Dinheiro retirado da conta e entregue ao cliente.</span>
+<span class="c1">// Saldo pós-saque: R$800.00</span>
+
+<span class="c1">// Alterando estratégia para transferência TED</span>
+<span class="nx">conta</span><span class="p">.</span><span class="nf">definirEstrategia</span><span class="p">(</span><span class="k">new</span> <span class="nc">TransferenciaTed</span><span class="p">());</span>
+<span class="nx">conta</span><span class="p">.</span><span class="nf">realizarSaque</span><span class="p">(</span><span class="mi">150</span><span class="p">);</span>  <span class="c1">// Saque R$150 via TED</span>
+<span class="c1">// Saída esperada (resumida):</span>
+<span class="c1">// Saldo atual: R$800.00</span>
+<span class="c1">// Iniciando transferência TED de R$150.00...</span>
+<span class="c1">// TED agendada com sucesso. Valor será debitado da conta e transferido.</span>
+<span class="c1">// Saldo pós-saque: R$650.00</span>
+
+<span class="c1">// Alterando estratégia para transferência PIX</span>
+<span class="nx">conta</span><span class="p">.</span><span class="nf">definirEstrategia</span><span class="p">(</span><span class="k">new</span> <span class="nc">TransferenciaPix</span><span class="p">());</span>
+<span class="nx">conta</span><span class="p">.</span><span class="nf">realizarSaque</span><span class="p">(</span><span class="mi">50</span><span class="p">);</span>   <span class="c1">// Saque R$50 via PIX</span>
+<span class="c1">// Saída esperada (resumida):</span>
+<span class="c1">// Saldo atual: R$650.00</span>
+<span class="c1">// Realizando transferência PIX de R$50.00...</span>
+<span class="c1">// PIX concluído com sucesso. Valor debitado da conta imediatamente.</span>
+<span class="c1">// Saldo pós-saque: R$600.00</span>
+</code></pre>
+
+</div>
+
+
+
+<p>No exemplo acima, instanciamos a conta bancária com saldo de R\$1000 e estratégia inicial de saque em dinheiro. Em seguida:</p>
+
+<ul>
+<li>
+<strong>Primeiro saque:</strong> Chamamos <code>conta.realizarSaque(200)</code> usando a estratégia <code>SaqueEmDinheiro</code>. O output (comentado no código) mostra que R$200 foram sacados em dinheiro e o saldo foi atualizado para R$800.</li>
+<li>
+<strong>Segundo saque:</strong> Usamos <code>conta.definirEstrategia(new TransferenciaTed())</code> para trocar a estratégia para TED, então <code>conta.realizarSaque(150)</code> realiza uma transferência TED de R$150. O saldo cai para R$650.</li>
+<li>
+<strong>Terceiro saque:</strong> Alteramos a estratégia para PIX com <code>conta.definirEstrategia(new TransferenciaPix())</code> e realizamos <code>conta.realizarSaque(50)</code>, efetuando um PIX de R$50. O saldo final fica em R$600.</li>
+</ul>
+
+<p>Perceba como conseguimos alternar entre diferentes comportamentos de saque em tempo de execução de forma simples. O código cliente (no caso, nosso script acima) pôde escolher a estratégia apropriada para cada situação e a <strong>classe ContaBancaria permaneceu inalterada</strong> durante essas trocas. Isso demonstra na prática o principal benefício do Strategy: adicionar ou mudar algoritmos sem modificar o contexto ou o código cliente que o utiliza. Se amanhã o banco introduzir uma nova modalidade de saque (por exemplo, <strong>boleto</strong> para retirar em lotérica), basta criar uma nova classe implementando <code>EstrategiaSaque</code> e configurar a conta para usá-la quando necessário, sem tocar nas outras classes existentes.</p>
+
+
+<hr>
+
+<h2 id="diagrama-de-sequ%C3%AAncia-do-strategy-pattern">🧾 Diagrama de Sequência do Strategy Pattern
+</h2>
+
+<p>Para visualizar melhor a interação entre os objetos nesse padrão, confira o diagrama de sequência abaixo, que representa o fluxo de chamadas quando alternamos estratégias de saque em uma <code>ContaBancaria</code>:</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F6bcwf8z6ub61xissujj9.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2F6bcwf8z6ub61xissujj9.png" alt="Diagrama de Sequência do Strategy Pattern" loading="lazy" width="800" height="450"></a></p>
+
+<p>No diagrama, o <strong>Cliente</strong> (pode ser o código principal ou parte da aplicação) primeiro define a estratégia de saque da <code>ContaBancaria</code> para <code>SaqueEmDinheiro</code>. Em seguida, ao solicitar <code>realizarSaque(valor)</code>, a <code>ContaBancaria</code> delega a operação para o objeto <code>SaqueEmDinheiro</code> via chamada <code>sacar(valor)</code>. O saque é executado e retornado o controle para a conta, que confirma ao cliente que a operação foi concluída. Depois, o cliente altera a estratégia para <code>TransferenciaPIX</code> e realiza outro saque. A <code>ContaBancaria</code> agora delega para <code>TransferenciaPIX.sacar(outroValor)</code>, e assim por diante. Esse fluxo evidencia como o contexto permanece o mesmo, mudando apenas o objeto estratégia associado a ele conforme as necessidades do cliente.</p>
+
+
+<hr>
+
+<h2 id="benef%C3%ADcios-e-considera%C3%A7%C3%B5es-finais">✅ Benefícios e Considerações Finais
+</h2>
+
+<p>O padrão Strategy traz diversos benefícios para o design de software:</p>
+
+<ul>
+<li>
+<strong>Flexibilidade e Extensibilidade:</strong> Novos comportamentos podem ser adicionados facilmente. Basta criar novas classes de estratégia sem modificar o código existente. Isso torna o sistema preparado para mudanças e novas exigências (seguindo o princípio aberto/fechado).</li>
+<li>
+<strong>Evita Condicionais Complexas:</strong> Em vez de usar múltiplos <code>if/else</code> ou <code>switch</code> para tratar variações de algoritmo, delegamos para objetos polimórficos. Isso simplifica o código, melhora a legibilidade e facilita a manutenção.</li>
+<li>
+<strong>Baixo Acoplamento:</strong> O contexto não precisa conhecer detalhes das estratégias concretas. Ele depende apenas da interface comum. Assim, cada estratégia pode ser desenvolvida, testada e alterada independentemente, sem impactar o resto do sistema.</li>
+<li>
+<strong>Reutilização de Código:</strong> Estratégias diferentes podem compartilhar a mesma interface e até parte da lógica se for apropriado (por herança ou composição), evitando duplicação. Além disso, uma estratégia pode ser utilizada em diferentes contextos se fizer sentido, reaproveitando código.</li>
+</ul>
+
+<p>Por outro lado, é importante notar que o uso do Strategy também traz <strong>complexidade extra</strong> em comparação a uma solução direta com condicionais simples. Se o número de algoritmos não é grande ou não tende a crescer, ou se não há necessidade real de trocar os comportamentos em tempo de execução, aplicar o padrão pode ser um <strong>excesso de abstração desnecessário</strong>. Portanto, avalie se a flexibilidade proporcionada pelo Strategy é necessária para o seu caso. Quando bem empregado, entretanto, este padrão resulta em um código mais limpo, organizado e aderente a boas práticas de design.</p>
+
+
+<hr>
+
+<h2 id="conclus%C3%A3o">🏁 Conclusão
+</h2>
+
+<p>Neste artigo, exploramos o Padrão de Projeto Strategy utilizando TypeScript e um exemplo prático de estratégias de saque bancário (dinheiro, TED, PIX). Vimos como esse padrão nos permite <strong>alternar algoritmos dinamicamente em tempo de execução</strong> de forma transparente para o código cliente, mantendo cada implementação de algoritmo isolada e facilitando a expansão do sistema sem modificações drásticas no código existente. Apresentamos a interface de estratégia, três estratégias concretas e uma classe de contexto (<code>ContaBancaria</code>) que utiliza essas estratégias. Também analisamos um diagrama de sequência para solidificar a compreensão da interação entre contexto e estratégias.</p>
+
+<p>O Strategy Pattern é uma poderosa ferramenta para melhorar a organização e flexibilidade do código. Ele é especialmente útil em cenários onde há muitas variações de comportamentos – como diferentes métodos de pagamento ou formas de cálculo – que podem mudar ou se expandir com o tempo. Ao aplicar este padrão, você estará escrevendo código mais <strong>manutenível, extensível e alinhado com princípios SOLID</strong> de design de software.</p>
+
+<p>Esperamos que este guia tenha tornado o conceito de Strategy claro. Compreender e aplicar padrões de projeto é uma habilidade valiosa que melhora a qualidade do software e a produtividade do desenvolvedor. Experimente incorporar o Strategy em seus projetos quando enfrentar problemas similares, e aproveite os benefícios de um código bem estruturado e flexível.</p>
+
+
+<hr>
+
+<h2 id="refer%C3%AAncias">📚 Referências
+</h2>
+
+<ul>
+<li><p>Cipriani, F. (2021, 2 de novembro). <em>Padrão de Projeto Strategy: O que é, quando devo usar, como aplicar e exemplos!</em> Softplan Tech Writers. Disponível em [<a href="https://www.softplan.com.br/tech-writers/descomplicando-o-strategy/" target="_blank" rel="noopener noreferrer">https://www.softplan.com.br/tech-writers/descomplicando-o-strategy/</a>)</p></li>
+<li><p>Miranda, N. (2024, 28 de outubro). <em>Padrão Strategy</em>. Medium. Disponível em <a href="https://medium.com/@nelson.miranda_40644/padr%C3%A3o-strategy-8ba270500088" target="_blank" rel="noopener noreferrer">https://medium.com/@nelson.miranda_40644/padrão-strategy-8ba270500088</a></p></li>
+<li><p>Shvets, A. (n.d.). <em>Strategy – Padrões de Projeto</em>. Refactoring.Guru. Disponível em <a href="https://refactoring.guru/pt-br/design-patterns/" target="_blank" rel="noopener noreferrer">https://refactoring.guru/pt-br/design-patterns/</a></p></li>
+</ul>
+
+
+<hr>
+
+<h2 id="curtiu">💡Curtiu?
+</h2>
+
+<p>Se quiser trocar ideia sobre IA, cloud e arquitetura, me segue nas redes:</p>
+
+<ul>
+<li><a href="https://olink.ai/sertaoseracloud" target="_blank" rel="noopener noreferrer">Redes Sociais</a></li>
+</ul>
+
+<p>Publico conteúdos técnicos direto do campo de batalha. E quando descubro uma ferramenta que economiza tempo e resolve bem, como essa, você fica sabendo também.</p>

@@ -1,0 +1,272 @@
+<h2 id="1-introduction">1. Introduction
+</h2>
+
+<p>An event-driven architecture using Azure Cosmos DB, Azure Functions, and Azure Service Bus is the enterprise standard for designing highly decoupled, scalable, and resilient systems in the Microsoft Cloud. In this tutorial, you will construct a complete, asynchronous data flow from scratch using Azure's analogous features to the AWS ecosystem. </p>
+
+<p>The process begins when modifications occur in a Cosmos DB container, which automatically surfaces through the Cosmos DB Change Feed. This feed is continuously monitored by a producer Azure Function, which processes the change and publishes a message to a Service Bus Topic. The Service Bus Topic acts as a high-availability message router (similar to AWS SNS), performing a fan-out distribution of this notification to a Service Bus Subscription (acting as the queue, similar to AWS SQS). Finally, a second consumer Azure Function reads the messages from the subscription to perform the final business logic processing. By the end of this guide, you will be able to deploy this robust infrastructure using Terraform, adhering to Azure security best practices such as utilizing Managed Identities instead of vulnerable connection strings.</p>
+
+<h2 id="2-prerequisites">2. Prerequisites
+</h2>
+
+<p>Before starting the infrastructure build, ensure your development environment is prepared. You will need an active Azure subscription with permissions to provision compute, messaging, database, and Role-Based Access Control (RBAC) resources. The Azure Command-Line Interface (Azure CLI) must be installed and authenticated (<code>az login</code>) on your local machine. Additionally, Terraform (version 1.3.0 or higher) needs to be installed and globally accessible from your command terminal. Fundamental knowledge of Terraform's declarative syntax (HCL) and a basic understanding of Azure resource hierarchy (Resource Groups) are highly recommended. A modern code editor like VS Code with the HashiCorp Terraform extension will greatly facilitate your workflow.</p>
+
+<h2 id="3-stepbystep">3. Step-by-Step
+</h2>
+
+<h3 id="step-1-initial-configuration-and-azure-provider">Step 1: Initial Configuration and Azure Provider
+</h3>
+
+<p><strong>What to do:</strong> Create the root Terraform configuration file to define the required Terraform version, establish the connection with the AzureRM provider, and create a foundational Resource Group.</p>
+
+<p><strong>Why do it:</strong> The <code>azurerm</code> provider block instructs Terraform on how to interact with the Azure Resource Manager API. In Azure, all resources must be logically grouped into a Resource Group. Deploying all interconnected services (Cosmos DB, Service Bus, Functions) into a single Resource Group makes it easier to manage their lifecycle, monitor costs, and delete the entire environment cleanly when no longer needed.</p>
+
+<p><strong>Example (<code>main.tf</code>):</strong><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">terraform</span> <span class="p">{</span>
+  <span class="nx">required_version</span> <span class="p">=</span> <span class="s2">"&gt;= 1.3.0"</span>
+  <span class="nx">required_providers</span> <span class="p">{</span>
+    <span class="nx">azurerm</span> <span class="p">=</span> <span class="p">{</span>
+      <span class="nx">source</span>  <span class="p">=</span> <span class="s2">"hashicorp/azurerm"</span>
+      <span class="nx">version</span> <span class="p">=</span> <span class="s2">"~&gt; 3.0"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">provider</span> <span class="s2">"azurerm"</span> <span class="p">{</span>
+  <span class="nx">features</span> <span class="p">{}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_resource_group"</span> <span class="s2">"main"</span> <span class="p">{</span>
+  <span class="nx">name</span>     <span class="p">=</span> <span class="s2">"rg-eventdriven-architecture-prod"</span>
+  <span class="nx">location</span> <span class="p">=</span> <span class="s2">"East US"</span>
+
+  <span class="nx">tags</span> <span class="p">=</span> <span class="p">{</span>
+    <span class="nx">Environment</span> <span class="p">=</span> <span class="s2">"Production"</span>
+    <span class="nx">Project</span>     <span class="p">=</span> <span class="s2">"EventDrivenArchitecture"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="step-2-creation-of-the-cosmos-db-account-and-containers">Step 2: Creation of the Cosmos DB Account and Containers
+</h3>
+
+<p><strong>What to do:</strong> Provision a Cosmos DB account with the SQL (Core) API, a database, and two containers: one for your application data and one "leases" container required to manage the state of the Change Feed.</p>
+
+<p><strong>Why do it:</strong> Cosmos DB is Azure's fully managed NoSQL database. Unlike AWS DynamoDB where Streams must be explicitly enabled, the Cosmos DB Change Feed is enabled by default. However, to consume it reliably with Azure Functions, you must create an auxiliary container called a "lease container." This container acts as a checkpoint system, allowing the producer function to keep track of which events it has already processed, ensuring reliable, ordered, and distributed event consumption.</p>
+
+<p><strong>Example (<code>database.tf</code>):</strong><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">resource</span> <span class="s2">"azurerm_cosmosdb_account"</span> <span class="s2">"db_account"</span> <span class="p">{</span>
+  <span class="nx">name</span>                <span class="p">=</span> <span class="s2">"cosmos-event-app-prod"</span>
+  <span class="nx">location</span>            <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">resource_group_name</span> <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">offer_type</span>          <span class="p">=</span> <span class="s2">"Standard"</span>
+  <span class="nx">kind</span>                <span class="p">=</span> <span class="s2">"GlobalDocumentDB"</span>
+
+  <span class="nx">consistency_policy</span> <span class="p">{</span>
+    <span class="nx">consistency_level</span> <span class="p">=</span> <span class="s2">"Session"</span>
+  <span class="p">}</span>
+
+  <span class="nx">geo_location</span> <span class="p">{</span>
+    <span class="nx">location</span>          <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">location</span>
+    <span class="nx">failover_priority</span> <span class="p">=</span> <span class="mi">0</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_cosmosdb_sql_database"</span> <span class="s2">"database"</span> <span class="p">{</span>
+  <span class="nx">name</span>                <span class="p">=</span> <span class="s2">"ApplicationData"</span>
+  <span class="nx">resource_group_name</span> <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">account_name</span>        <span class="p">=</span> <span class="nx">azurerm_cosmosdb_account</span><span class="p">.</span><span class="nx">db_account</span><span class="p">.</span><span class="nx">name</span>
+<span class="p">}</span>
+
+<span class="c1"># Main Data Container</span>
+<span class="nx">resource</span> <span class="s2">"azurerm_cosmosdb_sql_container"</span> <span class="s2">"data_container"</span> <span class="p">{</span>
+  <span class="nx">name</span>                  <span class="p">=</span> <span class="s2">"Items"</span>
+  <span class="nx">resource_group_name</span>   <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">account_name</span>          <span class="p">=</span> <span class="nx">azurerm_cosmosdb_account</span><span class="p">.</span><span class="nx">db_account</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">database_name</span>         <span class="p">=</span> <span class="nx">azurerm_cosmosdb_sql_database</span><span class="p">.</span><span class="nx">database</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">partition_key_path</span>    <span class="p">=</span> <span class="s2">"/id"</span>
+<span class="p">}</span>
+
+<span class="c1"># Leases Container for Change Feed State</span>
+<span class="nx">resource</span> <span class="s2">"azurerm_cosmosdb_sql_container"</span> <span class="s2">"leases_container"</span> <span class="p">{</span>
+  <span class="nx">name</span>                  <span class="p">=</span> <span class="s2">"leases"</span>
+  <span class="nx">resource_group_name</span>   <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">account_name</span>          <span class="p">=</span> <span class="nx">azurerm_cosmosdb_account</span><span class="p">.</span><span class="nx">db_account</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">database_name</span>         <span class="p">=</span> <span class="nx">azurerm_cosmosdb_sql_database</span><span class="p">.</span><span class="nx">database</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">partition_key_path</span>    <span class="p">=</span> <span class="s2">"/id"</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="step-3-provisioning-the-service-bus-topic-and-subscription">Step 3: Provisioning the Service Bus Topic and Subscription
+</h3>
+
+<p><strong>What to do:</strong> Implement the Azure Service Bus Namespace, a Topic, and a Subscription. This maps perfectly to the AWS SNS/SQS fan-out pattern.</p>
+
+<p><strong>Why do it:</strong> A Service Bus Topic allows you to publish a single message that can be received by multiple independent Subscriptions. The Topic handles the routing (like SNS), while the Subscription acts as a dedicated, persistent queue for your consumer function (like SQS). This decouples your microservices and provides message retention in case the consumer function is temporarily unavailable.</p>
+
+<p><strong>Example (<code>messaging.tf</code>):</strong><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">resource</span> <span class="s2">"azurerm_servicebus_namespace"</span> <span class="s2">"sb_namespace"</span> <span class="p">{</span>
+  <span class="nx">name</span>                <span class="p">=</span> <span class="s2">"sb-event-routing-prod"</span>
+  <span class="nx">location</span>            <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">resource_group_name</span> <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">sku</span>                 <span class="p">=</span> <span class="s2">"Standard"</span> <span class="c1"># Required for Topics</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_servicebus_topic"</span> <span class="s2">"event_topic"</span> <span class="p">{</span>
+  <span class="nx">name</span>         <span class="p">=</span> <span class="s2">"data-processing-topic"</span>
+  <span class="nx">namespace_id</span> <span class="p">=</span> <span class="nx">azurerm_servicebus_namespace</span><span class="p">.</span><span class="nx">sb_namespace</span><span class="p">.</span><span class="nx">id</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_servicebus_subscription"</span> <span class="s2">"event_subscription"</span> <span class="p">{</span>
+  <span class="nx">name</span>               <span class="p">=</span> <span class="s2">"data-processing-subscription"</span>
+  <span class="nx">topic_id</span>           <span class="p">=</span> <span class="nx">azurerm_servicebus_topic</span><span class="p">.</span><span class="nx">event_topic</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">max_delivery_count</span> <span class="p">=</span> <span class="mi">10</span> <span class="c1"># Send to Dead Letter Queue after 10 fails</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="step-4-deploying-the-producer-and-consumer-azure-functions">Step 4: Deploying the Producer and Consumer Azure Functions
+</h3>
+
+<p><strong>What to do:</strong> Create a Storage Account and an App Service Plan (Serverless Consumption tier) required to host Azure Functions. Then, deploy the two Linux Function Apps, ensuring that System Assigned Managed Identities are enabled for secure, passwordless authentication.</p>
+
+<p><strong>Why do it:</strong> Azure Functions require a backing Storage Account to manage triggers and function execution state. By enabling <code>identity { type = "SystemAssigned" }</code>, Azure automatically provisions a service principal in Microsoft Entra ID (formerly Azure AD) tied to the lifecycle of the Function. This is a crucial security best practice, allowing your functions to securely access Cosmos DB and Service Bus without hardcoding connection strings in your configuration.</p>
+
+<p><strong>Example (<code>functions.tf</code>):</strong><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">resource</span> <span class="s2">"azurerm_storage_account"</span> <span class="s2">"func_storage"</span> <span class="p">{</span>
+  <span class="nx">name</span>                     <span class="p">=</span> <span class="s2">"stfuncappdata123"</span>
+  <span class="nx">resource_group_name</span>      <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">location</span>                 <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">account_tier</span>             <span class="p">=</span> <span class="s2">"Standard"</span>
+  <span class="nx">account_replication_type</span> <span class="p">=</span> <span class="s2">"LRS"</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_service_plan"</span> <span class="s2">"consumption_plan"</span> <span class="p">{</span>
+  <span class="nx">name</span>                <span class="p">=</span> <span class="s2">"asp-serverless-plan"</span>
+  <span class="nx">resource_group_name</span> <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">location</span>            <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">os_type</span>             <span class="p">=</span> <span class="s2">"Linux"</span>
+  <span class="nx">sku_name</span>            <span class="p">=</span> <span class="s2">"Y1"</span> <span class="c1"># Dynamic Serverless Consumption</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_linux_function_app"</span> <span class="s2">"producer_func"</span> <span class="p">{</span>
+  <span class="nx">name</span>                       <span class="p">=</span> <span class="s2">"func-cosmos-producer-prod"</span>
+  <span class="nx">resource_group_name</span>        <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">location</span>                   <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">service_plan_id</span>            <span class="p">=</span> <span class="nx">azurerm_service_plan</span><span class="p">.</span><span class="nx">consumption_plan</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">storage_account_name</span>       <span class="p">=</span> <span class="nx">azurerm_storage_account</span><span class="p">.</span><span class="nx">func_storage</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">storage_account_access_key</span> <span class="p">=</span> <span class="nx">azurerm_storage_account</span><span class="p">.</span><span class="nx">func_storage</span><span class="p">.</span><span class="nx">primary_access_key</span>
+
+  <span class="nx">site_config</span> <span class="p">{</span>
+    <span class="nx">application_stack</span> <span class="p">{</span>
+      <span class="nx">node_version</span> <span class="p">=</span> <span class="s2">"20"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="nx">identity</span> <span class="p">{</span>
+    <span class="nx">type</span> <span class="p">=</span> <span class="s2">"SystemAssigned"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"azurerm_linux_function_app"</span> <span class="s2">"consumer_func"</span> <span class="p">{</span>
+  <span class="nx">name</span>                       <span class="p">=</span> <span class="s2">"func-sb-consumer-prod"</span>
+  <span class="nx">resource_group_name</span>        <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">location</span>                   <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">main</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">service_plan_id</span>            <span class="p">=</span> <span class="nx">azurerm_service_plan</span><span class="p">.</span><span class="nx">consumption_plan</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">storage_account_name</span>       <span class="p">=</span> <span class="nx">azurerm_storage_account</span><span class="p">.</span><span class="nx">func_storage</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">storage_account_access_key</span> <span class="p">=</span> <span class="nx">azurerm_storage_account</span><span class="p">.</span><span class="nx">func_storage</span><span class="p">.</span><span class="nx">primary_access_key</span>
+
+  <span class="nx">site_config</span> <span class="p">{</span>
+    <span class="nx">application_stack</span> <span class="p">{</span>
+      <span class="nx">node_version</span> <span class="p">=</span> <span class="s2">"20"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+
+  <span class="nx">identity</span> <span class="p">{</span>
+    <span class="nx">type</span> <span class="p">=</span> <span class="s2">"SystemAssigned"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="step-5-applying-rolebased-access-control-rbac-triggers">Step 5: Applying Role-Based Access Control (RBAC) Triggers
+</h3>
+
+<p><strong>What to do:</strong> Grant the specific IAM roles required for the Functions to interact with the database and messaging bus using Azure Role Assignments.</p>
+
+<p><strong>Why do it:</strong> While AWS uses IAM Policies attached to Event Source Mappings, Azure utilizes RBAC assignments. The Producer Function needs permission to read the Cosmos DB Change Feed and send messages to the Service Bus. The Consumer Function needs permission to receive messages from the Service Bus. Defining these natively in Terraform centralizes your security posture and enforces the principle of least privilege.</p>
+
+<p><strong>Example (<code>rbac.tf</code>):</strong><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">data</span> <span class="s2">"azurerm_subscription"</span> <span class="s2">"current"</span> <span class="p">{}</span>
+
+<span class="c1"># Give Producer Function permission to Send to Service Bus</span>
+<span class="nx">resource</span> <span class="s2">"azurerm_role_assignment"</span> <span class="s2">"producer_sb_sender"</span> <span class="p">{</span>
+  <span class="nx">scope</span>                <span class="p">=</span> <span class="nx">azurerm_servicebus_namespace</span><span class="p">.</span><span class="nx">sb_namespace</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">role_definition_name</span> <span class="p">=</span> <span class="s2">"Azure Service Bus Data Sender"</span>
+  <span class="nx">principal_id</span>         <span class="p">=</span> <span class="nx">azurerm_linux_function_app</span><span class="p">.</span><span class="nx">producer_func</span><span class="p">.</span><span class="nx">identity</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">principal_id</span>
+<span class="p">}</span>
+
+<span class="c1"># Cosmos DB RBAC is custom, but for simplicity we grant Cosmos DB Account Reader </span>
+<span class="c1"># (Note: Data plane role assignments for Cosmos DB are often managed via azapi or CLI, </span>
+<span class="c1"># but this represents the structural intent)</span>
+<span class="nx">resource</span> <span class="s2">"azurerm_role_assignment"</span> <span class="s2">"producer_cosmos_reader"</span> <span class="p">{</span>
+  <span class="nx">scope</span>                <span class="p">=</span> <span class="nx">azurerm_cosmosdb_account</span><span class="p">.</span><span class="nx">db_account</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">role_definition_name</span> <span class="p">=</span> <span class="s2">"DocumentDB Account Contributor"</span> 
+  <span class="nx">principal_id</span>         <span class="p">=</span> <span class="nx">azurerm_linux_function_app</span><span class="p">.</span><span class="nx">producer_func</span><span class="p">.</span><span class="nx">identity</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">principal_id</span>
+<span class="p">}</span>
+
+<span class="c1"># Give Consumer Function permission to Read from Service Bus</span>
+<span class="nx">resource</span> <span class="s2">"azurerm_role_assignment"</span> <span class="s2">"consumer_sb_receiver"</span> <span class="p">{</span>
+  <span class="nx">scope</span>                <span class="p">=</span> <span class="nx">azurerm_servicebus_namespace</span><span class="p">.</span><span class="nx">sb_namespace</span><span class="p">.</span><span class="nx">id</span>
+  <span class="nx">role_definition_name</span> <span class="p">=</span> <span class="s2">"Azure Service Bus Data Receiver"</span>
+  <span class="nx">principal_id</span>         <span class="p">=</span> <span class="nx">azurerm_linux_function_app</span><span class="p">.</span><span class="nx">consumer_func</span><span class="p">.</span><span class="nx">identity</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="nx">principal_id</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h2 id="4-common-troubleshooting">4. Common Troubleshooting
+</h2>
+
+<p>Navigating cloud permissions and distributed architectures can present hurdles. Here are common issues and their solutions when working with this Azure stack:</p>
+
+<ol>
+<li> <strong>Producer Function is not triggering on Cosmos DB changes:</strong> This usually indicates a problem with the leases container. Ensure that the <code>leases</code> container actually exists in your Cosmos DB database and that your Function's <code>function.json</code> bindings point to the correct database and collection names. Additionally, verify that your Function app settings contain the fully qualified URI to the Cosmos DB account if using Managed Identities.</li>
+<li> <strong>Authorization rules or "Unauthorized" errors on Service Bus:</strong> If your consumer function fails to read the queue, ensure that the "Azure Service Bus Data Receiver" role has propagated. RBAC assignments in Azure can sometimes take 5-10 minutes to fully propagate globally. Avoid using older connection string bindings in your function code; ensure your code uses <code>ServiceBusClient</code> configured with <code>DefaultAzureCredential()</code>.</li>
+<li> <strong>Poison Messages and Infinite Loops:</strong> Just like AWS SQS, if your Consumer Function throws an unhandled exception, the Service Bus message is not marked as complete and will be retried. If this continues, it will cause an infinite loop. The <code>max_delivery_count = 10</code> defined in Step 3 solves this by automatically moving the failing message to a dead-letter queue (DLQ) after 10 attempts, allowing your system to continue processing healthy messages.</li>
+</ol>
+
+<h2 id="5-conclusion">5. Conclusion
+</h2>
+
+<p>In this tutorial, you transitioned architectural concepts across cloud providers, building an enterprise-grade, asynchronous infrastructure on Microsoft Azure. By utilizing Cosmos DB Change Feeds, Azure Functions, and Service Bus Topics/Subscriptions, you implemented a resilient Fan-Out event-driven system. Leveraging Terraform and System Assigned Managed Identities ensured that your infrastructure is not only automated and version-controlled but also inherently secure by eliminating the need for hardcoded credentials. As next steps, consider implementing Azure Application Insights for end-to-end distributed tracing across your functions, and placing your Storage Account behind an Azure Virtual Network (VNet) private endpoint for enhanced network isolation.</p>

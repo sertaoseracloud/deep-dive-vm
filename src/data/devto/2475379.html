@@ -1,0 +1,190 @@
+<p>Em projetos de sustentabilidade digital — como GreenOps e Green Software — é comum criar e manter critérios de maturidade em arquivos como <code>maturity.json</code>. Embora o formato JSON seja simples, ele precisa ser versionado, rastreável e armazenado com segurança em nuvem. Este artigo mostra como <strong>automatizar o envio e versionamento desse arquivo usando GitHub Actions</strong> e <strong>Azure Data Lake Storage Gen2</strong> (ADLS Gen2), sem depender de etapas manuais ou ferramentas pesadas.</p>
+
+
+<hr>
+
+<h2 id="estrutura-dos-dados-greenops-e-green-software">📘 Estrutura dos Dados: GreenOps e Green Software
+</h2>
+
+<p>A estrutura utilizada agrupa critérios de maturidade em dois blocos principais:</p>
+
+<ul>
+<li>
+<code>GreenOps</code>: voltado à infraestrutura, observabilidade e governança em nuvem.</li>
+<li>
+<code>GreenSoftware</code>: foca em desenvolvimento de software sustentável.</li>
+</ul>
+
+<p>Cada item tem campos como <code>id</code>, <code>título</code>, <code>descrição</code>, <code>pilar</code>, <code>categoria</code>, <code>relevante_para</code> e <code>criterio</code> (nível de maturidade de 0 a 2).</p>
+
+<h3 id="exemplo-resumido-do-json">Exemplo resumido do JSON:
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"GreenOps"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GO001"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"título"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Monitoramento centralizado de consumo energético"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"descrição"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Coleta e visualização contínua de métricas de consumo de energia dos recursos de TI."</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"pilar"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Observabilidade"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"categoria"</span><span class="p">:</span><span class="w"> </span><span class="s2">"infra"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"relevante_para"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"cloud"</span><span class="p">,</span><span class="w"> </span><span class="s2">"monitoramento"</span><span class="p">],</span><span class="w">
+      </span><span class="nl">"criterio"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+ </span><span class="err">//</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="err">outros</span><span class="w"> </span><span class="err">critérios</span><span class="w">
+  </span><span class="p">],</span><span class="w">
+  </span><span class="nl">"GreenSoftware"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"GS001"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"título"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Medição de consumo energético no desenvolvimento"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"descrição"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Ferramentas que medem o uso de CPU/memória durante a execução de funcionalidades de software."</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"pilar"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Observabilidade"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"categoria"</span><span class="p">:</span><span class="w"> </span><span class="s2">"desenvolvimento"</span><span class="p">,</span><span class="w">
+      </span><span class="nl">"relevante_para"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"linguagem"</span><span class="p">,</span><span class="w"> </span><span class="s2">"ferramentas"</span><span class="p">],</span><span class="w">
+      </span><span class="nl">"criterio"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+ </span><span class="err">//</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="err">outros</span><span class="w"> </span><span class="err">critérios</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="automatizando-com-github-actions">🚀 Automatizando com GitHub Actions
+</h2>
+
+<p>A automação é feita via GitHub Actions. Sempre que o arquivo <code>maturity.json</code> for modificado, o workflow:</p>
+
+<ol>
+<li>Faz login no Azure usando OIDC (sem <code>client-secret</code>)</li>
+<li>Cria um container no ADLS Gen2, se necessário</li>
+<li>Faz upload do arquivo, com nome incluindo a data do envio</li>
+</ol>
+
+<h3 id="arquivo-raw-githubworkflowsuploaddatayml-endraw-">Arquivo: <code>.github/workflows/upload-data.yml</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight yaml"><code><span class="na">name</span><span class="pi">:</span> <span class="s">Upload Sustainability Data</span>
+
+<span class="na">on</span><span class="pi">:</span>
+  <span class="na">push</span><span class="pi">:</span>
+    <span class="na">paths</span><span class="pi">:</span> <span class="pi">[</span><span class="s2">"</span><span class="s">maturity.json"</span><span class="pi">]</span>
+
+<span class="na">permissions</span><span class="pi">:</span>
+  <span class="na">id-token</span><span class="pi">:</span> <span class="s">write</span>
+  <span class="na">contents</span><span class="pi">:</span> <span class="s">read</span>
+
+<span class="na">jobs</span><span class="pi">:</span>
+  <span class="na">upload</span><span class="pi">:</span>
+    <span class="na">runs-on</span><span class="pi">:</span> <span class="s">ubuntu-latest</span>
+    <span class="na">env</span><span class="pi">:</span>
+      <span class="na">STORAGE_ACCOUNT</span><span class="pi">:</span> <span class="s">${{ secrets.STORAGE_ACCOUNT }}</span>
+
+    <span class="na">steps</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Checkout repo</span>
+        <span class="na">uses</span><span class="pi">:</span> <span class="s">actions/checkout@v3</span>
+
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Login to Azure</span>
+        <span class="na">uses</span><span class="pi">:</span> <span class="s">azure/login@v1</span>
+        <span class="na">with</span><span class="pi">:</span>
+          <span class="na">client-id</span><span class="pi">:</span> <span class="s">${{ secrets.AZURE_CLIENT_ID }}</span>
+          <span class="na">tenant-id</span><span class="pi">:</span> <span class="s">${{ secrets.AZURE_TENANT_ID }}</span>
+          <span class="na">subscription-id</span><span class="pi">:</span> <span class="s">${{ secrets.AZURE_SUBSCRIPTION_ID }}</span>
+
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Get current date</span>
+        <span class="na">id</span><span class="pi">:</span> <span class="s">date</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="s">echo "date=$(date +'%Y/%m/%d')" &gt;&gt; $GITHUB_OUTPUT</span>
+
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Create container if not exists</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">az storage container create \</span>
+            <span class="s">--name sustainability-data \</span>
+            <span class="s">--account-name $STORAGE_ACCOUNT \</span>
+            <span class="s">--auth-mode login \</span>
+            <span class="s">--fail-on-exist false</span>
+
+      <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">Upload JSON with date</span>
+        <span class="na">run</span><span class="pi">:</span> <span class="pi">|</span>
+          <span class="s">az storage blob upload \</span>
+            <span class="s">--file maturity.json \</span>
+            <span class="s">--container-name sustainability-data \</span>
+            <span class="s">--name "raw/maturity-${{ steps.date.outputs.date }}.json" \</span>
+            <span class="s">--account-name $STORAGE_ACCOUNT \</span>
+            <span class="s">--auth-mode login</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="resultado-esperado">🧾 Resultado Esperado
+</h2>
+
+<p>Após um push no repositório com alteração no <code>maturity.json</code>, o arquivo será salvo no ADLS Gen2 com o seguinte caminho:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>sustainability-data/
+└── raw/
+    └── maturity-2025/05/06.json
+</code></pre>
+
+</div>
+
+
+
+<p>Esse versionamento garante:</p>
+
+<ul>
+<li>Histórico de envios para rastreabilidade</li>
+<li>Integração com pipelines de dados e dashboards</li>
+<li>Armazenamento centralizado e seguro na nuvem</li>
+</ul>
+
+
+<hr>
+
+<h2 id="vantagens">✅ Vantagens
+</h2>
+
+<ul>
+<li>
+<strong>Segurança:</strong> login via OIDC sem senhas armazenadas</li>
+<li><strong>Versionamento automático por data</strong></li>
+<li><strong>Baixa complexidade técnica</strong></li>
+<li><strong>Pronto para análises futuras com Spark, Synapse, etc.</strong></li>
+</ul>
+
+<h2 id="conclus%C3%A3o">🧩 Conclusão
+</h2>
+
+<p>Neste artigo, mostramos como transformar um simples arquivo <code>maturity.json</code> — contendo critérios de sustentabilidade como GreenOps e Green Software — em um ativo digital versionado, seguro e pronto para análises, usando apenas <strong>GitHub Actions</strong> e <strong>Azure Data Lake Storage Gen2</strong>.</p>
+
+<p>Sem ferramentas adicionais, conseguimos:</p>
+
+<p>✅ Automatizar o envio e versionamento de dados<br>
+✅ Padronizar uma estrutura JSON rica e auditável<br>
+✅ Integrar práticas sustentáveis com pipelines modernos<br>
+✅ Reduzir complexidade técnica e operativa</p>
+
+<p>Esse tipo de automação ajuda organizações a tratarem sustentabilidade digital como algo contínuo, mensurável e governável — exatamente como tratamos qualidade, segurança ou performance.</p>
+
+<p>Se você trabalha com ESG, FinOps, cloud ou engenharia de dados, esse processo pode ser adaptado para versionar outros indicadores como pegada de carbono, consumo energético ou eficiência de código.</p>
+
+<p>Quer levar esse fluxo para o próximo nível? Fale comigo e posso te ajudar a integrar validação, métricas e até visualizações automáticas.</p>
+
+<p>Segue o repositório: <a href="https://github.com/sertaoseracloud/Sustainability_Maturity_Tracker" target="_blank" rel="noopener noreferrer">sertaoseracloud/Sustainability_Maturity_Tracker</a> </p>

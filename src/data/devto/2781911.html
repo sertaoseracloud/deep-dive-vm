@@ -1,0 +1,940 @@
+<p>Eu quero te levar do zero até uma solução <strong>funcional</strong> de verificação de e-mail, sem depender de servidores próprios. Vamos usar <strong>AWS SES</strong> para enviar os e-mails, <strong>DynamoDB</strong> para guardar tokens com <strong>TTL</strong>, e <strong>AWS Lambda</strong> (Node.js) para orquestrar tudo. A infraestrutura nasce com <strong>Terraform</strong> usando <strong>módulos</strong> separados (SES, DynamoDB, IAM, Lambda), mantendo o código limpo e fácil de evoluir.</p>
+
+
+<hr>
+
+<h2 id="o-problema-e-a-solu%C3%A7%C3%A3o">O problema e a solução
+</h2>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fj2g43ttqej406cbahkic.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fj2g43ttqej406cbahkic.png" alt="Solução" loading="lazy" width="800" height="601"></a></p>
+
+<p>Toda aplicação que cria contas precisa <strong>verificar e-mails</strong>. Fazer isso na unha costuma gerar acoplamento, scripts soltos e dor de cabeça com credenciais. Aqui eu:</p>
+
+<ul>
+<li>Provisiono a infraestrutura <strong>como código</strong>.</li>
+<li>Centralizo envios no <strong>SES</strong> com remetente verificado.</li>
+<li>Persisto tokens no <strong>DynamoDB</strong> com <strong>expiração automática</strong> via TTL.</li>
+<li>
+<p>Exponho uma <strong>Lambda</strong> com <strong>Function URL</strong> que:</p>
+
+<ul>
+<li>
+<code>POST /send</code>: gera token, salva no DynamoDB e envia e-mail de verificação.</li>
+<li>
+<code>GET /verify?email=...&amp;token=...</code>: valida token e marca como verificado.</li>
+</ul>
+
+
+</li>
+
+</ul>
+
+<p>Resultado: um fluxo completo, <strong>serverless</strong>, barato e pronto para plugar no front-end.</p>
+
+<blockquote>
+<p>Observação importante: se sua conta SES estiver em <strong>sandbox</strong>, você precisa <strong>verificar o remetente</strong> e também os <strong>destinatários</strong> de teste, ou usar o <strong>mailbox simulator</strong>. Quando for para produção, peça saída de sandbox. </p>
+</blockquote>
+
+
+<hr>
+
+<h2 id="arquitetura-vis%C3%A3o-r%C3%A1pida">Arquitetura (visão rápida)
+</h2>
+
+<ul>
+<li>
+<strong>Lambda (Node.js)</strong> com Function URL pública.</li>
+<li>
+<strong>SES</strong> com identidade de e-mail verificada (remetente).</li>
+<li>
+<strong>DynamoDB</strong> com chave composta <code>pk</code> (e-mail) + <code>sk</code> (token) e <code>expiresAt</code> como TTL.</li>
+<li>
+<strong>IAM Roles/Policies</strong> mínimos: DynamoDB R/W na tabela e SES <code>SendEmail</code>.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="pr%C3%A9requisitos">Pré-requisitos
+</h2>
+
+<ul>
+<li>Node.js 18+ (usarei runtime <strong>nodejs20.x</strong> na Lambda).</li>
+<li>Terraform 1.6+.</li>
+<li>AWS CLI configurado.</li>
+<li>Uma caixa de e-mail para verificar como remetente no SES.</li>
+</ul>
+
+
+<hr>
+
+<h2 id="estrutura-de-pastas">Estrutura de pastas
+</h2>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight plaintext"><code>ses-dynamodb-lambda-verification/
+  infra/
+    main.tf
+    variables.tf
+    outputs.tf
+    modules/
+      ses/
+        main.tf
+        variables.tf
+        outputs.tf
+      dynamodb/
+        main.tf
+        variables.tf
+        outputs.tf
+      iam/
+        main.tf
+        variables.tf
+        outputs.tf
+      lambda/
+        main.tf
+        variables.tf
+        outputs.tf
+  app/
+    package.json
+    src/
+      core/env.js
+      domain/types.js
+      services/email/email-client.js
+      services/email/email-service.js
+      services/token/token-service.js
+      services/store/repository.js
+      usecases/send-verification.js
+      usecases/verify-token.js
+      handler.js
+    build.sh
+</code></pre>
+
+</div>
+
+
+
+<p>Eu separei responsabilidades por <strong>módulos Terraform</strong> e <strong>camadas de código</strong> na Lambda, seguindo <strong>SOLID/DRY/YAGNI</strong>.</p>
+
+
+<hr>
+
+<h2 id="infra-com-terraform">Infra com Terraform
+</h2>
+
+<h3 id="1-root-raw-inframaintf-endraw-">1) Root: <code>infra/main.tf</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">terraform</span> <span class="p">{</span>
+  <span class="nx">required_version</span> <span class="p">=</span> <span class="s2">"&gt;= 1.6.0"</span>
+  <span class="nx">required_providers</span> <span class="p">{</span>
+    <span class="nx">aws</span> <span class="p">=</span> <span class="p">{</span>
+      <span class="nx">source</span>  <span class="p">=</span> <span class="s2">"hashicorp/aws"</span>
+      <span class="nx">version</span> <span class="p">=</span> <span class="s2">"~&gt; 5.50"</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">provider</span> <span class="s2">"aws"</span> <span class="p">{</span>
+  <span class="nx">region</span> <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">aws_region</span>
+<span class="p">}</span>
+
+<span class="nx">locals</span> <span class="p">{</span>
+  <span class="nx">name_prefix</span> <span class="p">=</span> <span class="s2">"${var.project_name}-${var.environment}"</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"ses"</span> <span class="p">{</span>
+  <span class="nx">source</span>        <span class="p">=</span> <span class="s2">"./modules/ses"</span>
+  <span class="nx">sender_email</span>  <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">sender_email</span>
+  <span class="nx">name_prefix</span>   <span class="p">=</span> <span class="nx">local</span><span class="p">.</span><span class="nx">name_prefix</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"dynamodb"</span> <span class="p">{</span>
+  <span class="nx">source</span>        <span class="p">=</span> <span class="s2">"./modules/dynamodb"</span>
+  <span class="nx">table_name</span>    <span class="p">=</span> <span class="s2">"${local.name_prefix}-verifications"</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"iam"</span> <span class="p">{</span>
+  <span class="nx">source</span>              <span class="p">=</span> <span class="s2">"./modules/iam"</span>
+  <span class="nx">name_prefix</span>         <span class="p">=</span> <span class="nx">local</span><span class="p">.</span><span class="nx">name_prefix</span>
+  <span class="nx">dynamodb_table_arn</span>  <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">dynamodb</span><span class="p">.</span><span class="nx">table_arn</span>
+  <span class="nx">ses_send_actions</span>    <span class="p">=</span> <span class="p">[</span><span class="s2">"ses:SendEmail"</span><span class="p">,</span> <span class="s2">"ses:SendRawEmail"</span><span class="p">]</span>
+<span class="p">}</span>
+
+<span class="nx">module</span> <span class="s2">"lambda"</span> <span class="p">{</span>
+  <span class="nx">source</span>          <span class="p">=</span> <span class="s2">"./modules/lambda"</span>
+  <span class="nx">name_prefix</span>     <span class="p">=</span> <span class="nx">local</span><span class="p">.</span><span class="nx">name_prefix</span>
+  <span class="nx">role_arn</span>        <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">iam</span><span class="p">.</span><span class="nx">lambda_role_arn</span>
+  <span class="nx">artifact_path</span>   <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">lambda_artifact_path</span>
+  <span class="nx">env_map</span> <span class="p">=</span> <span class="p">{</span>
+    <span class="nx">TABLE_NAME</span>        <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">dynamodb</span><span class="p">.</span><span class="nx">table_name</span>
+    <span class="nx">SES_SENDER</span>        <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">sender_email</span>
+    <span class="nx">VERIFY_BASE_URL</span>   <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">verify_base_url</span>
+    <span class="nx">TOKEN_TTL_SECONDS</span> <span class="p">=</span> <span class="nx">tostring</span><span class="p">(</span><span class="nx">var</span><span class="p">.</span><span class="nx">token_ttl_seconds</span><span class="p">)</span>
+    <span class="nx">AWS_NODEJS_CONNECTION_REUSE_ENABLED</span> <span class="p">=</span> <span class="s2">"1"</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">output</span> <span class="s2">"function_url"</span> <span class="p">{</span>
+  <span class="nx">value</span>       <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">lambda</span><span class="p">.</span><span class="nx">function_url</span>
+  <span class="nx">description</span> <span class="p">=</span> <span class="s2">"URL pública da Lambda"</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="2-root-raw-infravariablestf-endraw-">2) Root: <code>infra/variables.tf</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">variable</span> <span class="s2">"aws_region"</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"project_name"</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"environment"</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"sender_email"</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"verify_base_url"</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span><span class="p">,</span> <span class="nx">default</span> <span class="p">=</span> <span class="s2">""</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"lambda_artifact_path"</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"token_ttl_seconds"</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">number</span><span class="p">,</span> <span class="nx">default</span> <span class="p">=</span> <span class="mi">900</span> <span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="3-root-raw-infraoutputstf-endraw-">3) Root: <code>infra/outputs.tf</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">output</span> <span class="s2">"table_name"</span> <span class="p">{</span> <span class="nx">value</span> <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">dynamodb</span><span class="p">.</span><span class="nx">table_name</span> <span class="p">}</span>
+<span class="nx">output</span> <span class="s2">"function_url"</span> <span class="p">{</span> <span class="nx">value</span> <span class="p">=</span> <span class="nx">module</span><span class="p">.</span><span class="nx">lambda</span><span class="p">.</span><span class="nx">function_url</span> <span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h3 id="m%C3%B3dulo-ses-raw-inframodulessesmaintf-endraw-">Módulo SES: <code>infra/modules/ses/main.tf</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">variable</span> <span class="s2">"sender_email"</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"name_prefix"</span>  <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_sesv2_email_identity"</span> <span class="s2">"this"</span> <span class="p">{</span>
+  <span class="nx">email_identity</span> <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">sender_email</span>
+<span class="p">}</span>
+
+<span class="nx">output</span> <span class="s2">"identity_arn"</span> <span class="p">{</span>
+  <span class="nx">value</span> <span class="p">=</span> <span class="nx">aws_sesv2_email_identity</span><span class="p">.</span><span class="nx">this</span><span class="p">.</span><span class="nx">arn</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<blockquote>
+<p>A identidade de e-mail do SES v2 é gerenciada pelo recurso <code>aws_sesv2_email_identity</code>. </p>
+</blockquote>
+
+
+<hr>
+
+<h3 id="m%C3%B3dulo-dynamodb-raw-inframodulesdynamodbmaintf-endraw-">Módulo DynamoDB: <code>infra/modules/dynamodb/main.tf</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">variable</span> <span class="s2">"table_name"</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_dynamodb_table"</span> <span class="s2">"this"</span> <span class="p">{</span>
+  <span class="nx">name</span>         <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">table_name</span>
+  <span class="nx">billing_mode</span> <span class="p">=</span> <span class="s2">"PAY_PER_REQUEST"</span>
+  <span class="nx">hash_key</span>     <span class="p">=</span> <span class="s2">"pk"</span>
+  <span class="nx">range_key</span>    <span class="p">=</span> <span class="s2">"sk"</span>
+
+  <span class="nx">attribute</span> <span class="p">{</span> <span class="nx">name</span> <span class="p">=</span> <span class="s2">"pk"</span> <span class="nx">type</span> <span class="p">=</span> <span class="s2">"S"</span> <span class="p">}</span>
+  <span class="nx">attribute</span> <span class="p">{</span> <span class="nx">name</span> <span class="p">=</span> <span class="s2">"sk"</span> <span class="nx">type</span> <span class="p">=</span> <span class="s2">"S"</span> <span class="p">}</span>
+
+  <span class="nx">ttl</span> <span class="p">{</span>
+    <span class="nx">attribute_name</span> <span class="p">=</span> <span class="s2">"expiresAt"</span>
+    <span class="nx">enabled</span>        <span class="p">=</span> <span class="kc">true</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">output</span> <span class="s2">"table_name"</span> <span class="p">{</span> <span class="nx">value</span> <span class="p">=</span> <span class="nx">aws_dynamodb_table</span><span class="p">.</span><span class="nx">this</span><span class="p">.</span><span class="nx">name</span> <span class="p">}</span>
+<span class="nx">output</span> <span class="s2">"table_arn"</span>  <span class="p">{</span> <span class="nx">value</span> <span class="p">=</span> <span class="nx">aws_dynamodb_table</span><span class="p">.</span><span class="nx">this</span><span class="p">.</span><span class="nx">arn</span> <span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<blockquote>
+<p>O bloco <code>ttl { attribute_name = "expiresAt" enabled = true }</code> habilita expiração automática de itens. A remoção é assíncrona e não consome WCU. </p>
+</blockquote>
+
+
+<hr>
+
+<h3 id="m%C3%B3dulo-iam-raw-inframodulesiammaintf-endraw-">Módulo IAM: <code>infra/modules/iam/main.tf</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">variable</span> <span class="s2">"name_prefix"</span>         <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"dynamodb_table_arn"</span>  <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"ses_send_actions"</span>    <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">list</span><span class="p">(</span><span class="nx">string</span><span class="p">)</span> <span class="p">}</span>
+
+<span class="nx">data</span> <span class="s2">"aws_iam_policy_document"</span> <span class="s2">"assume"</span> <span class="p">{</span>
+  <span class="nx">statement</span> <span class="p">{</span>
+    <span class="nx">actions</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"sts:AssumeRole"</span><span class="p">]</span>
+    <span class="nx">principals</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="s2">"Service"</span> <span class="nx">identifiers</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"lambda.amazonaws.com"</span><span class="p">]</span> <span class="p">}</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_iam_role"</span> <span class="s2">"lambda"</span> <span class="p">{</span>
+  <span class="nx">name</span>               <span class="p">=</span> <span class="s2">"${var.name_prefix}-lambda-role"</span>
+  <span class="nx">assume_role_policy</span> <span class="p">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_iam_policy_document</span><span class="p">.</span><span class="nx">assume</span><span class="p">.</span><span class="nx">json</span>
+<span class="p">}</span>
+
+<span class="nx">data</span> <span class="s2">"aws_iam_policy_document"</span> <span class="s2">"lambda_policy"</span> <span class="p">{</span>
+  <span class="nx">statement</span> <span class="p">{</span>
+    <span class="nx">actions</span>   <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">ses_send_actions</span>
+    <span class="nx">resources</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"*"</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="nx">statement</span> <span class="p">{</span>
+    <span class="nx">actions</span>   <span class="p">=</span> <span class="p">[</span><span class="s2">"dynamodb:PutItem"</span><span class="p">,</span> <span class="s2">"dynamodb:GetItem"</span><span class="p">,</span> <span class="s2">"dynamodb:UpdateItem"</span><span class="p">]</span>
+    <span class="nx">resources</span> <span class="p">=</span> <span class="p">[</span><span class="nx">var</span><span class="p">.</span><span class="nx">dynamodb_table_arn</span><span class="p">]</span>
+  <span class="p">}</span>
+  <span class="nx">statement</span> <span class="p">{</span>
+    <span class="nx">actions</span>   <span class="p">=</span> <span class="p">[</span><span class="s2">"logs:CreateLogGroup"</span><span class="p">,</span> <span class="s2">"logs:CreateLogStream"</span><span class="p">,</span> <span class="s2">"logs:PutLogEvents"</span><span class="p">]</span>
+    <span class="nx">resources</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"*"</span><span class="p">]</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_iam_policy"</span> <span class="s2">"lambda_inline"</span> <span class="p">{</span>
+  <span class="nx">name</span>   <span class="p">=</span> <span class="s2">"${var.name_prefix}-lambda-policy"</span>
+  <span class="nx">policy</span> <span class="p">=</span> <span class="nx">data</span><span class="p">.</span><span class="nx">aws_iam_policy_document</span><span class="p">.</span><span class="nx">lambda_policy</span><span class="p">.</span><span class="nx">json</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_iam_role_policy_attachment"</span> <span class="s2">"attach"</span> <span class="p">{</span>
+  <span class="nx">role</span>       <span class="p">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">lambda</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">policy_arn</span> <span class="p">=</span> <span class="nx">aws_iam_policy</span><span class="p">.</span><span class="nx">lambda_inline</span><span class="p">.</span><span class="nx">arn</span>
+<span class="p">}</span>
+
+<span class="nx">output</span> <span class="s2">"lambda_role_arn"</span> <span class="p">{</span> <span class="nx">value</span> <span class="p">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">lambda</span><span class="p">.</span><span class="nx">arn</span> <span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h3 id="m%C3%B3dulo-lambda-raw-inframoduleslambdamaintf-endraw-">Módulo Lambda: <code>infra/modules/lambda/main.tf</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">variable</span> <span class="s2">"name_prefix"</span>   <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"role_arn"</span>      <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"artifact_path"</span> <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">string</span> <span class="p">}</span>
+<span class="nx">variable</span> <span class="s2">"env_map"</span>       <span class="p">{</span> <span class="nx">type</span> <span class="p">=</span> <span class="nx">map</span><span class="p">(</span><span class="nx">string</span><span class="p">)</span> <span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_lambda_function"</span> <span class="s2">"app"</span> <span class="p">{</span>
+  <span class="nx">function_name</span> <span class="p">=</span> <span class="s2">"${var.name_prefix}-verification"</span>
+  <span class="nx">role</span>          <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">role_arn</span>
+  <span class="nx">filename</span>      <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">artifact_path</span>
+  <span class="nx">handler</span>       <span class="p">=</span> <span class="s2">"handler.handler"</span>
+  <span class="nx">runtime</span>       <span class="p">=</span> <span class="s2">"nodejs20.x"</span>
+  <span class="nx">timeout</span>       <span class="p">=</span> <span class="mi">10</span>
+  <span class="nx">memory_size</span>   <span class="p">=</span> <span class="mi">256</span>
+
+  <span class="nx">environment</span> <span class="p">{</span>
+    <span class="nx">variables</span> <span class="p">=</span> <span class="nx">var</span><span class="p">.</span><span class="nx">env_map</span>
+  <span class="p">}</span>
+
+  <span class="nx">source_code_hash</span> <span class="p">=</span> <span class="nx">filebase64sha256</span><span class="p">(</span><span class="nx">var</span><span class="p">.</span><span class="nx">artifact_path</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="nx">resource</span> <span class="s2">"aws_lambda_function_url"</span> <span class="s2">"public"</span> <span class="p">{</span>
+  <span class="nx">function_name</span>      <span class="p">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">app</span><span class="p">.</span><span class="nx">function_name</span>
+  <span class="nx">authorization_type</span> <span class="p">=</span> <span class="s2">"NONE"</span>
+<span class="p">}</span>
+
+<span class="nx">output</span> <span class="s2">"function_name"</span> <span class="p">{</span> <span class="nx">value</span> <span class="p">=</span> <span class="nx">aws_lambda_function</span><span class="p">.</span><span class="nx">app</span><span class="p">.</span><span class="nx">function_name</span> <span class="p">}</span>
+<span class="nx">output</span> <span class="s2">"function_url"</span>  <span class="p">{</span> <span class="nx">value</span> <span class="p">=</span> <span class="nx">aws_lambda_function_url</span><span class="p">.</span><span class="nx">public</span><span class="p">.</span><span class="nx">function_url</span> <span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<blockquote>
+<p>Function URL deixa a Lambda acessível por HTTP diretamente, com <code>authorization_type = "NONE"</code> para simplificar o teste. </p>
+</blockquote>
+
+
+<hr>
+
+<h2 id="lambda-nodejs-c%C3%B3digo-de-aplica%C3%A7%C3%A3o">Lambda (Node.js) — código de aplicação
+</h2>
+
+<h3 id="-raw-apppackagejson-endraw-"><code>app/package.json</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"email-verification"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.0.0"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"module"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"main"</span><span class="p">:</span><span class="w"> </span><span class="s2">"src/handler.js"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"scripts"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"zip"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rm -f function.zip &amp;&amp; cd app &amp;&amp; zip -r ../function.zip . -x </span><span class="se">\"</span><span class="s2">*.zip</span><span class="se">\"</span><span class="s2">"</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"dependencies"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"@aws-sdk/client-sesv2"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^3.640.0"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"@aws-sdk/client-dynamodb"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^3.640.0"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"@aws-sdk/lib-dynamodb"</span><span class="p">:</span><span class="w"> </span><span class="s2">"^3.640.0"</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre>
+
+</div>
+
+
+
+<blockquote>
+<p>A Lambda usa <strong>SESv2</strong> com <code>SendEmailCommand</code> do SDK v3. </p>
+</blockquote>
+
+<h3 id="-raw-appsrccoreenvjs-endraw-"><code>app/src/core/env.js</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight javascript"><code><span class="k">export</span> <span class="kd">const</span> <span class="nx">env</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="na">tableName</span><span class="p">:</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">TABLE_NAME</span><span class="p">,</span>
+  <span class="na">sender</span><span class="p">:</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">SES_SENDER</span><span class="p">,</span>
+  <span class="na">verifyBaseUrl</span><span class="p">:</span> <span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">VERIFY_BASE_URL</span> <span class="o">||</span> <span class="dl">""</span><span class="p">,</span>
+  <span class="na">tokenTtlSeconds</span><span class="p">:</span> <span class="nc">Number</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">TOKEN_TTL_SECONDS</span> <span class="o">||</span> <span class="dl">"</span><span class="s2">900</span><span class="dl">"</span><span class="p">)</span>
+<span class="p">};</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="-raw-appsrcdomaintypesjs-endraw-"><code>app/src/domain/types.js</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight javascript"><code><span class="k">export</span> <span class="kd">const</span> <span class="nx">Status</span> <span class="o">=</span> <span class="nb">Object</span><span class="p">.</span><span class="nf">freeze</span><span class="p">({</span> <span class="na">Pending</span><span class="p">:</span> <span class="dl">"</span><span class="s2">pending</span><span class="dl">"</span><span class="p">,</span> <span class="na">Verified</span><span class="p">:</span> <span class="dl">"</span><span class="s2">verified</span><span class="dl">"</span> <span class="p">});</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="-raw-appsrcservicestokentokenservicejs-endraw-"><code>app/src/services/token/token-service.js</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight javascript"><code><span class="k">import</span> <span class="nx">crypto</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">crypto</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="kd">function</span> <span class="nf">generateToken</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="nx">crypto</span><span class="p">.</span><span class="nf">randomBytes</span><span class="p">(</span><span class="mi">32</span><span class="p">).</span><span class="nf">toString</span><span class="p">(</span><span class="dl">"</span><span class="s2">base64url</span><span class="dl">"</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="k">export</span> <span class="kd">function</span> <span class="nf">expirationEpoch</span><span class="p">(</span><span class="nx">secondsFromNow</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="nx">now</span> <span class="o">=</span> <span class="nb">Math</span><span class="p">.</span><span class="nf">floor</span><span class="p">(</span><span class="nb">Date</span><span class="p">.</span><span class="nf">now</span><span class="p">()</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">);</span>
+  <span class="k">return</span> <span class="nx">now</span> <span class="o">+</span> <span class="nx">secondsFromNow</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="-raw-appsrcservicesemailemailclientjs-endraw-"><code>app/src/services/email/email-client.js</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight javascript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">SESv2Client</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@aws-sdk/client-sesv2</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="kd">function</span> <span class="nf">makeSes</span><span class="p">(</span><span class="nx">region</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="k">new</span> <span class="nc">SESv2Client</span><span class="p">({</span> <span class="nx">region</span> <span class="p">});</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="-raw-appsrcservicesemailemailservicejs-endraw-"><code>app/src/services/email/email-service.js</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight javascript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">SendEmailCommand</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@aws-sdk/client-sesv2</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="kd">function</span> <span class="nf">subject</span><span class="p">()</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="dl">"</span><span class="s2">Confirme seu e-mail</span><span class="dl">"</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nf">htmlBody</span><span class="p">(</span><span class="nx">link</span><span class="p">,</span> <span class="nx">token</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="nx">link</span>
+    <span class="p">?</span> <span class="s2">`&lt;p&gt;Obrigado por se cadastrar.&lt;/p&gt;&lt;p&gt;Clique para verificar: &lt;a href="</span><span class="p">${</span><span class="nx">link</span><span class="p">}</span><span class="s2">"&gt;</span><span class="p">${</span><span class="nx">link</span><span class="p">}</span><span class="s2">&lt;/a&gt;&lt;/p&gt;&lt;p&gt;Ou use este token: &lt;b&gt;</span><span class="p">${</span><span class="nx">token</span><span class="p">}</span><span class="s2">&lt;/b&gt;&lt;/p&gt;`</span>
+    <span class="p">:</span> <span class="s2">`&lt;p&gt;Obrigado por se cadastrar.&lt;/p&gt;&lt;p&gt;Use este token para verificar: &lt;b&gt;</span><span class="p">${</span><span class="nx">token</span><span class="p">}</span><span class="s2">&lt;/b&gt;&lt;/p&gt;`</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kd">function</span> <span class="nf">textBody</span><span class="p">(</span><span class="nx">link</span><span class="p">,</span> <span class="nx">token</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="nx">link</span>
+    <span class="p">?</span> <span class="s2">`Obrigado por se cadastrar.\nVerifique seu e-mail: </span><span class="p">${</span><span class="nx">link</span><span class="p">}</span><span class="s2">\nToken: </span><span class="p">${</span><span class="nx">token</span><span class="p">}</span><span class="s2">`</span>
+    <span class="p">:</span> <span class="s2">`Obrigado por se cadastrar.\nToken de verificação: </span><span class="p">${</span><span class="nx">token</span><span class="p">}</span><span class="s2">`</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">export</span> <span class="k">async</span> <span class="kd">function</span> <span class="nf">sendVerificationEmail</span><span class="p">({</span> <span class="nx">ses</span><span class="p">,</span> <span class="nx">sender</span><span class="p">,</span> <span class="nx">to</span><span class="p">,</span> <span class="nx">link</span><span class="p">,</span> <span class="nx">token</span> <span class="p">})</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="nx">input</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="na">FromEmailAddress</span><span class="p">:</span> <span class="nx">sender</span><span class="p">,</span>
+    <span class="na">Destination</span><span class="p">:</span> <span class="p">{</span> <span class="na">ToAddresses</span><span class="p">:</span> <span class="p">[</span><span class="nx">to</span><span class="p">]</span> <span class="p">},</span>
+    <span class="na">Content</span><span class="p">:</span> <span class="p">{</span>
+      <span class="na">Simple</span><span class="p">:</span> <span class="p">{</span>
+        <span class="na">Subject</span><span class="p">:</span> <span class="p">{</span> <span class="na">Data</span><span class="p">:</span> <span class="nf">subject</span><span class="p">()</span> <span class="p">},</span>
+        <span class="na">Body</span><span class="p">:</span> <span class="p">{</span>
+          <span class="na">Html</span><span class="p">:</span> <span class="p">{</span> <span class="na">Data</span><span class="p">:</span> <span class="nf">htmlBody</span><span class="p">(</span><span class="nx">link</span><span class="p">,</span> <span class="nx">token</span><span class="p">)</span> <span class="p">},</span>
+          <span class="na">Text</span><span class="p">:</span> <span class="p">{</span> <span class="na">Data</span><span class="p">:</span> <span class="nf">textBody</span><span class="p">(</span><span class="nx">link</span><span class="p">,</span> <span class="nx">token</span><span class="p">)</span> <span class="p">}</span>
+        <span class="p">}</span>
+      <span class="p">}</span>
+    <span class="p">}</span>
+  <span class="p">};</span>
+  <span class="k">await</span> <span class="nx">ses</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="k">new</span> <span class="nc">SendEmailCommand</span><span class="p">(</span><span class="nx">input</span><span class="p">));</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="-raw-appsrcservicesstorerepositoryjs-endraw-"><code>app/src/services/store/repository.js</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight javascript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">DynamoDBClient</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@aws-sdk/client-dynamodb</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">DynamoDBDocumentClient</span><span class="p">,</span> <span class="nx">PutCommand</span><span class="p">,</span> <span class="nx">GetCommand</span><span class="p">,</span> <span class="nx">UpdateCommand</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@aws-sdk/lib-dynamodb</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="kd">function</span> <span class="nf">makeRepo</span><span class="p">(</span><span class="nx">tableName</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="nx">ddb</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">DynamoDBClient</span><span class="p">({});</span>
+  <span class="kd">const</span> <span class="nx">doc</span> <span class="o">=</span> <span class="nx">DynamoDBDocumentClient</span><span class="p">.</span><span class="k">from</span><span class="p">(</span><span class="nx">ddb</span><span class="p">);</span>
+  <span class="k">return</span> <span class="p">{</span>
+    <span class="k">async</span> <span class="nf">putPending</span><span class="p">({</span> <span class="nx">email</span><span class="p">,</span> <span class="nx">token</span><span class="p">,</span> <span class="nx">expiresAt</span> <span class="p">})</span> <span class="p">{</span>
+      <span class="kd">const</span> <span class="nx">item</span> <span class="o">=</span> <span class="p">{</span> <span class="na">pk</span><span class="p">:</span> <span class="nx">email</span><span class="p">,</span> <span class="na">sk</span><span class="p">:</span> <span class="nx">token</span><span class="p">,</span> <span class="na">status</span><span class="p">:</span> <span class="dl">"</span><span class="s2">pending</span><span class="dl">"</span><span class="p">,</span> <span class="nx">expiresAt</span> <span class="p">};</span>
+      <span class="k">await</span> <span class="nx">doc</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="k">new</span> <span class="nc">PutCommand</span><span class="p">({</span> <span class="na">TableName</span><span class="p">:</span> <span class="nx">tableName</span><span class="p">,</span> <span class="na">Item</span><span class="p">:</span> <span class="nx">item</span><span class="p">,</span> <span class="na">ConditionExpression</span><span class="p">:</span> <span class="dl">"</span><span class="s2">attribute_not_exists(pk) AND attribute_not_exists(sk)</span><span class="dl">"</span> <span class="p">}));</span>
+      <span class="k">return</span> <span class="nx">item</span><span class="p">;</span>
+    <span class="p">},</span>
+    <span class="k">async</span> <span class="nf">getOne</span><span class="p">({</span> <span class="nx">email</span><span class="p">,</span> <span class="nx">token</span> <span class="p">})</span> <span class="p">{</span>
+      <span class="kd">const</span> <span class="nx">res</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">doc</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="k">new</span> <span class="nc">GetCommand</span><span class="p">({</span> <span class="na">TableName</span><span class="p">:</span> <span class="nx">tableName</span><span class="p">,</span> <span class="na">Key</span><span class="p">:</span> <span class="p">{</span> <span class="na">pk</span><span class="p">:</span> <span class="nx">email</span><span class="p">,</span> <span class="na">sk</span><span class="p">:</span> <span class="nx">token</span> <span class="p">}</span> <span class="p">}));</span>
+      <span class="k">return</span> <span class="nx">res</span><span class="p">.</span><span class="nx">Item</span> <span class="o">||</span> <span class="kc">null</span><span class="p">;</span>
+    <span class="p">},</span>
+    <span class="k">async</span> <span class="nf">markVerified</span><span class="p">({</span> <span class="nx">email</span><span class="p">,</span> <span class="nx">token</span> <span class="p">})</span> <span class="p">{</span>
+      <span class="k">await</span> <span class="nx">doc</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="k">new</span> <span class="nc">UpdateCommand</span><span class="p">({</span>
+        <span class="na">TableName</span><span class="p">:</span> <span class="nx">tableName</span><span class="p">,</span>
+        <span class="na">Key</span><span class="p">:</span> <span class="p">{</span> <span class="na">pk</span><span class="p">:</span> <span class="nx">email</span><span class="p">,</span> <span class="na">sk</span><span class="p">:</span> <span class="nx">token</span> <span class="p">},</span>
+        <span class="na">UpdateExpression</span><span class="p">:</span> <span class="dl">"</span><span class="s2">SET #s = :v</span><span class="dl">"</span><span class="p">,</span>
+        <span class="na">ExpressionAttributeNames</span><span class="p">:</span> <span class="p">{</span> <span class="dl">"</span><span class="s2">#s</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">status</span><span class="dl">"</span> <span class="p">},</span>
+        <span class="na">ExpressionAttributeValues</span><span class="p">:</span> <span class="p">{</span> <span class="dl">"</span><span class="s2">:v</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">verified</span><span class="dl">"</span> <span class="p">}</span>
+      <span class="p">}));</span>
+    <span class="p">}</span>
+  <span class="p">};</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="-raw-appsrcusecasessendverificationjs-endraw-"><code>app/src/usecases/send-verification.js</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight javascript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">generateToken</span><span class="p">,</span> <span class="nx">expirationEpoch</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">../services/token/token-service.js</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="k">export</span> <span class="k">async</span> <span class="kd">function</span> <span class="nf">sendVerification</span><span class="p">({</span> <span class="nx">repo</span><span class="p">,</span> <span class="nx">emailService</span><span class="p">,</span> <span class="nx">email</span><span class="p">,</span> <span class="nx">baseUrl</span><span class="p">,</span> <span class="nx">ttlSeconds</span><span class="p">,</span> <span class="nx">sender</span> <span class="p">})</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="nx">token</span> <span class="o">=</span> <span class="nf">generateToken</span><span class="p">();</span>
+  <span class="kd">const</span> <span class="nx">expiresAt</span> <span class="o">=</span> <span class="nf">expirationEpoch</span><span class="p">(</span><span class="nx">ttlSeconds</span><span class="p">);</span>
+  <span class="k">await</span> <span class="nx">repo</span><span class="p">.</span><span class="nf">putPending</span><span class="p">({</span> <span class="nx">email</span><span class="p">,</span> <span class="nx">token</span><span class="p">,</span> <span class="nx">expiresAt</span> <span class="p">});</span>
+
+  <span class="kd">const</span> <span class="nx">link</span> <span class="o">=</span> <span class="nx">baseUrl</span> <span class="p">?</span> <span class="s2">`</span><span class="p">${</span><span class="nx">baseUrl</span><span class="p">.</span><span class="nf">replace</span><span class="p">(</span><span class="sr">/</span><span class="se">\/</span><span class="sr">$/</span><span class="p">,</span> <span class="dl">""</span><span class="p">)}</span><span class="s2">/verify?email=</span><span class="p">${</span><span class="nf">encodeURIComponent</span><span class="p">(</span><span class="nx">email</span><span class="p">)}</span><span class="s2">&amp;token=</span><span class="p">${</span><span class="nf">encodeURIComponent</span><span class="p">(</span><span class="nx">token</span><span class="p">)}</span><span class="s2">`</span> <span class="p">:</span> <span class="dl">""</span><span class="p">;</span>
+  <span class="k">await</span> <span class="nx">emailService</span><span class="p">.</span><span class="nf">send</span><span class="p">({</span> <span class="na">to</span><span class="p">:</span> <span class="nx">email</span><span class="p">,</span> <span class="nx">token</span><span class="p">,</span> <span class="nx">link</span><span class="p">,</span> <span class="nx">sender</span> <span class="p">});</span>
+  <span class="k">return</span> <span class="p">{</span> <span class="nx">email</span><span class="p">,</span> <span class="nx">expiresAt</span><span class="p">,</span> <span class="na">linkPresent</span><span class="p">:</span> <span class="nc">Boolean</span><span class="p">(</span><span class="nx">link</span><span class="p">)</span> <span class="p">};</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="-raw-appsrcusecasesverifytokenjs-endraw-"><code>app/src/usecases/verify-token.js</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight javascript"><code><span class="k">export</span> <span class="k">async</span> <span class="kd">function</span> <span class="nf">verifyToken</span><span class="p">({</span> <span class="nx">repo</span><span class="p">,</span> <span class="nx">email</span><span class="p">,</span> <span class="nx">token</span> <span class="p">})</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="nx">item</span> <span class="o">=</span> <span class="k">await</span> <span class="nx">repo</span><span class="p">.</span><span class="nf">getOne</span><span class="p">({</span> <span class="nx">email</span><span class="p">,</span> <span class="nx">token</span> <span class="p">});</span>
+  <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">item</span><span class="p">)</span> <span class="k">return</span> <span class="p">{</span> <span class="na">ok</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span> <span class="na">reason</span><span class="p">:</span> <span class="dl">"</span><span class="s2">invalid</span><span class="dl">"</span> <span class="p">};</span>
+  <span class="k">if </span><span class="p">(</span><span class="nx">item</span><span class="p">.</span><span class="nx">expiresAt</span> <span class="o">&amp;&amp;</span> <span class="nx">item</span><span class="p">.</span><span class="nx">expiresAt</span> <span class="o">&lt;</span> <span class="nb">Math</span><span class="p">.</span><span class="nf">floor</span><span class="p">(</span><span class="nb">Date</span><span class="p">.</span><span class="nf">now</span><span class="p">()</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">))</span> <span class="k">return</span> <span class="p">{</span> <span class="na">ok</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span> <span class="na">reason</span><span class="p">:</span> <span class="dl">"</span><span class="s2">expired</span><span class="dl">"</span> <span class="p">};</span>
+  <span class="k">await</span> <span class="nx">repo</span><span class="p">.</span><span class="nf">markVerified</span><span class="p">({</span> <span class="nx">email</span><span class="p">,</span> <span class="nx">token</span> <span class="p">});</span>
+  <span class="k">return</span> <span class="p">{</span> <span class="na">ok</span><span class="p">:</span> <span class="kc">true</span> <span class="p">};</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+<h3 id="-raw-appsrchandlerjs-endraw-"><code>app/src/handler.js</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight javascript"><code><span class="k">import</span> <span class="p">{</span> <span class="nx">env</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">./core/env.js</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">makeRepo</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">./services/store/repository.js</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">makeSes</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">./services/email/email-client.js</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="o">*</span> <span class="k">as</span> <span class="nx">emailSvc</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">./services/email/email-service.js</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">sendVerification</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">./usecases/send-verification.js</span><span class="dl">"</span><span class="p">;</span>
+<span class="k">import</span> <span class="p">{</span> <span class="nx">verifyToken</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">./usecases/verify-token.js</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="kd">const</span> <span class="nx">repo</span> <span class="o">=</span> <span class="nf">makeRepo</span><span class="p">(</span><span class="nx">env</span><span class="p">.</span><span class="nx">tableName</span><span class="p">);</span>
+<span class="kd">const</span> <span class="nx">ses</span> <span class="o">=</span> <span class="nf">makeSes</span><span class="p">(</span><span class="nx">process</span><span class="p">.</span><span class="nx">env</span><span class="p">.</span><span class="nx">AWS_REGION</span><span class="p">);</span>
+
+<span class="kd">const</span> <span class="nx">emailService</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="na">send</span><span class="p">:</span> <span class="p">({</span> <span class="nx">to</span><span class="p">,</span> <span class="nx">token</span><span class="p">,</span> <span class="nx">link</span><span class="p">,</span> <span class="nx">sender</span> <span class="p">})</span> <span class="o">=&gt;</span> <span class="nx">emailSvc</span><span class="p">.</span><span class="nf">sendVerificationEmail</span><span class="p">({</span> <span class="nx">ses</span><span class="p">,</span> <span class="na">sender</span><span class="p">:</span> <span class="nx">sender</span> <span class="o">||</span> <span class="nx">env</span><span class="p">.</span><span class="nx">sender</span><span class="p">,</span> <span class="nx">to</span><span class="p">,</span> <span class="nx">link</span><span class="p">,</span> <span class="nx">token</span> <span class="p">})</span>
+<span class="p">};</span>
+
+<span class="kd">function</span> <span class="nf">json</span><span class="p">(</span><span class="nx">status</span><span class="p">,</span> <span class="nx">body</span><span class="p">,</span> <span class="nx">headers</span> <span class="o">=</span> <span class="p">{})</span> <span class="p">{</span>
+  <span class="k">return</span> <span class="p">{</span> <span class="na">statusCode</span><span class="p">:</span> <span class="nx">status</span><span class="p">,</span> <span class="na">headers</span><span class="p">:</span> <span class="p">{</span> <span class="dl">"</span><span class="s2">content-type</span><span class="dl">"</span><span class="p">:</span> <span class="dl">"</span><span class="s2">application/json</span><span class="dl">"</span><span class="p">,</span> <span class="p">...</span><span class="nx">headers</span> <span class="p">},</span> <span class="na">body</span><span class="p">:</span> <span class="nx">JSON</span><span class="p">.</span><span class="nf">stringify</span><span class="p">(</span><span class="nx">body</span><span class="p">)</span> <span class="p">};</span>
+<span class="p">}</span>
+
+<span class="k">export</span> <span class="k">async</span> <span class="kd">function</span> <span class="nf">handler</span><span class="p">(</span><span class="nx">event</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kd">const</span> <span class="nx">rawPath</span> <span class="o">=</span> <span class="nx">event</span><span class="p">.</span><span class="nx">rawPath</span> <span class="o">||</span> <span class="dl">"</span><span class="s2">/</span><span class="dl">"</span><span class="p">;</span>
+  <span class="kd">const</span> <span class="nx">method</span> <span class="o">=</span> <span class="nx">event</span><span class="p">.</span><span class="nx">requestContext</span><span class="p">?.</span><span class="nx">http</span><span class="p">?.</span><span class="nx">method</span> <span class="o">||</span> <span class="dl">"</span><span class="s2">GET</span><span class="dl">"</span><span class="p">;</span>
+
+  <span class="k">if </span><span class="p">(</span><span class="nx">method</span> <span class="o">===</span> <span class="dl">"</span><span class="s2">POST</span><span class="dl">"</span> <span class="o">&amp;&amp;</span> <span class="nx">rawPath</span><span class="p">.</span><span class="nf">endsWith</span><span class="p">(</span><span class="dl">"</span><span class="s2">/send</span><span class="dl">"</span><span class="p">))</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">body</span> <span class="o">=</span> <span class="k">typeof</span> <span class="nx">event</span><span class="p">.</span><span class="nx">body</span> <span class="o">===</span> <span class="dl">"</span><span class="s2">string</span><span class="dl">"</span> <span class="p">?</span> <span class="nx">JSON</span><span class="p">.</span><span class="nf">parse</span><span class="p">(</span><span class="nx">event</span><span class="p">.</span><span class="nx">body</span> <span class="o">||</span> <span class="dl">"</span><span class="s2">{}</span><span class="dl">"</span><span class="p">)</span> <span class="p">:</span> <span class="nx">event</span><span class="p">.</span><span class="nx">body</span> <span class="o">||</span> <span class="p">{};</span>
+    <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">body</span><span class="p">?.</span><span class="nx">email</span><span class="p">)</span> <span class="k">return</span> <span class="nf">json</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="p">{</span> <span class="na">error</span><span class="p">:</span> <span class="dl">"</span><span class="s2">email_required</span><span class="dl">"</span> <span class="p">});</span>
+
+    <span class="kd">const</span> <span class="nx">result</span> <span class="o">=</span> <span class="k">await</span> <span class="nf">sendVerification</span><span class="p">({</span>
+      <span class="nx">repo</span><span class="p">,</span>
+      <span class="nx">emailService</span><span class="p">,</span>
+      <span class="na">email</span><span class="p">:</span> <span class="nx">body</span><span class="p">.</span><span class="nx">email</span><span class="p">,</span>
+      <span class="na">baseUrl</span><span class="p">:</span> <span class="nx">env</span><span class="p">.</span><span class="nx">verifyBaseUrl</span><span class="p">,</span>
+      <span class="na">ttlSeconds</span><span class="p">:</span> <span class="nx">env</span><span class="p">.</span><span class="nx">tokenTtlSeconds</span><span class="p">,</span>
+      <span class="na">sender</span><span class="p">:</span> <span class="nx">env</span><span class="p">.</span><span class="nx">sender</span>
+    <span class="p">});</span>
+    <span class="k">return</span> <span class="nf">json</span><span class="p">(</span><span class="mi">202</span><span class="p">,</span> <span class="p">{</span> <span class="na">email</span><span class="p">:</span> <span class="nx">result</span><span class="p">.</span><span class="nx">email</span><span class="p">,</span> <span class="na">expiresAt</span><span class="p">:</span> <span class="nx">result</span><span class="p">.</span><span class="nx">expiresAt</span><span class="p">,</span> <span class="na">linkIncluded</span><span class="p">:</span> <span class="nx">result</span><span class="p">.</span><span class="nx">linkPresent</span> <span class="p">});</span>
+  <span class="p">}</span>
+
+  <span class="k">if </span><span class="p">(</span><span class="nx">method</span> <span class="o">===</span> <span class="dl">"</span><span class="s2">GET</span><span class="dl">"</span> <span class="o">&amp;&amp;</span> <span class="nx">rawPath</span><span class="p">.</span><span class="nf">endsWith</span><span class="p">(</span><span class="dl">"</span><span class="s2">/verify</span><span class="dl">"</span><span class="p">))</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">qs</span> <span class="o">=</span> <span class="nx">event</span><span class="p">.</span><span class="nx">rawQueryString</span> <span class="o">||</span> <span class="dl">""</span><span class="p">;</span>
+    <span class="kd">const</span> <span class="nx">params</span> <span class="o">=</span> <span class="nb">Object</span><span class="p">.</span><span class="nf">fromEntries</span><span class="p">(</span><span class="k">new</span> <span class="nc">URLSearchParams</span><span class="p">(</span><span class="nx">qs</span><span class="p">).</span><span class="nf">entries</span><span class="p">());</span>
+    <span class="kd">const</span> <span class="nx">email</span> <span class="o">=</span> <span class="nx">params</span><span class="p">.</span><span class="nx">email</span> <span class="o">||</span> <span class="dl">""</span><span class="p">;</span>
+    <span class="kd">const</span> <span class="nx">token</span> <span class="o">=</span> <span class="nx">params</span><span class="p">.</span><span class="nx">token</span> <span class="o">||</span> <span class="dl">""</span><span class="p">;</span>
+    <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">email</span> <span class="o">||</span> <span class="o">!</span><span class="nx">token</span><span class="p">)</span> <span class="k">return</span> <span class="nf">json</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="p">{</span> <span class="na">error</span><span class="p">:</span> <span class="dl">"</span><span class="s2">email_and_token_required</span><span class="dl">"</span> <span class="p">});</span>
+
+    <span class="kd">const</span> <span class="nx">res</span> <span class="o">=</span> <span class="k">await</span> <span class="nf">verifyToken</span><span class="p">({</span> <span class="nx">repo</span><span class="p">,</span> <span class="nx">email</span><span class="p">,</span> <span class="nx">token</span> <span class="p">});</span>
+    <span class="k">if </span><span class="p">(</span><span class="o">!</span><span class="nx">res</span><span class="p">.</span><span class="nx">ok</span><span class="p">)</span> <span class="k">return</span> <span class="nf">json</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="p">{</span> <span class="na">verified</span><span class="p">:</span> <span class="kc">false</span><span class="p">,</span> <span class="na">reason</span><span class="p">:</span> <span class="nx">res</span><span class="p">.</span><span class="nx">reason</span> <span class="p">});</span>
+    <span class="k">return</span> <span class="nf">json</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="p">{</span> <span class="na">verified</span><span class="p">:</span> <span class="kc">true</span> <span class="p">});</span>
+  <span class="p">}</span>
+
+  <span class="k">return</span> <span class="nf">json</span><span class="p">(</span><span class="mi">404</span><span class="p">,</span> <span class="p">{</span> <span class="na">error</span><span class="p">:</span> <span class="dl">"</span><span class="s2">not_found</span><span class="dl">"</span> <span class="p">});</span>
+<span class="p">}</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="build-do-artefato-da-lambda">Build do artefato da Lambda
+</h2>
+
+<h3 id="-raw-appbuildsh-endraw-"><code>app/build.sh</code>
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code><span class="c">#!/usr/bin/env bash</span>
+<span class="nb">set</span> <span class="nt">-euo</span> pipefail
+<span class="nb">cd</span> <span class="s2">"</span><span class="si">$(</span><span class="nb">dirname</span> <span class="s2">"</span><span class="nv">$0</span><span class="s2">"</span><span class="si">)</span><span class="s2">"</span>
+npm ci
+<span class="nb">cd</span> ..
+<span class="nb">rm</span> <span class="nt">-f</span> <span class="k">function</span>.zip
+<span class="nb">cd </span>app
+zip <span class="nt">-r</span> ../function.zip <span class="nb">.</span> <span class="nt">-x</span> <span class="s2">"*.zip"</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Esse zip contém <code>src/</code> e <code>node_modules</code>. O handler é <code>handler.handler</code> como configurado.</p>
+
+
+<hr>
+
+<h2 id="deploy-passo-a-passo">Deploy: passo a passo
+</h2>
+
+<ol>
+<li>Ajuste variáveis:</li>
+</ol>
+
+<p>Crie um arquivo <code>infra/terraform.tfvars</code>:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight hcl"><code><span class="nx">aws_region</span>         <span class="err">=</span> <span class="s2">"us-east-1"</span>
+<span class="nx">project_name</span>       <span class="err">=</span> <span class="s2">"email-verify"</span>
+<span class="nx">environment</span>        <span class="err">=</span> <span class="s2">"dev"</span>
+<span class="nx">sender_email</span>       <span class="err">=</span> <span class="s2">"seu-remetente@dominio.com"</span>
+<span class="nx">lambda_artifact_path</span> <span class="err">=</span> <span class="s2">"../function.zip"</span>
+<span class="nx">token_ttl_seconds</span>  <span class="err">=</span> <span class="mi">900</span>
+<span class="nx">verify_base_url</span>    <span class="err">=</span> <span class="s2">""</span> <span class="c1"># deixe vazio por agora, ou coloque a URL que fará o GET /verify</span>
+</code></pre>
+
+</div>
+
+
+
+<ol>
+<li><p>Verifique/prepare o remetente no SES (console) ou com Terraform do módulo <code>ses</code>. Se a conta estiver em sandbox, verifique também o destinatário de teste. </p></li>
+<li><p>Gere o pacote da Lambda:<br>
+</p></li>
+</ol>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>bash app/build.sh
+</code></pre>
+
+</div>
+
+
+
+<ol>
+<li>Aplique Terraform:
+</li>
+</ol>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code><span class="nb">cd </span>infra
+terraform init
+terraform apply <span class="nt">-auto-approve</span>
+</code></pre>
+
+</div>
+
+
+
+<ol>
+<li>Copie a <strong>Function URL</strong> de saída.</li>
+</ol>
+
+<p>Se quiser que o e-mail traga o link direto de verificação apontando para a própria Lambda, defina <code>verify_base_url</code> igual à Function URL e rode:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>terraform apply <span class="nt">-var</span><span class="o">=</span><span class="s2">"verify_base_url=</span><span class="si">$(</span>terraform output <span class="nt">-raw</span> function_url<span class="si">)</span><span class="s2">"</span> <span class="nt">-auto-approve</span>
+</code></pre>
+
+</div>
+
+
+
+
+<hr>
+
+<h2 id="como-testar-curl-postman-e-aws-cli">Como testar (curl, Postman e AWS CLI)
+</h2>
+
+<h3 id="1-disparar-email-de-verifica%C3%A7%C3%A3o">1) Disparar e-mail de verificação
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code><span class="nv">FUNCTION_URL</span><span class="o">=</span><span class="si">$(</span>terraform <span class="nt">-chdir</span><span class="o">=</span>infra output <span class="nt">-raw</span> function_url<span class="si">)</span>
+curl <span class="nt">-s</span> <span class="nt">-X</span> POST <span class="s2">"</span><span class="nv">$FUNCTION_URL</span><span class="s2">/send"</span> <span class="se">\</span>
+  <span class="nt">-H</span> <span class="s2">"content-type: application/json"</span> <span class="se">\</span>
+  <span class="nt">-d</span> <span class="s1">'{"email":"destinatario@exemplo.com"}'</span> | jq
+</code></pre>
+
+</div>
+
+
+
+<p>Resposta esperada:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"email"</span><span class="p">:</span><span class="w"> </span><span class="s2">"destinatario@exemplo.com"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"expiresAt"</span><span class="p">:</span><span class="w"> </span><span class="mi">1724099999</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"linkIncluded"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre>
+
+</div>
+
+
+
+<p>Se <code>verify_base_url</code> estiver vazio, <code>linkIncluded</code> será <code>false</code> e o corpo do e-mail trará apenas o token.</p>
+
+<blockquote>
+<p>O envio usa a operação <strong>SESv2 SendEmail</strong> do SDK v3. </p>
+</blockquote>
+
+<h3 id="2-validar-o-token">2) Validar o token
+</h3>
+
+<p>Pegue o link no e-mail (se configurado) ou recupere o token no próprio e-mail. Então:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>curl <span class="nt">-s</span> <span class="s2">"</span><span class="nv">$FUNCTION_URL</span><span class="s2">/verify?email=destinatario@exemplo.com&amp;token=SEU_TOKEN"</span> | jq
+</code></pre>
+
+</div>
+
+
+
+<p>Resposta esperada em sucesso:<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight json"><code><span class="p">{</span><span class="w"> </span><span class="nl">"verified"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span><span class="w">
+</span></code></pre>
+
+</div>
+
+
+
+<p>Falhas retornam HTTP 400 com <code>reason</code> igual a <code>invalid</code> ou <code>expired</code>.</p>
+
+<h3 id="3-conferir-no-dynamodb-com-aws-cli">3) Conferir no DynamoDB com AWS CLI
+</h3>
+
+
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight shell"><code>aws dynamodb get-item <span class="se">\</span>
+  <span class="nt">--table-name</span> <span class="si">$(</span>terraform <span class="nt">-chdir</span><span class="o">=</span>infra output <span class="nt">-raw</span> table_name<span class="si">)</span> <span class="se">\</span>
+  <span class="nt">--key</span> <span class="s1">'{"pk":{"S":"destinatario@exemplo.com"}, "sk":{"S":"SEU_TOKEN"}}'</span>
+</code></pre>
+
+</div>
+
+
+
+<p>Você vai ver <code>status</code> mudando para <code>verified</code>. Se estiver aguardando expiração, lembre que o <strong>TTL é assíncrono</strong>; a remoção pode levar algum tempo. </p>
+
+
+<hr>
+
+<h2 id="custos-limites-e-produ%C3%A7%C3%A3o">Custos, limites e produção
+</h2>
+
+<ul>
+<li>DynamoDB com <strong>PAY_PER_REQUEST</strong> e TTL tem custo muito baixo no cenário de verificação.</li>
+<li>Lambda é cobrada por invocação e tempo de execução, tipicamente centavos.</li>
+<li>SES em <strong>sandbox</strong> limita destinatários e throughput; para produção, solicite <strong>saída de sandbox</strong>. </li>
+<li>Para domínios próprios, prefira <strong>identidade de domínio</strong> e configure DKIM/SPF; aqui usei <strong>identidade por e-mail</strong> para simplificar o início. </li>
+</ul>
+
+
+<hr>
+
+<h2 id="pr%C3%B3ximos-passos">Próximos passos
+</h2>
+
+<ul>
+<li>Substituir a Function URL por <strong>API Gateway</strong> com authorizers.</li>
+<li>Adicionar template HTML rico e <strong>Configuration Set</strong> do SES (monitoramento, IP pool gerenciado). </li>
+<li>Colocar a verificação atrás de um domínio customizado e TLS, com <strong>CloudFront + Function URL</strong> ou API Gateway.</li>
+</ul>
+
+<p>Com isso, você tem um <strong>pipeline completo de verificação de e-mail</strong>, IaC de ponta a ponta e uma Lambda enxuta pronta para conectar ao seu front-end.</p>
+
+
+<hr>
+
+<h2 id="curtiu">💡Curtiu?
+</h2>
+
+<p>Se quiser trocar ideia sobre IA, cloud e arquitetura, me segue nas redes:</p>
+
+<ul>
+<li><a href="https://olink.ai/sertaoseracloud" target="_blank" rel="noopener noreferrer">Redes Sociais</a></li>
+<li><a href="https://github.com/sertaoseracloud/poc-sidecar-go" target="_blank" rel="noopener noreferrer">⭐ Repo no GitHub</a></li>
+</ul>
+
+<p>Publico conteúdos técnicos direto do campo de batalha. E quando descubro uma ferramenta que economiza tempo e resolve bem, como essa, você fica sabendo também.</p>
+
+
+<hr>
+
+<h2 id="refer%C3%AAncias">Referências
+</h2>
+
+<p>Daniel, G. (2025, August 9). <em>AWS SES with a NestJS Backend to Send Email Verifications</em>. DEV Community. <a href="https://dev.to/aws-builders/aws-ses-with-a-nestjs-backend-to-send-email-verifications-2l9h">https://dev.to/aws-builders/aws-ses-with-a-nestjs-backend-to-send-email-verifications-2l9h</a> (<a href="https://dev.to/aws-builders/aws-ses-with-a-nestjs-backend-to-send-email-verifications-2l9h?utm_source=chatgpt.com">DEV Community</a>)</p>
+
+<p>Amazon Web Services. (n.d.). <em>Request production access (Moving out of the Amazon SES sandbox)</em>. In <em>Amazon Simple Email Service Developer Guide</em>. <a href="https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html" target="_blank" rel="noopener noreferrer">https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html</a> (<a href="https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">AWS Documentation</a>)</p>
+
+<p>Amazon Web Services. (n.d.). <em>Verified identities in Amazon SES</em>. In <em>Amazon Simple Email Service Developer Guide</em>. <a href="https://docs.aws.amazon.com/ses/latest/dg/verify-addresses-and-domains.html" target="_blank" rel="noopener noreferrer">https://docs.aws.amazon.com/ses/latest/dg/verify-addresses-and-domains.html</a> (<a href="https://docs.aws.amazon.com/ses/latest/dg/verify-addresses-and-domains.html?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">AWS Documentation</a>)</p>
+
+<p>Amazon Web Services. (n.d.). <em>Using time to live (TTL) in DynamoDB</em>. In <em>Amazon DynamoDB Developer Guide</em>. <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html" target="_blank" rel="noopener noreferrer">https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html</a> (<a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">AWS Documentation</a>)</p>
+
+<p>HashiCorp. (n.d.). <em>aws_lambda_function_url (Resource)</em>. <em>Terraform Registry</em>. <a href="https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function_url.html" target="_blank" rel="noopener noreferrer">https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function_url.html</a> (<a href="https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function_url.html?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">Terraform Registry</a>)</p>
+
+<p>Amazon Web Services. (n.d.). <em>Creating and managing Lambda function URLs</em>. In <em>AWS Lambda Developer Guide</em>. <a href="https://docs.aws.amazon.com/lambda/latest/dg/urls-configuration.html" target="_blank" rel="noopener noreferrer">https://docs.aws.amazon.com/lambda/latest/dg/urls-configuration.html</a> (<a href="https://docs.aws.amazon.com/lambda/latest/dg/urls-configuration.html?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">AWS Documentation</a>)</p>
+
+<p>Amazon Web Services. (n.d.). <em>SendEmailCommand (SESv2)</em>. In <em>AWS SDK for JavaScript v3 API Reference</em>. <a href="https://docs.aws.amazon.com/goto/SdkForJavaScriptV3/sesv2-2019-09-27/SendEmail" target="_blank" rel="noopener noreferrer">https://docs.aws.amazon.com/goto/SdkForJavaScriptV3/sesv2-2019-09-27/SendEmail</a> (<a href="https://docs.aws.amazon.com/goto/SdkForJavaScriptV3/sesv2-2019-09-27/SendEmail?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">AWS Documentation</a>)</p>
+
+<p>Amazon Web Services. (n.d.). <em>SESv2Client</em>. In <em>AWS SDK for JavaScript v3</em>. <a href="https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/sesv2" target="_blank" rel="noopener noreferrer">https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/sesv2</a> (<a href="https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/sesv2?utm_source=chatgpt.com" target="_blank" rel="noopener noreferrer">AWS Documentation</a>)</p>

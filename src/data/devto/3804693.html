@@ -1,0 +1,238 @@
+<p>Maintaining strict transactional consistency across disparate cloud boundaries exposes platforms to catastrophic locking vulnerabilities. Engineering teams attempting to enforce distributed Two-Phase Commit (2PC) protocols across Amazon Web Services (AWS) and Microsoft Azure rapidly discover that the network latency inherent in inter-cloud transit breaks the fundamental mathematics of synchronous locking. When a primary database in AWS holds a lock awaiting acknowledgment from a replica in Azure, a transient network partition freezes the entire write domain, instantly starving the application of compute resources and cascading the failure across the platform. We refute the viability of synchronous cross-cloud commits, proposing instead the choreographed Saga pattern. By breaking the global transaction into a sequence of localized, independent commits, and publishing domain events to trigger the next step via AWS EventBridge and Azure Event Grid, architects eliminate lock contention entirely. If a downstream vendor rejects the operation, the system executes a deterministic series of compensating transactions to rollback the preceding states, guaranteeing eventual consistency and absolute resilience in production.</p>
+
+<h3 id="prerequisites">Prerequisites
+</h3>
+
+<p>Implementing a choreographed multicloud Saga requires advanced expertise in event-driven architectures and eventual consistency paradigms. The infrastructure must be strictly codified utilizing Terraform version 1.7.0 or higher, initialized with the HashiCorp AWS Provider version 5.40.0 and the AzureRM Provider version 3.90.0. The core compensation logic demands Python 3.12, supplemented by <code>boto3</code> version 1.34.0 and <code>azure-messaging-eventgrid</code> version 4.16.0. Operators must configure active OIDC federated trust between the AWS IAM environment and the Azure Active Directory tenant to authorize secure, cross-boundary webhook invocations.</p>
+
+<h3 id="stepbystep-implementation">Step-by-Step Implementation
+</h3>
+
+<h3 id="establishing-the-choreography-event-mesh">Establishing the Choreography Event Mesh
+</h3>
+
+<p>We initiate the multicloud Saga by provisioning the asynchronous routing topology required to transport state transition events across the vendor boundaries. The architectural justification for utilizing a publisher-subscriber mesh rather than direct API calls is the strict decoupling of temporal availability. If an AWS microservice invokes an Azure REST endpoint synchronously to advance the transaction, the AWS service inherits the Azure service downtime. By configuring Amazon EventBridge to push events to an Azure Event Grid Custom Topic via an API Destination, the AWS domain simply publishes the <code>TransactionInitiated</code> event and relinquishes control. EventBridge handles the authorization and transit retries autonomously. This choreography model ensures that neither cloud provider holds a synchronous connection open waiting for the partner cloud to complete its localized database commit.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight terraform"><code><span class="k">resource</span> <span class="s2">"azurerm_eventgrid_topic"</span> <span class="s2">"multicloud_saga"</span> <span class="p">{</span>
+  <span class="nx">name</span>                <span class="p">=</span> <span class="s2">"enterprise-saga-choreography"</span>
+  <span class="nx">location</span>            <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">core</span><span class="p">.</span><span class="nx">location</span>
+  <span class="nx">resource_group_name</span> <span class="p">=</span> <span class="nx">azurerm_resource_group</span><span class="p">.</span><span class="nx">core</span><span class="p">.</span><span class="nx">name</span>
+<span class="p">}</span>
+
+<span class="k">resource</span> <span class="s2">"aws_cloudwatch_event_api_destination"</span> <span class="s2">"azure_saga_ingress"</span> <span class="p">{</span>
+  <span class="nx">name</span>                             <span class="p">=</span> <span class="s2">"azure-eventgrid-destination"</span>
+  <span class="nx">description</span>                      <span class="p">=</span> <span class="s2">"Saga Event Routing to Azure"</span>
+  <span class="nx">invocation_endpoint</span>              <span class="p">=</span> <span class="nx">azurerm_eventgrid_topic</span><span class="p">.</span><span class="nx">multicloud_saga</span><span class="p">.</span><span class="nx">endpoint</span>
+  <span class="nx">http_method</span>                      <span class="p">=</span> <span class="s2">"POST"</span>
+  <span class="nx">invocation_rate_limit_per_second</span> <span class="p">=</span> <span class="mi">500</span>
+  <span class="nx">connection_arn</span>                   <span class="p">=</span> <span class="nx">aws_cloudwatch_event_connection</span><span class="p">.</span><span class="nx">azure_auth</span><span class="p">.</span><span class="nx">arn</span>
+<span class="p">}</span>
+
+<span class="k">resource</span> <span class="s2">"aws_cloudwatch_event_rule"</span> <span class="s2">"saga_forwarding"</span> <span class="p">{</span>
+  <span class="nx">name</span>           <span class="p">=</span> <span class="s2">"forward-saga-events"</span>
+  <span class="nx">event_bus_name</span> <span class="p">=</span> <span class="s2">"enterprise-core-bus"</span>
+  <span class="nx">event_pattern</span> <span class="p">=</span> <span class="nx">jsonencode</span><span class="p">({</span>
+    <span class="nx">source</span> <span class="p">=</span> <span class="p">[</span><span class="s2">"saga.orchestrator"</span><span class="p">]</span>
+  <span class="p">})</span>
+<span class="p">}</span>
+
+<span class="k">resource</span> <span class="s2">"aws_cloudwatch_event_target"</span> <span class="s2">"azure_grid"</span> <span class="p">{</span>
+  <span class="nx">rule</span>      <span class="p">=</span> <span class="nx">aws_cloudwatch_event_rule</span><span class="p">.</span><span class="nx">saga_forwarding</span><span class="p">.</span><span class="nx">name</span>
+  <span class="nx">target_id</span> <span class="p">=</span> <span class="s2">"AzureEventGrid"</span>
+  <span class="nx">arn</span>       <span class="p">=</span> <span class="nx">aws_cloudwatch_event_api_destination</span><span class="p">.</span><span class="nx">azure_saga_ingress</span><span class="p">.</span><span class="nx">arn</span>
+  <span class="nx">role_arn</span>  <span class="p">=</span> <span class="nx">aws_iam_role</span><span class="p">.</span><span class="nx">eventbridge_invoke</span><span class="p">.</span><span class="nx">arn</span>
+<span class="p">}</span>
+
+</code></pre>
+
+</div>
+
+
+
+<p>How do we prevent partial execution from permanently corrupting the origin state when the cross-cloud network call drops before the event payload reaches the Azure boundary?</p>
+
+<h3 id="initiating-the-saga-via-transactional-outbox">Initiating the Saga via Transactional Outbox
+</h3>
+
+<p>We prevent silent data corruption during initial network failures by anchoring the Saga initialization within a Transactional Outbox inside the AWS execution boundary. When the AWS application begins the distributed transaction, it cannot safely mutate its local DynamoDB state and subsequently attempt to call EventBridge in two separate network operations. If the EventBridge call fails, the local state is altered, but the Azure step never executes, leaving the Saga permanently fractured. The Python domain logic executes a <code>transact_write_items</code> operation, committing the local business entity and the outbound domain event to DynamoDB in a single, atomic ACID transaction. A background worker polls the Outbox table and handles the delivery to EventBridge. This mechanism guarantees that if the local database commit succeeds, the choreography event is mathematically guaranteed to enter the multicloud transit layer.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="kn">import</span> <span class="n">uuid</span>
+<span class="kn">import</span> <span class="n">json</span>
+<span class="kn">from</span> <span class="n">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
+<span class="kn">import</span> <span class="n">boto3</span>
+<span class="kn">from</span> <span class="n">aws_lambda_powertools</span> <span class="kn">import</span> <span class="n">Logger</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="nc">Logger</span><span class="p">(</span><span class="n">service</span><span class="o">=</span><span class="sh">"</span><span class="s">SagaInitiator</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">dynamodb</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">client</span><span class="p">(</span><span class="sh">'</span><span class="s">dynamodb</span><span class="sh">'</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">PaymentSagaService</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">initiate_multicloud_payment</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">order_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">amount</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">transaction_id</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">txn_</span><span class="si">{</span><span class="n">uuid</span><span class="p">.</span><span class="nf">uuid4</span><span class="p">().</span><span class="nb">hex</span><span class="si">}</span><span class="sh">"</span>
+        <span class="n">event_id</span> <span class="o">=</span> <span class="nf">str</span><span class="p">(</span><span class="n">uuid</span><span class="p">.</span><span class="nf">uuid4</span><span class="p">())</span>
+
+        <span class="n">saga_event</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="sh">"</span><span class="s">metadata</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+                <span class="sh">"</span><span class="s">saga_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">transaction_id</span><span class="p">,</span>
+                <span class="sh">"</span><span class="s">event_type</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">PaymentReserved</span><span class="sh">"</span><span class="p">,</span>
+                <span class="sh">"</span><span class="s">timestamp</span><span class="sh">"</span><span class="p">:</span> <span class="n">datetime</span><span class="p">.</span><span class="nf">now</span><span class="p">(</span><span class="n">timezone</span><span class="p">.</span><span class="n">utc</span><span class="p">).</span><span class="nf">isoformat</span><span class="p">(),</span>
+                <span class="sh">"</span><span class="s">source</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">saga.orchestrator</span><span class="sh">"</span>
+            <span class="p">},</span>
+            <span class="sh">"</span><span class="s">data</span><span class="sh">"</span><span class="p">:</span> <span class="p">{</span>
+                <span class="sh">"</span><span class="s">order_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">order_id</span><span class="p">,</span>
+                <span class="sh">"</span><span class="s">reserved_amount</span><span class="sh">"</span><span class="p">:</span> <span class="n">amount</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+
+        <span class="n">dynamodb</span><span class="p">.</span><span class="nf">transact_write_items</span><span class="p">(</span>
+            <span class="n">TransactItems</span><span class="o">=</span><span class="p">[</span>
+                <span class="p">{</span>
+                    <span class="sh">'</span><span class="s">Put</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span>
+                        <span class="sh">'</span><span class="s">TableName</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">LocalPayments</span><span class="sh">'</span><span class="p">,</span>
+                        <span class="sh">'</span><span class="s">Item</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="sh">'</span><span class="s">TransactionId</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span><span class="sh">'</span><span class="s">S</span><span class="sh">'</span><span class="p">:</span> <span class="n">transaction_id</span><span class="p">},</span>
+                            <span class="sh">'</span><span class="s">Status</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span><span class="sh">'</span><span class="s">S</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">PENDING_AZURE_CONFIRMATION</span><span class="sh">'</span><span class="p">},</span>
+                            <span class="sh">'</span><span class="s">Amount</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span><span class="sh">'</span><span class="s">N</span><span class="sh">'</span><span class="p">:</span> <span class="nf">str</span><span class="p">(</span><span class="n">amount</span><span class="p">)}</span>
+                        <span class="p">}</span>
+                    <span class="p">}</span>
+                <span class="p">},</span>
+                <span class="p">{</span>
+                    <span class="sh">'</span><span class="s">Put</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span>
+                        <span class="sh">'</span><span class="s">TableName</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">SagaOutbox</span><span class="sh">'</span><span class="p">,</span>
+                        <span class="sh">'</span><span class="s">Item</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span>
+                            <span class="sh">'</span><span class="s">EventId</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span><span class="sh">'</span><span class="s">S</span><span class="sh">'</span><span class="p">:</span> <span class="n">event_id</span><span class="p">},</span>
+                            <span class="sh">'</span><span class="s">Payload</span><span class="sh">'</span><span class="p">:</span> <span class="p">{</span><span class="sh">'</span><span class="s">S</span><span class="sh">'</span><span class="p">:</span> <span class="n">json</span><span class="p">.</span><span class="nf">dumps</span><span class="p">(</span><span class="n">saga_event</span><span class="p">)}</span>
+                        <span class="p">}</span>
+                    <span class="p">}</span>
+                <span class="p">}</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+        <span class="n">logger</span><span class="p">.</span><span class="nf">info</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Saga </span><span class="si">{</span><span class="n">transaction_id</span><span class="si">}</span><span class="s"> initiated locally. Event </span><span class="si">{</span><span class="n">event_id</span><span class="si">}</span><span class="s"> staged for Azure routing.</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">transaction_id</span>
+
+</code></pre>
+
+</div>
+
+
+
+<p>What occurs when the Azure boundary successfully ingests the event but the local domain logic rejects the transaction due to a business invariant violation?</p>
+
+<h3 id="executing-deterministic-compensations">Executing Deterministic Compensations
+</h3>
+
+<p>When the Azure domain logic evaluates the payload and identifies a constraint violation, we execute a deterministic compensation sequence by publishing a counter-event back to the AWS origin. In a traditional monolithic database, a failure triggers a simple <code>ROLLBACK</code> command. In a multicloud Saga, the AWS transaction has already been committed to disk. To reverse it, the Azure Python adapter catches the domain exception and explicitly constructs a <code>PaymentCompensationRequested</code> event. The architectural necessity here is treating failures as first-class domain events rather than transient HTTP errors. The Azure application publishes this compensation payload onto Azure Event Grid, which routes it back to the AWS EventBridge origin. The AWS domain consumes this counter-event and executes an inverse transaction, updating the local database state from <code>PENDING</code> to <code>CANCELLED</code>, effectively repairing the distributed system state without ever utilizing a synchronous lock.</p>
+
+<p><a href="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fkspcz87z5tgvbfwbzr2y.png" class="article-body-image-wrapper"><img src="https://media2.dev.to/dynamic/image/width=800%2Cheight=%2Cfit=scale-down%2Cgravity=auto%2Cformat=auto/https%3A%2F%2Fdev-to-uploads.s3.amazonaws.com%2Fuploads%2Farticles%2Fkspcz87z5tgvbfwbzr2y.png" alt="Sequence Diagram" loading="lazy" width="800" height="308"></a><br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="kn">import</span> <span class="n">json</span>
+<span class="kn">import</span> <span class="n">os</span>
+<span class="kn">from</span> <span class="n">azure.messaging.eventgrid</span> <span class="kn">import</span> <span class="n">EventGridPublisherClient</span><span class="p">,</span> <span class="n">EventGridEvent</span>
+<span class="kn">from</span> <span class="n">azure.core.credentials</span> <span class="kn">import</span> <span class="n">AzureKeyCredential</span>
+
+<span class="n">EVENTGRID_ENDPOINT</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="sh">"</span><span class="s">EVENTGRID_ENDPOINT</span><span class="sh">"</span><span class="p">]</span>
+<span class="n">EVENTGRID_KEY</span> <span class="o">=</span> <span class="n">os</span><span class="p">.</span><span class="n">environ</span><span class="p">[</span><span class="sh">"</span><span class="s">EVENTGRID_KEY</span><span class="sh">"</span><span class="p">]</span>
+<span class="n">client</span> <span class="o">=</span> <span class="nc">EventGridPublisherClient</span><span class="p">(</span><span class="n">EVENTGRID_ENDPOINT</span><span class="p">,</span> <span class="nc">AzureKeyCredential</span><span class="p">(</span><span class="n">EVENTGRID_KEY</span><span class="p">))</span>
+
+<span class="k">class</span> <span class="nc">InventoryService</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">process_reservation</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">saga_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">order_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">amount</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Simulate domain logic checking inventory limits
+</span>            <span class="k">if</span> <span class="n">amount</span> <span class="o">&gt;</span> <span class="mi">10000</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">Inventory limit exceeded for requested order.</span><span class="sh">"</span><span class="p">)</span>
+
+            <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Inventory reserved successfully for Saga </span><span class="si">{</span><span class="n">saga_id</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="nb">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Domain invariant violated. Initiating compensation for Saga </span><span class="si">{</span><span class="n">saga_id</span><span class="si">}</span><span class="s">: </span><span class="si">{</span><span class="nf">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+
+            <span class="n">compensation_event</span> <span class="o">=</span> <span class="nc">EventGridEvent</span><span class="p">(</span>
+                <span class="n">subject</span><span class="o">=</span><span class="sa">f</span><span class="sh">"</span><span class="s">saga/</span><span class="si">{</span><span class="n">saga_id</span><span class="si">}</span><span class="s">/compensation</span><span class="sh">"</span><span class="p">,</span>
+                <span class="n">data</span><span class="o">=</span><span class="p">{</span>
+                    <span class="sh">"</span><span class="s">saga_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">saga_id</span><span class="p">,</span>
+                    <span class="sh">"</span><span class="s">order_id</span><span class="sh">"</span><span class="p">:</span> <span class="n">order_id</span><span class="p">,</span>
+                    <span class="sh">"</span><span class="s">reason</span><span class="sh">"</span><span class="p">:</span> <span class="nf">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                <span class="p">},</span>
+                <span class="n">event_type</span><span class="o">=</span><span class="sh">"</span><span class="s">PaymentCompensationRequested</span><span class="sh">"</span><span class="p">,</span>
+                <span class="n">data_version</span><span class="o">=</span><span class="sh">"</span><span class="s">1.0</span><span class="sh">"</span>
+            <span class="p">)</span>
+
+            <span class="n">client</span><span class="p">.</span><span class="nf">send</span><span class="p">([</span><span class="n">compensation_event</span><span class="p">])</span>
+
+</code></pre>
+
+</div>
+
+
+
+<p>How do we mathematically guarantee that a delayed compensation event does not accidentally reverse a transaction that was subsequently retried and completed successfully?</p>
+
+<h3 id="enforcing-idempotency-in-compensation-handlers">Enforcing Idempotency in Compensation Handlers
+</h3>
+
+<p>We guarantee absolute safety against out-of-order delivery and duplicated compensations by enforcing strict state machine transitions within the AWS Hexagonal boundary. Because cross-cloud event buses utilize at-least-once delivery semantics, the AWS domain might receive the <code>PaymentCompensationRequested</code> event multiple times, or it might receive it after a human operator has already manually reconciled the state. To counteract this, the Python handler must evaluate the current state of the transaction before applying the inverse operation. The handler attempts a conditional update on the DynamoDB record. It instructs the database to change the state to <code>CANCELLED</code> strictly if the current state is still <code>PENDING_AZURE_CONFIRMATION</code>. If the record is already <code>CANCELLED</code> or <code>COMPLETED</code>, the conditional expression fails, and the Python application gracefully catches the <code>ConditionalCheckFailedException</code>. It acknowledges the event to the queue and discards it, ensuring that late-arriving compensations never corrupt the finalized business state.<br>
+</p>
+
+<div class="highlight js-code-highlight">
+<pre tabindex="0" class="highlight python"><code><span class="kn">import</span> <span class="n">boto3</span>
+<span class="kn">from</span> <span class="n">botocore.exceptions</span> <span class="kn">import</span> <span class="n">ClientError</span>
+<span class="kn">from</span> <span class="n">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="n">dynamodb</span> <span class="o">=</span> <span class="n">boto3</span><span class="p">.</span><span class="nf">resource</span><span class="p">(</span><span class="sh">'</span><span class="s">dynamodb</span><span class="sh">'</span><span class="p">)</span>
+<span class="n">table</span> <span class="o">=</span> <span class="n">dynamodb</span><span class="p">.</span><span class="nc">Table</span><span class="p">(</span><span class="sh">'</span><span class="s">LocalPayments</span><span class="sh">'</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">handle_compensation_event</span><span class="p">(</span><span class="n">event</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="n">saga_id</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">data</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">saga_id</span><span class="sh">'</span><span class="p">]</span>
+    <span class="n">reason</span> <span class="o">=</span> <span class="n">event</span><span class="p">[</span><span class="sh">'</span><span class="s">data</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">reason</span><span class="sh">'</span><span class="p">]</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">table</span><span class="p">.</span><span class="nf">update_item</span><span class="p">(</span>
+            <span class="n">Key</span><span class="o">=</span><span class="p">{</span><span class="sh">'</span><span class="s">TransactionId</span><span class="sh">'</span><span class="p">:</span> <span class="n">saga_id</span><span class="p">},</span>
+            <span class="n">UpdateExpression</span><span class="o">=</span><span class="sh">"</span><span class="s">SET #s = :new_status, CompensationReason = :reason</span><span class="sh">"</span><span class="p">,</span>
+            <span class="n">ConditionExpression</span><span class="o">=</span><span class="sh">"</span><span class="s">#s = :expected_status</span><span class="sh">"</span><span class="p">,</span>
+            <span class="n">ExpressionAttributeNames</span><span class="o">=</span><span class="p">{</span>
+                <span class="sh">'</span><span class="s">#s</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">Status</span><span class="sh">'</span>
+            <span class="p">},</span>
+            <span class="n">ExpressionAttributeValues</span><span class="o">=</span><span class="p">{</span>
+                <span class="sh">'</span><span class="s">:new_status</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">CANCELLED_VIA_COMPENSATION</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">:expected_status</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">PENDING_AZURE_CONFIRMATION</span><span class="sh">'</span><span class="p">,</span>
+                <span class="sh">'</span><span class="s">:reason</span><span class="sh">'</span><span class="p">:</span> <span class="n">reason</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Saga </span><span class="si">{</span><span class="n">saga_id</span><span class="si">}</span><span class="s"> successfully compensated and rolled back.</span><span class="sh">"</span><span class="p">)</span>
+
+    <span class="k">except</span> <span class="n">ClientError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">e</span><span class="p">.</span><span class="n">response</span><span class="p">[</span><span class="sh">'</span><span class="s">Error</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">Code</span><span class="sh">'</span><span class="p">]</span> <span class="o">==</span> <span class="sh">'</span><span class="s">ConditionalCheckFailedException</span><span class="sh">'</span><span class="p">:</span>
+            <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Compensation for Saga </span><span class="si">{</span><span class="n">saga_id</span><span class="si">}</span><span class="s"> ignored. State machine has already progressed.</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">Database error during compensation: </span><span class="si">{</span><span class="n">e</span><span class="p">.</span><span class="n">response</span><span class="p">[</span><span class="sh">'</span><span class="s">Error</span><span class="sh">'</span><span class="p">][</span><span class="sh">'</span><span class="s">Message</span><span class="sh">'</span><span class="p">]</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+
+</code></pre>
+
+</div>
+
+
+
+<h3 id="common-troubleshooting">Common Troubleshooting
+</h3>
+
+<p>When deploying choreographed Sagas across vendor boundaries, Dead Letter Queues (DLQ) frequently flood with rejected payloads. This typically occurs when the Azure Event Grid schema validation blocks incoming payloads originating from AWS EventBridge. EventBridge encapsulates custom JSON payloads within its own proprietary wrapper. If the Azure Event Grid Topic is strictly configured to expect the CloudEvents v1.0 schema, it will reject the raw EventBridge delivery. You must utilize an Input Mapping configuration on the Event Grid Custom Topic to extract the nested <code>detail</code> object from the AWS payload and map it to the top-level required fields of the CloudEvent specification.</p>
+
+<p>Another pervasive issue manifests as compensation loops, where AWS and Azure continuously bounce failure events back and forth. This indicates a failure in the termination logic of the Saga handlers. If the AWS compensation handler throws an unhandled exception because it cannot parse the Azure payload, the AWS SQS queue will eventually retry the message until it hits the max receive count, triggering a secondary failure alert. Always wrap your compensation handlers in broad <code>try/except</code> blocks that catch parsing errors and deliberately acknowledge the malformed message, pushing a notification to a monitoring channel rather than allowing the event-driven retry mechanism to cycle infinitely.</p>
+
+<h3 id="conclusion">Conclusion
+</h3>
+
+<p>Orchestrating distributed transactions using the Saga pattern eliminates the brittle dependencies of synchronous locking across multicloud environments. By bridging AWS and Azure with decoupled event buses, implementing Transactional Outboxes, and enforcing idempotent compensations, architects build platforms capable of gracefully self-healing during localized vendor failures. As the complexity of the domain state machine increases, organizations should explore transitioning from pure choreography to orchestration utilizing a dedicated workflow engine. Tools like Temporal.io or AWS Step Functions provide a centralized, durable execution state, simplifying the visualization and auditing of highly complex, multi-step cross-cloud transactions.</p>
+
+<h3 id="references">References
+</h3>
+
+<p>Garcia-Molina, H., &amp; Salem, K. (1987). <em>Sagas</em>. ACM SIGMOD Record, 16(3), 249-259. <a href="https://doi.org/10.1145/38714.38742" target="_blank" rel="noopener noreferrer">https://doi.org/10.1145/38714.38742</a></p>
+
+<p>Richardson, C. (2018). <em>Microservices patterns: With examples in Java</em>. Manning Publications.</p>
