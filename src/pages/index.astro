@@ -5,12 +5,21 @@ import claudio2 from "../assets/claudio2.png";
 import { socialLinks } from "../data/social-links";
 import { courses } from "../data/courses";
 import SocialIcon from "../components/ui/SocialIcon.astro";
-import CourseCarousel from "../components/ui/CourseCarousel.astro";
+import BannerCarousel from "../components/ui/BannerCarousel.astro";
+import { upcomingEvents } from "../data/events";
+
+const courseSlides = courses
+  .filter((c) => c.status === "active" && c.banner)
+  .map((c) => ({ title: c.title, url: c.url, banner: c.banner! }));
+const eventos = upcomingEvents();
+const eventSlides = eventos.flatMap((e) =>
+  e.links.filter((l) => l.banner).map((l) => ({ title: `${e.title}: ${l.label}`, url: l.url, banner: l.banner! }))
+);
 ---
 
 <Layout
   title="Cláudio Rapôso — O Sertão será Cloud"
-  description="Cursos gratuitos e acessíveis no navegador: DivergePHP, DivergeTerraform e DivergePython. Acesse os cursos e redes do mentor."
+  description="Cursos gratuitos e acessíveis no navegador (DivergePHP, DivergeTerraform e DivergePython), eventos da comunidade e redes do mentor."
   url="https://mentoria.sertaoseracloud.com/"
   ogImage="/hub-og.png"
 >
@@ -50,9 +59,17 @@ import CourseCarousel from "../components/ui/CourseCarousel.astro";
 
       <hr class="hub-divider" aria-hidden="true" />
 
-      <section class="hub-courses" aria-label="Cursos disponíveis">
-        <h2>Cursos</h2>
-        <CourseCarousel courses={courses} />
+      <!-- Abas Cursos | Eventos. Sem JavaScript as duas seções aparecem uma embaixo da outra. -->
+      <div class="hub-abas" role="tablist" aria-label="Cursos e eventos" data-abas hidden>
+        <button type="button" role="tab" id="aba-cursos" aria-controls="painel-cursos" aria-selected="true" data-aba="cursos">Cursos</button>
+        <button type="button" role="tab" id="aba-eventos" aria-controls="painel-eventos" aria-selected="false" tabindex="-1" data-aba="eventos">
+          Eventos{eventos.length > 0 && <span class="aba-contador" aria-hidden="true">{eventos.length}</span>}
+        </button>
+      </div>
+
+      <section class="hub-courses hub-painel" id="painel-cursos" aria-labelledby="titulo-cursos" data-painel="cursos">
+        <h2 id="titulo-cursos">Cursos</h2>
+        <BannerCarousel label="Banners dos cursos" slides={courseSlides} />
         <div class="course-list">
           {courses.map((course) => (
             <div class={`course-card ${course.status}`} data-status={course.status}>
@@ -89,6 +106,42 @@ import CourseCarousel from "../components/ui/CourseCarousel.astro";
         </div>
       </section>
 
+      <section class="hub-courses hub-painel" id="painel-eventos" aria-labelledby="titulo-eventos" data-painel="eventos">
+        <h2 id="titulo-eventos">Eventos</h2>
+        {eventos.length === 0 ? (
+          <p class="course-description">Nenhum evento agendado no momento. Volte em breve!</p>
+        ) : (
+          <>
+            <BannerCarousel label="Banners dos eventos" slides={eventSlides} />
+            <div class="course-list">
+              {eventos.map((evento) => (
+                <article class="course-card active event-card" aria-labelledby={evento.id}>
+                  <div class="course-header">
+                    <h3 class="course-title" id={evento.id}>{evento.title}</h3>
+                    <span class="badge badge-active">{evento.format.toUpperCase()}</span>
+                  </div>
+                  <dl class="event-meta">
+                    <div><dt>Quando</dt><dd><time datetime={evento.dates[0]}>{evento.when}</time></dd></div>
+                    <div><dt>Onde</dt><dd>{evento.where}</dd></div>
+                  </dl>
+                  <p class="course-description">{evento.description}</p>
+                  <div class="course-actions">
+                    {evento.links.map((link, i) => (
+                      <a href={link.url} class={i === 0 ? "course-link" : "course-star"} target="_blank" rel="noopener noreferrer">
+                        {link.label}<span aria-hidden="true"> →</span><span class="sr-only"> da {evento.title} (abre em nova aba)</span>
+                      </a>
+                    ))}
+                    <a href={evento.site} class="course-star" target="_blank" rel="noopener noreferrer">
+                      Site do evento<span class="sr-only"> {evento.title} (abre em nova aba)</span>
+                    </a>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
+
     </div>
   </main>
 
@@ -96,6 +149,55 @@ import CourseCarousel from "../components/ui/CourseCarousel.astro";
     <a href="/acessibilidade/">Acessibilidade</a>
   </footer>
 </Layout>
+
+<script>
+  // Abas acessíveis (padrão WAI-ARIA): setas, Home e End trocam a aba; o
+  // endereço #eventos abre direto em Eventos.
+  const lista = document.querySelector<HTMLElement>("[data-abas]");
+  if (lista) {
+    const abas = [...lista.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    const paineis = abas.map((a) => document.getElementById(a.getAttribute("aria-controls")!)!);
+    lista.hidden = false;
+    paineis.forEach((p, i) => {
+      p.setAttribute("role", "tabpanel");
+      p.setAttribute("tabindex", "0");
+      p.setAttribute("aria-labelledby", abas[i].id);
+      p.querySelector("h2")?.classList.add("sr-only");
+    });
+
+    const selecionar = (i: number) => {
+      abas.forEach((a, j) => {
+        a.setAttribute("aria-selected", String(i === j));
+        a.tabIndex = i === j ? 0 : -1;
+        paineis[j].hidden = i !== j;
+      });
+    };
+
+    abas.forEach((a, i) => {
+      a.addEventListener("click", () => {
+        selecionar(i);
+        history.replaceState(null, "", i === 0 ? location.pathname : `#${a.dataset.aba}`);
+      });
+    });
+    lista.addEventListener("keydown", (e) => {
+      const atual = abas.findIndex((a) => a.getAttribute("aria-selected") === "true");
+      const destino =
+        e.key === "ArrowRight" ? (atual + 1) % abas.length
+        : e.key === "ArrowLeft" ? (atual - 1 + abas.length) % abas.length
+        : e.key === "Home" ? 0
+        : e.key === "End" ? abas.length - 1
+        : -1;
+      if (destino < 0) return;
+      e.preventDefault();
+      abas[destino].click();
+      abas[destino].focus();
+    });
+
+    const daUrl = () => Math.max(0, abas.findIndex((a) => `#${a.dataset.aba}` === location.hash));
+    selecionar(daUrl());
+    window.addEventListener("hashchange", () => selecionar(daUrl()));
+  }
+</script>
 
 <style>
   /* O perfil fica estreito; os cursos (carrossel e cards) usam a largura toda. */
@@ -194,6 +296,91 @@ import CourseCarousel from "../components/ui/CourseCarousel.astro";
     line-height: 1.2;
     color: var(--texto-principal);
     margin: 0 0 8px 0;
+  }
+
+  /* ── Abas ── */
+  .hub-abas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 8px;
+    border-bottom: 1px solid var(--hairline-strong);
+    margin-bottom: 24px;
+  }
+
+  .hub-abas[hidden] {
+    display: none;
+  }
+
+  .hub-abas [role="tab"] {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -1px;
+    background: none;
+    color: var(--texto-secundario);
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .hub-abas [role="tab"]:hover {
+    color: var(--texto-principal);
+  }
+
+  .hub-abas [role="tab"][aria-selected="true"] {
+    color: var(--texto-principal);
+    border-bottom-color: var(--nucleo-eletrico);
+  }
+
+  .aba-contador {
+    min-width: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--chama-primaria);
+    color: #ffffff;
+    font-size: 0.75rem;
+    line-height: 22px;
+    text-align: center;
+  }
+
+  .hub-painel + .hub-painel {
+    margin-top: 48px;
+  }
+
+  .hub-painel[hidden] {
+    display: none;
+  }
+
+  .hub-painel:focus-visible {
+    outline-offset: 8px;
+  }
+
+  .event-meta {
+    display: grid;
+    gap: 4px;
+    margin: 0 0 12px;
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    color: var(--texto-principal);
+  }
+
+  .event-meta div {
+    display: flex;
+    gap: 8px;
+  }
+
+  .event-meta dt {
+    min-width: 64px;
+    color: var(--texto-terciario);
+  }
+
+  .event-meta dd {
+    margin: 0;
   }
 
   .course-list {

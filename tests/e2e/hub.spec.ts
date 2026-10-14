@@ -8,6 +8,7 @@ import AxeBuilder from "@axe-core/playwright";
  *   HUB-01: Mentor identity section (h1 visible, responsive viewport)
  *   HUB-02: Course cards (PHP, Terraform and Python playgrounds, external links)
  *   HUB-05: Carrossel acessível com os banners dos cursos
+ *   HUB-06: Abas Cursos | Eventos, com a MVPConf 2027 (inscrição e call for papers)
  *   HUB-03: Social icon links (4 networks, aria-label per link)
  *   HUB-04: Open Graph hub-og.png (verified via Layout.test.ts and seo-meta.test.ts)
  *
@@ -43,12 +44,12 @@ test.describe("Hub load", () => {
 
   test("3 course cards are present", async ({ page }) => {
     await page.goto("./");
-    await expect(page.locator(".course-card")).toHaveCount(3);
+    await expect(page.locator("#painel-cursos .course-card")).toHaveCount(3);
   });
 
   test("active course card is visible", async ({ page }) => {
     await page.goto("./");
-    await expect(page.locator(".course-card.active").first()).toBeVisible();
+    await expect(page.locator("#painel-cursos .course-card.active").first()).toBeVisible();
   });
 
   test("mentor photo img.mentor-photo is visible on the page", async ({ page }) => {
@@ -65,7 +66,7 @@ test.describe("Hub load", () => {
 
   test("course links point to the PHP, Terraform and Python playgrounds", async ({ page }) => {
     await page.goto("./");
-    const courseLinks = page.locator(".course-card.active .course-link");
+    const courseLinks = page.locator("#painel-cursos .course-card.active .course-link");
     await expect(courseLinks).toHaveCount(3); // PHP, Terraform e Python, todos active
     const hrefs = await courseLinks.evaluateAll(links => links.map(l => l.getAttribute("href")));
     expect(hrefs).toEqual([
@@ -77,7 +78,7 @@ test.describe("Hub load", () => {
 
   test("external course links open in a new tab with noopener noreferrer", async ({ page }) => {
     await page.goto("./");
-    const courseLinks = page.locator(".course-card.active .course-link");
+    const courseLinks = page.locator("#painel-cursos .course-card.active .course-link");
     for (let i = 0; i < 3; i++) {
       await expect(courseLinks.nth(i)).toHaveAttribute("target", "_blank");
       await expect(courseLinks.nth(i)).toHaveAttribute("rel", "noopener noreferrer");
@@ -118,12 +119,13 @@ test.describe("Hub carrossel", () => {
 
   test("botões, pontos e setas do teclado trocam o banner (sem rotação automática)", async ({ page }) => {
     await page.goto("./");
-    const pontos = page.locator(".carrossel-ponto");
+    const carrossel = page.getByRole("region", { name: "Banners dos cursos" });
+    const pontos = carrossel.locator(".carrossel-ponto");
     await expect(pontos.nth(0)).toHaveAttribute("aria-current", "true");
 
     await page.getByRole("button", { name: "Próximo banner" }).click();
     await expect(pontos.nth(1)).toHaveAttribute("aria-current", "true");
-    await expect(page.locator("[data-anuncio]")).toHaveText("2 de 3: DivergeTerraform");
+    await expect(carrossel.locator("[data-anuncio]")).toHaveText("2 de 3: DivergeTerraform");
 
     await page.getByRole("button", { name: "Banner anterior" }).click();
     await page.getByRole("button", { name: "Banner anterior" }).click();
@@ -139,6 +141,67 @@ test.describe("Hub carrossel", () => {
     // Sem rotação automática: depois de um tempo, continua no mesmo banner.
     await page.waitForTimeout(1500);
     await expect(pontos.nth(1)).toHaveAttribute("aria-current", "true");
+  });
+});
+
+test.describe("Hub abas", () => {
+  test("Cursos é a aba inicial; Eventos mostra a MVPConf com banners e links", async ({ page }) => {
+    await page.goto("./");
+    const cursos = page.getByRole("tab", { name: "Cursos" });
+    const eventos = page.getByRole("tab", { name: /Eventos/ });
+    await expect(cursos).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tabpanel", { name: "Cursos" })).toBeVisible();
+    await expect(page.locator("#painel-eventos")).toBeHidden();
+
+    await eventos.click();
+    await expect(eventos).toHaveAttribute("aria-selected", "true");
+    await expect(page).toHaveURL(/#eventos$/);
+    const painel = page.getByRole("tabpanel", { name: /Eventos/ });
+    await expect(painel).toBeVisible();
+    await expect(painel.getByRole("heading", { name: "MVPConf 2027" })).toBeVisible();
+    // Os eventos que já passaram somem no build; a MVPConf 2027 fica até out/2027.
+    const cards = painel.locator(".event-card");
+    expect(await cards.count()).toBeGreaterThanOrEqual(1);
+    expect(await painel.locator("[data-slide]").count()).toBeGreaterThanOrEqual(2);
+    // Do mais próximo para o mais distante: a MVPConf 2027 é o último card.
+    await expect(cards.last().locator("h3")).toHaveText("MVPConf 2027");
+
+    // Carrossel de eventos: com mais de 5 banners, um contador no lugar dos pontos.
+    const slides = await painel.locator("[data-slide]").count();
+    if (slides > 5) {
+      await painel.getByRole("button", { name: "Próximo banner" }).click();
+      await expect(painel.locator("[data-contador]")).toHaveText(`2 de ${slides}`);
+    }
+    await expect(painel.getByRole("link", { name: /Inscrição da MVPConf 2027/ })).toHaveAttribute(
+      "href",
+      "https://mvpconf.com.br/conf/br/2027/register"
+    );
+    await expect(painel.getByRole("link", { name: /Call for papers da MVPConf 2027/ })).toHaveAttribute(
+      "href",
+      "https://mvpconf.com.br/conf/br/2027#contato"
+    );
+  });
+
+  test("setas do teclado trocam a aba e #eventos abre direto em Eventos", async ({ page }) => {
+    await page.goto("./");
+    const cursos = page.getByRole("tab", { name: "Cursos" });
+    await cursos.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.getByRole("tab", { name: /Eventos/ })).toBeFocused();
+    await expect(page.locator("#painel-cursos")).toBeHidden();
+    await page.keyboard.press("Home");
+    await expect(cursos).toBeFocused();
+    await expect(page.locator("#painel-cursos")).toBeVisible();
+
+    await page.goto("./#eventos");
+    await expect(page.getByRole("tab", { name: /Eventos/ })).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator("#painel-eventos")).toBeVisible();
+  });
+
+  test("no critical axe-core violations on the Eventos tab", async ({ page }) => {
+    await page.goto("./#eventos");
+    const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag22aa"]).analyze();
+    expect(results.violations.filter((v) => v.impact === "critical" || v.impact === "serious")).toEqual([]);
   });
 });
 

@@ -1,33 +1,43 @@
 ---
-// Carrossel dos banners dos cursos (hub). Sem rotação automática (WCAG 2.2.2):
+// Carrossel de banners do hub (cursos e eventos). Sem rotação automática (WCAG 2.2.2):
 // a pessoa troca o banner pelos botões, pelos pontos, pelas setas do teclado ou
 // arrastando. Sem JavaScript continua funcionando como uma faixa com rolagem.
 import { Image } from "astro:assets";
-import type { Course } from "../../data/courses";
+import type { ImageMetadata } from "astro";
 
-interface Props {
-  courses: Course[];
+export interface Slide {
+  title: string;
+  url: string;
+  banner: { src: ImageMetadata; alt: string };
 }
 
-const slides = Astro.props.courses.filter((c) => c.status === "active" && c.banner);
+interface Props {
+  /** Nome da região para leitores de tela, como "Banners dos cursos". */
+  label: string;
+  slides: Slide[];
+}
+
+const { label, slides } = Astro.props;
 const total = slides.length;
+// Com muitos banners os pontos não cabem no celular (44 px cada): vira um contador.
+const comPontos = total <= 5;
 ---
 
 {total > 0 && (
-  <section class="carrossel" aria-roledescription="carrossel" aria-label="Banners dos cursos" data-carrossel>
+  <section class="carrossel" aria-roledescription="carrossel" aria-label={label} data-carrossel>
     <div class="carrossel-trilho" data-trilho>
-      {slides.map((course, i) => (
+      {slides.map((slide, i) => (
         <div
           class="carrossel-slide"
           role="group"
           aria-roledescription="slide"
-          aria-label={`${i + 1} de ${total}: ${course.title}`}
+          aria-label={`${i + 1} de ${total}: ${slide.title}`}
           data-slide
         >
-          <a href={course.url} target="_blank" rel="noopener noreferrer" class="carrossel-link">
+          <a href={slide.url} target="_blank" rel="noopener noreferrer" class="carrossel-link">
             <Image
-              src={course.banner!.src}
-              alt={course.banner!.alt}
+              src={slide.banner.src}
+              alt={slide.banner.alt}
               widths={[640, 960, 1584]}
               sizes="(max-width: 992px) calc(100vw - 32px), 960px"
               loading={i === 0 ? "eager" : "lazy"}
@@ -44,17 +54,21 @@ const total = slides.length;
         <button type="button" class="carrossel-seta" data-anterior aria-label="Banner anterior">
           <span aria-hidden="true">‹</span>
         </button>
+        {comPontos ? (
         <div class="carrossel-pontos">
-          {slides.map((course, i) => (
+          {slides.map((slide, i) => (
             <button
               type="button"
               class="carrossel-ponto"
               data-ponto={i}
-              aria-label={`Mostrar banner ${i + 1}: ${course.title}`}
+              aria-label={`Mostrar banner ${i + 1}: ${slide.title}`}
               aria-current={i === 0 ? "true" : undefined}
             />
           ))}
         </div>
+        ) : (
+          <span class="carrossel-contador" aria-hidden="true" data-contador>1 de {total}</span>
+        )}
         <button type="button" class="carrossel-seta" data-proximo aria-label="Próximo banner">
           <span aria-hidden="true">›</span>
         </button>
@@ -70,6 +84,7 @@ const total = slides.length;
     const slides = [...raiz.querySelectorAll<HTMLElement>("[data-slide]")];
     const pontos = [...raiz.querySelectorAll<HTMLButtonElement>("[data-ponto]")];
     const status = raiz.querySelector<HTMLElement>("[data-anuncio]")!;
+    const contador = raiz.querySelector<HTMLElement>("[data-contador]");
     const controles = raiz.querySelector<HTMLElement>("[data-controles]");
     if (!controles || slides.length < 2) return;
     controles.hidden = false;
@@ -81,6 +96,7 @@ const total = slides.length;
 
     const marcar = (i: number) => {
       atual = i;
+      if (contador) contador.textContent = `${i + 1} de ${slides.length}`;
       pontos.forEach((p, j) => (j === i ? p.setAttribute("aria-current", "true") : p.removeAttribute("aria-current")));
     };
 
@@ -106,7 +122,8 @@ const total = slides.length;
     let espera = 0;
     trilho.addEventListener("scroll", () => {
       clearTimeout(espera);
-      espera = window.setTimeout(() => marcar(Math.round(trilho.scrollLeft / trilho.clientWidth)), 80);
+      // clientWidth é 0 enquanto o carrossel está numa aba escondida
+      if (trilho.clientWidth) espera = window.setTimeout(() => marcar(Math.round(trilho.scrollLeft / trilho.clientWidth)), 80);
     });
   }
 
@@ -184,6 +201,14 @@ const total = slides.length;
   .carrossel-seta:hover {
     border-color: var(--nucleo-eletrico);
     color: var(--nucleo-eletrico);
+  }
+
+  .carrossel-contador {
+    min-width: 72px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    color: var(--texto-secundario);
   }
 
   .carrossel-pontos {

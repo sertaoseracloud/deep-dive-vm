@@ -6,13 +6,13 @@ Site estático em [Astro](https://astro.build) com o hub de cursos e as landing 
 
 | Rota | Conteúdo |
 | --- | --- |
-| `/` | Hub: perfil do mentor, redes e cursos gratuitos (DivergePHP, DivergeTerraform e DivergePython), com carrossel de banners e link para dar star no GitHub |
+| `/` | Hub: perfil do mentor, redes e cursos gratuitos (DivergePHP, DivergeTerraform e DivergePython), em abas **Cursos** e **Eventos** (`/#eventos`), cada uma com carrossel de banners |
 | `/deep-dive-vm/` | LP do Deep Dive Azure VM |
 | `/deep-dive-python-neurodivergentes/` | LP do Deep Dive Python para Neurodivergentes |
 | `/deep-dive-ec2/` | Página "em breve" do Deep Dive EC2 |
 | `/acessibilidade/` | Declaração de acessibilidade |
 
-Os cursos do hub vêm de [`src/data/courses.ts`](src/data/courses.ts). O banner de cada curso (1584×396, em [`src/assets/banners/`](src/assets/banners/)) aparece no carrossel do hub ([`CourseCarousel.astro`](src/components/ui/CourseCarousel.astro)): sem rotação automática, com botões, pontos, setas do teclado e arraste, e o Astro gera as versões WebP em 640, 960 e 1584 px. Para criar uma LP nova, siga o [HOWTO](HOWTO-new-landing-page.md).
+Os cursos do hub vêm de [`src/data/courses.ts`](src/data/courses.ts). O banner de cada curso (1584×396, em [`src/assets/banners/`](src/assets/banners/)) aparece no carrossel do hub ([`CourseCarousel.astro`](src/components/ui/CourseCarousel.astro)): sem rotação automática, com botões, pontos, setas do teclado e arraste, e o Astro gera as versões WebP em 640, 960 e 1584 px. Os eventos vêm de [`src/data/events.ts`](src/data/events.ts): só aparecem os que ainda não terminaram (a filtragem acontece no build), e cada link pode ter um banner em [`src/assets/eventos/`](src/assets/eventos/). Para criar uma LP nova, siga o [HOWTO](HOWTO-new-landing-page.md).
 
 ## Acessibilidade
 
