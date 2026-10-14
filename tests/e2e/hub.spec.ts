@@ -173,11 +173,11 @@ test.describe("Hub abas", () => {
       await painel.getByRole("button", { name: "Próximo banner" }).click();
       await expect(painel.locator("[data-contador]")).toHaveText(`2 de ${slides}`);
     }
-    await expect(painel.getByRole("link", { name: /Inscrever-se na MVPConf 2027/ })).toHaveAttribute(
+    await expect(painel.getByRole("link", { name: /Inscrever-se\s+—\s+MVPConf 2027/ })).toHaveAttribute(
       "href",
       "https://mvpconf.com.br/conf/br/2027/register"
     );
-    await expect(painel.getByRole("link", { name: /Enviar palestra para a MVPConf 2027/ })).toHaveAttribute(
+    await expect(painel.getByRole("link", { name: /Enviar palestra\s+—\s+MVPConf 2027/ })).toHaveAttribute(
       "href",
       "https://mvpconf.com.br/conf/br/2027#contato"
     );
@@ -226,6 +226,20 @@ test.describe("Hub UX", () => {
     await expect(card.locator(".chip")).toHaveText(["Presencial", "Renda para ONGs", "Call for papers aberto"]);
     await expect(card.locator("[data-faltam]")).toHaveText(" · faltam 21 dias");
     await expect(page.locator(".mes-titulo")).toHaveText(["outubro de 2027"]);
+  });
+
+  test("encontro do AWS UG: destaque da palestra e um só botão de inscrição", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-10-20T10:00:00"));
+    await page.goto("./#eventos");
+    const card = page.locator(".event-card").filter({ hasText: "AWS User Group Floripa" });
+    await expect(card.locator(".chip")).toHaveText(["Presencial", "Palestra do Cláudio"]);
+    await expect(card.getByRole("link")).toHaveCount(1);
+    await expect(card.getByRole("link", { name: /Inscrever-se\s+—\s+21º Encontro AWS User Group Floripa/ })).toHaveAttribute(
+      "href",
+      "https://www.meetup.com/pt-br/aws-user-group-floripa/events/316963249/"
+    );
+    await expect(card.locator("[data-faltam]")).toHaveText(" · faltam 8 dias");
+    await expect(page.locator(".mes-titulo").first()).toHaveText("outubro de 2026");
   });
 
   test("regionais aparecem como gratuitas", async ({ page }) => {

@@ -30,7 +30,6 @@ const dia = (data: string) => Number(data.slice(8, 10));
 const mesCurto = (data: string) => MESES_CURTOS[Number(data.slice(5, 7)) - 1];
 const temCfp = (e: Event) => e.links.some((l) => l.label === "Call for papers");
 const textoDoBotao = (label: string) => (label === "Call for papers" ? "Enviar palestra" : "Inscrever-se");
-const preposicao = (label: string) => (label === "Call for papers" ? "para a" : "na");
 const ano = new Date().getFullYear();
 ---
 
@@ -160,7 +159,7 @@ const ano = new Date().getFullYear();
           <p class="painel-intro">Nenhum evento agendado no momento. Volte em breve!</p>
         ) : (
           <>
-            <p class="painel-intro">Agenda da MVP Conference, com links oficiais de inscrição e de call for papers. Todas as edições regionais são gratuitas.</p>
+            <p class="painel-intro">Eventos da comunidade em que participo ou que recomendo, com links oficiais de inscrição e de call for papers. As edições regionais da MVP Conference são gratuitas.</p>
             <BannerCarousel label="Banners dos eventos" slides={eventSlides} />
             {[...porMes].map(([chave, lista]) => (
               <section class="mes" aria-labelledby={`mes-${chave}`} data-mes>
@@ -183,7 +182,9 @@ const ano = new Date().getFullYear();
                       </div>
                       <ul class="chips" aria-label="Destaques">
                         <li class="chip">{evento.format}</li>
-                        {evento.free ? <li class="chip chip-forte">Gratuito</li> : <li class="chip">Renda para ONGs</li>}
+                        {evento.free && <li class="chip chip-forte">Gratuito</li>}
+                        {evento.ngo && <li class="chip">Renda para ONGs</li>}
+                        {evento.highlight && <li class="chip chip-destaque">{evento.highlight}</li>}
                         {temCfp(evento) && <li class="chip chip-alerta">Call for papers aberto</li>}
                       </ul>
                       <p class="event-onde"><span class="sr-only">Local: </span>{evento.where}</p>
@@ -191,12 +192,14 @@ const ano = new Date().getFullYear();
                       <div class="course-actions">
                         {evento.links.map((link, i) => (
                           <a href={link.url} class={i === 0 ? "course-link" : "course-star"} target="_blank" rel="noopener noreferrer">
-                            {textoDoBotao(link.label)}<span aria-hidden="true"> →</span><span class="sr-only"> {preposicao(link.label)} {evento.title} (abre em nova aba)</span>
+                            {textoDoBotao(link.label)}<span aria-hidden="true"> →</span><span class="sr-only"> — {evento.title} (abre em nova aba)</span>
                           </a>
                         ))}
-                        <a href={evento.site} class="link-texto" target="_blank" rel="noopener noreferrer">
-                          Site do evento<span aria-hidden="true"> ↗</span><span class="sr-only"> {evento.title} (abre em nova aba)</span>
-                        </a>
+                        {evento.links.every((l) => l.url !== evento.site) && (
+                          <a href={evento.site} class="link-texto" target="_blank" rel="noopener noreferrer">
+                            Site do evento<span aria-hidden="true"> ↗</span><span class="sr-only"> {evento.title} (abre em nova aba)</span>
+                          </a>
+                        )}
                       </div>
                     </article>
                   ))}
@@ -661,6 +664,12 @@ const ano = new Date().getFullYear();
   .chip-forte {
     border-color: var(--sucesso);
     color: var(--sucesso);
+  }
+
+  .chip-destaque {
+    border-color: var(--nucleo-eletrico);
+    color: var(--nucleo-eletrico);
+    font-weight: 600;
   }
 
   .chip-alerta {

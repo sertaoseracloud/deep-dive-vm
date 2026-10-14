@@ -1,4 +1,5 @@
 import type { ImageMetadata } from 'astro';
+import awsugFloripa from '../assets/eventos/awsug-floripa-21-encontro-1584x396.png';
 import mvpconfCfp from '../assets/eventos/mvpconf2027-call-for-papers-1584x396.png';
 import mvpconfInscricao from '../assets/eventos/mvpconf2027-inscricao-1584x396.png';
 import florianopolisInscricao from '../assets/eventos/mvpconf-regional-florianopolis-inscricao-1584x396.png';
@@ -31,6 +32,10 @@ export interface Event {
   format: 'Presencial' | 'On-line' | 'Híbrido';
   /** Inscrição gratuita (todas as regionais da MVPConf são). */
   free: boolean;
+  /** Renda dos ingressos vai para ONGs (MVPConf nacional). */
+  ngo?: boolean;
+  /** Destaque extra no card, como "Palestra do Cláudio". */
+  highlight?: string;
   site: string;
   links: EventLink[];
 }
@@ -89,6 +94,30 @@ function regional(r: {
 }
 
 export const events: Event[] = [
+  {
+    id: 'awsug-floripa-21',
+    title: '21º Encontro AWS User Group Floripa',
+    description:
+      'Encontro da comunidade AWS e de computação em nuvem, com palestras de Cláudio Rapôso e Hellen Ávila Rosa, troca de experiências e networking. Os temas serão divulgados pelo grupo.',
+    dates: ['2026-10-28'],
+    when: '28 de outubro de 2026, das 18h45 às 21h45',
+    where: 'SENAI Florianópolis (CTAI) · SC-401, 3730, Saco Grande, Florianópolis, SC',
+    format: 'Presencial',
+    // A página do Meetup não informa preço; por isso o card não diz "Gratuito".
+    free: false,
+    highlight: 'Palestra do Cláudio',
+    site: 'https://www.meetup.com/pt-br/aws-user-group-floripa/events/316963249/',
+    links: [
+      {
+        label: 'Inscrição',
+        url: 'https://www.meetup.com/pt-br/aws-user-group-floripa/events/316963249/',
+        banner: {
+          src: awsugFloripa,
+          alt: '21º Encontro do AWS User Group Florianópolis: 28 de outubro de 2026, das 18h45 às 21h45, presencial no SENAI Florianópolis (CTAI), SC-401, 3730, Saco Grande. Palestras de Cláudio Rapôso e Hellen Ávila Rosa, troca de experiências e networking.',
+        },
+      },
+    ],
+  },
   regional({
     id: 'florianopolis',
     pagina: 'florianopolis/unisenai',
@@ -162,6 +191,7 @@ export const events: Event[] = [
     where: 'UNIP Vergueiro · Rua Vergueiro, 1211 · São Paulo, SP',
     format: 'Presencial',
     free: false,
+    ngo: true,
     site: 'https://mvpconf.com.br/conf/br/2027',
     links: [
       {

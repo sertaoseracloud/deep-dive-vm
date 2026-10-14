@@ -31,6 +31,17 @@ describe("eventos", () => {
     }
   });
 
+  it("21º Encontro AWS UG Floripa: palestra do Cláudio, sem prometer gratuidade", () => {
+    const aws = events.find((e) => e.id === "awsug-floripa-21")!;
+    expect(aws.dates).toEqual(["2026-10-28"]);
+    expect(aws.highlight).toBe("Palestra do Cláudio");
+    expect(aws.free).toBe(false);
+    expect(aws.links).toHaveLength(1);
+    expect(aws.links[0].url).toBe("https://www.meetup.com/pt-br/aws-user-group-floripa/events/316963249/");
+    expect(aws.links[0].url).not.toContain("?");
+    expect(aws.links[0].banner?.alt).toContain("28 de outubro de 2026");
+  });
+
   it("regionais de novembro/2026 (todas gratuitas): inscrição sempre, call for papers só onde está aberto", () => {
     const regionais = events.filter((e) => e.id.startsWith("mvpconf-regional-"));
     expect(regionais.map((e) => [e.title, e.dates[0]])).toEqual([
