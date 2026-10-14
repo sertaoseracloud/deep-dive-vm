@@ -1,33 +1,18 @@
-# Landing Page - Deep Dive Azure VM Mentoria
+# O Sertão será Cloud — mentoria.sertaoseracloud.com
 
-Descrição: Landing page para mentoria especializada em Azure Virtual Machines, focada no curso "Deep Dive: Azure Virtual Machine".
+Hub do Cláudio Filipe Lima Rapôso (Systems Architect, 2× Microsoft MVP, Docker Captain) com cursos gratuitos e eventos da comunidade.
 
-## Conteúdo Principal
-- Hero section com título principal e call-to-action
-- Seção de confiança (TrustBand) com logos de parceiros
-- Pontos de dor (PainPoints) para alunos iniciantes
-- Método de ensino (Method) com abordagem prática
-- Currículo detalhado (Curriculum)
-- Apresentação do mentor (Mentor)
-- Público-alvo (ForWho)
-- Bônus exclusivos (Bonuses)
-- Depoimentos de alunos (Testimonials)
-- Tabela de preços (Pricing)
-- FAQ (Frequently Asked Questions)
-- Rodapé com informações de contato e CNPJ
+## Páginas
+- / : perfil, redes sociais e abas "Cursos" e "Eventos" (/#eventos)
+- /acessibilidade/ : declaração de acessibilidade (meta WCAG 2.2 AA)
 
-## Palavras‑chave Principais
-Azure VM, mentoria cloud, curso Azure, virtual machine, cloud computing, O Sertão será Cloud, Azure Brasil, certificação Azure, aprendizado prático, mentoria online.
+## Cursos gratuitos (no navegador, com certificados)
+- DivergePHP: https://sertaoseracloud.github.io/php-playground/
+- DivergeTerraform: https://sertaoseracloud.github.io/terraform-playground/
+- DivergePython: https://sertaoseracloud.github.io/python-playground/
 
-## Estrutura Técnica
-- Framework: Astro Islands Architecture
-- SEO: @astrojs/seo com meta tags, Open Graph, Twitter Cards
-- Sitemap: @astrojs/sitemap
-- Acessibilidade: WCAG AA, semântica HTML5
-- Performance: Core Web Vitals otimizados
+## Eventos
+Agenda da MVP Conference (MVPConf): edições regionais gratuitas e a MVPConf nacional, com links de inscrição e de call for papers.
 
-## Informações de Contato
-- CNPJ: [Informar CNPJ]
-- Email: [Informar contato]
-- Telefone: [Informar telefone]
-- Endereço: [Informar endereço]
+## Acessibilidade
+Painel ♿ em todas as páginas: temas (padrão, claro, alto contraste, suave), texto de 87,5% a 175%, fonte legível, perfis para TDAH, dislexia, autismo e ansiedade, e Libras com o VLibras.

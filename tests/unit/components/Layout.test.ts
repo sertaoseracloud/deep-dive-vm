@@ -6,103 +6,61 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../../..");
 
-let builtHtml = "";
 let hubHtml = "";
+let a11yHtml = "";
 
 beforeAll(() => {
-  const dvmPath = join(PROJECT_ROOT, "dist/deep-dive-vm/index.html");
   const hubPath = join(PROJECT_ROOT, "dist/index.html");
-  if (!existsSync(dvmPath) || !existsSync(hubPath)) {
-    throw new Error(
-      `dist/ files not found. Run 'npm run build' before running Layout tests.\nExpected: ${dvmPath}`
-    );
+  const a11yPath = join(PROJECT_ROOT, "dist/acessibilidade/index.html");
+  if (!existsSync(hubPath) || !existsSync(a11yPath)) {
+    throw new Error(`dist/ files not found. Run 'npm run build' before running Layout tests.\nExpected: ${hubPath}`);
   }
-  builtHtml = readFileSync(dvmPath, "utf-8");
   hubHtml = readFileSync(hubPath, "utf-8");
+  a11yHtml = readFileSync(a11yPath, "utf-8");
 });
+
+const meta = (html: string, nome: string) =>
+  (html.match(new RegExp(`(?:property|name)="${nome}"[^>]+content="([^"]+)"`)) ??
+    html.match(new RegExp(`content="([^"]+)"[^>]*(?:property|name)="${nome}"`)))?.[1];
 
 describe("Layout component", () => {
   it("title appears in <title> tag", () => {
-    expect(builtHtml).toMatch(/<title[^>]*>.*Deep Dive Azure VM.*<\/title>/s);
+    expect(hubHtml).toMatch(/<title[^>]*>.*Cláudio Rapôso.*<\/title>/s);
   });
 
   it("description appears in meta description content", () => {
-    expect(builtHtml).toMatch(/name="description"[^>]+content="[^"]+"/);
-    // Actual description from index page
-    expect(builtHtml).toContain("Formação de 54h");
+    expect(meta(hubHtml, "description")).toContain("DivergePython");
   });
 
-  it("Open Graph og:title meta tag is present", () => {
-    expect(builtHtml).toContain("og:title");
-    expect(builtHtml).toMatch(/property="og:title"/);
+  it("Open Graph og:title and og:type=website are present", () => {
+    expect(meta(hubHtml, "og:title")).toBeTruthy();
+    expect(meta(hubHtml, "og:type")).toBe("website");
   });
 
-  it("Open Graph og:type meta tag is present and equals website", () => {
-    expect(builtHtml).toContain("og:type");
-    expect(builtHtml).toContain("website");
-    expect(builtHtml).toMatch(/property="og:type"[^>]+content="website"/);
+  it("Twitter card and creator are present", () => {
+    expect(meta(hubHtml, "twitter:card")).toBe("summary_large_image");
+    expect(meta(hubHtml, "twitter:creator")).toBe("@sertaoseracloud");
   });
 
-  it("Twitter card meta tag is present", () => {
-    expect(builtHtml).toContain("twitter:card");
-    expect(builtHtml).toMatch(/name="twitter:card"/);
+  it("<html lang=pt-BR>, charset utf-8 and viewport are set", () => {
+    expect(hubHtml).toContain('lang="pt-BR"');
+    expect(hubHtml).toMatch(/<meta charset="utf-8"/);
+    expect(hubHtml).toContain("width=device-width");
   });
 
-  it("<html lang=pt-BR> attribute is set", () => {
-    expect(builtHtml).toContain('lang="pt-BR"');
+  it("hub og:image points to hub-og.png", () => {
+    expect(meta(hubHtml, "og:image")).toContain("hub-og.png");
   });
 
-  it("charset utf-8 is declared in head", () => {
-    expect(builtHtml).toMatch(/<meta charset="utf-8"/);
+  it("hub og:url points to root and the hub is indexable", () => {
+    expect(meta(hubHtml, "og:url")).toBe("https://mentoria.sertaoseracloud.com/");
+    expect(hubHtml).not.toMatch(/name=["']robots["'][^>]+noindex/i);
   });
 
-  it("viewport meta tag is present", () => {
-    expect(builtHtml).toContain("viewport");
-    expect(builtHtml).toContain("width=device-width");
-  });
-
-  it("og:image meta tag is present", () => {
-    expect(builtHtml).toContain("og:image");
-  });
-
-  it("twitter:creator meta tag is present", () => {
-    expect(builtHtml).toContain("twitter:creator");
-    expect(builtHtml).toContain("@sertaoseracloud");
-  });
-
-  it("hub og:image points to hub-og.png (not claudio1)", () => {
-    const ogImageMatch =
-      hubHtml.match(/property="og:image"[^>]+content="([^"]+)"/) ??
-      hubHtml.match(/content="([^"]+)"[^>]*property="og:image"/);
-    const content = ogImageMatch?.[1];
-    expect(content).toBeTruthy();
-    expect(content).toContain("hub-og.png");
-    expect(content).not.toContain("claudio1");
-  });
-
-  it("LP og:image still uses claudio1 (not hub-og.png)", () => {
-    expect(builtHtml).toContain("og:image");
-    expect(builtHtml).not.toContain("hub-og.png");
-  });
-
-  it("LP does not contain noindex meta", () => {
-    expect(builtHtml).not.toMatch(/name=["']robots["'][^>]+noindex/i);
-  });
-
-  it("hub og:title is present", () => {
-    expect(hubHtml).toContain("og:title");
-  });
-
-  it("hub og:description is present", () => {
-    expect(hubHtml).toContain("og:description");
-  });
-
-  it("hub og:url points to root", () => {
-    const ogUrlMatch =
-      hubHtml.match(/property="og:url"[^>]+content="([^"]+)"/) ??
-      hubHtml.match(/content="([^"]+)"[^>]*property="og:url"/);
-    const content = ogUrlMatch?.[1];
-    expect(content).toBeTruthy();
-    expect(content).toBe("https://mentoria.sertaoseracloud.com/");
+  it("keywords and image alt no longer mention the removed landing pages", () => {
+    for (const html of [hubHtml, a11yHtml]) {
+      expect(html).not.toContain("Deep Dive Azure VM");
+      expect(html).not.toContain("data-reveal");
+    }
   });
 });

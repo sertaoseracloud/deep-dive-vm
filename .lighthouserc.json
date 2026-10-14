@@ -3,7 +3,7 @@
     "collect": {
       "staticDistDir": "./dist",
       "numberOfRuns": 3,
-      "url": ["http://localhost/", "http://localhost/deep-dive-vm/"]
+      "url": ["http://localhost/", "http://localhost/acessibilidade/"]
     },
     "assert": {
       "assertions": {

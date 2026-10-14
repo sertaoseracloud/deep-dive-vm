@@ -30,9 +30,10 @@ describe("eventos", () => {
     }
   });
 
-  it("regionais de novembro/2026: inscrição sempre, call for papers só onde está aberto", () => {
+  it("regionais de novembro/2026 (todas gratuitas): inscrição sempre, call for papers só onde está aberto", () => {
     const regionais = events.filter((e) => e.id.startsWith("mvpconf-regional-"));
     expect(regionais.map((e) => [e.title, e.dates[0]])).toEqual([
+      ["MVP Conf Regional Florianópolis", "2026-11-07"],
       ["MVP Conf Regional Manaus", "2026-11-12"],
       ["MVP Conf Regional Joinville", "2026-11-14"],
       ["MVP Conf Regional Campinas", "2026-11-19"],
@@ -40,9 +41,12 @@ describe("eventos", () => {
     ]);
     for (const e of regionais) {
       expect(e.links[0]).toMatchObject({ label: "Inscrição", url: `${e.site}/register` });
+      expect(e.site).toMatch(/^https:\/\/mvpconf\.com\.br\/regional\//);
       expect(e.links.every((l) => l.banner && l.banner.alt.includes(e.when))).toBe(true);
+      expect(e.description).toContain("gratuitas");
     }
     expect(regionais.filter((e) => e.links.some((l) => l.label === "Call for papers")).map((e) => e.id)).toEqual([
+      "mvpconf-regional-florianopolis",
       "mvpconf-regional-manaus",
       "mvpconf-regional-campinas",
     ]);

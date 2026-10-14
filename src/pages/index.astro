@@ -22,6 +22,14 @@ const eventSlides = eventos.flatMap((e) =>
   description="Cursos gratuitos e acessíveis no navegador (DivergePHP, DivergeTerraform e DivergePython), eventos da comunidade e redes do mentor."
   url="https://mentoria.sertaoseracloud.com/"
   ogImage="/hub-og.png"
+  jsonLd={{
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: "Cláudio Filipe Lima Rapôso",
+    jobTitle: "Systems Architect",
+    url: "https://mentoria.sertaoseracloud.com/",
+    sameAs: socialLinks.map((s) => s.url),
+  }}
 >
   <a href="#conteudo-principal" class="skip-link">Pular para o conteúdo</a>
 

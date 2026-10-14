@@ -1,6 +1,8 @@
 import type { ImageMetadata } from 'astro';
 import mvpconfCfp from '../assets/eventos/mvpconf2027-call-for-papers-1584x396.png';
 import mvpconfInscricao from '../assets/eventos/mvpconf2027-inscricao-1584x396.png';
+import florianopolisInscricao from '../assets/eventos/mvpconf-regional-florianopolis-inscricao-1584x396.png';
+import florianopolisCfp from '../assets/eventos/mvpconf-regional-florianopolis-call-for-papers-1584x396.png';
 import manausInscricao from '../assets/eventos/mvpconf-regional-manaus-inscricao-1584x396.png';
 import manausCfp from '../assets/eventos/mvpconf-regional-manaus-call-for-papers-1584x396.png';
 import joinvilleInscricao from '../assets/eventos/mvpconf-regional-joinville-inscricao-1584x396.png';
@@ -37,6 +39,8 @@ export interface Event {
  */
 function regional(r: {
   id: string;
+  /** Caminho da página oficial, quando foge do padrão "<id>/novembro-2026". */
+  pagina?: string;
   cidade: string;
   data: string;
   when: string;
@@ -46,7 +50,7 @@ function regional(r: {
   inscricao: ImageMetadata;
   cfp?: { url: string; banner: ImageMetadata };
 }): Event {
-  const site = `https://mvpconf.com.br/regional/${r.id}/novembro-2026`;
+  const site = `https://mvpconf.com.br/regional/${r.pagina ?? `${r.id}/novembro-2026`}`;
   const onde = `${r.local}, ${r.endereco}`;
   const links: EventLink[] = [
     {
@@ -82,6 +86,21 @@ function regional(r: {
 }
 
 export const events: Event[] = [
+  regional({
+    id: 'florianopolis',
+    pagina: 'florianopolis/unisenai',
+    cidade: 'Florianópolis',
+    data: '2026-11-07',
+    when: '7 de novembro de 2026',
+    local: 'Unisenai',
+    endereco: 'Rodovia SC-401, 3730, Saco Grande, Florianópolis, SC',
+    lema: 'Tecnologia que conecta. Inovação que transforma.',
+    inscricao: florianopolisInscricao,
+    cfp: {
+      url: 'https://mvpconf.com.br/my-portal/call-for-papers/events/e6f24c9f-b9ec-48d0-8573-4192ec8b7238/editions/e95b8b53-eae9-4e24-88df-8a1fa0e629ed/apply',
+      banner: florianopolisCfp,
+    },
+  }),
   regional({
     id: 'manaus',
     cidade: 'Manaus',

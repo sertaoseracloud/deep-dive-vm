@@ -15,7 +15,7 @@ import { dirname, join } from "node:path";
  */
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DIST_INDEX = join(__dirname, "../../dist/deep-dive-vm/index.html");
+const DIST_INDEX = join(__dirname, "../../dist/index.html");
 const DIST_DIR = join(__dirname, "../../dist");
 
 let html = "";
@@ -166,14 +166,8 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
     expect(existsSync(join(DIST_DIR, "sitemap-index.xml"))).toBe(true);
   });
 
-  it("14. sitemap-0.xml contains /deep-dive-vm/", () => {
-    const sitemapPath = join(DIST_DIR, "sitemap-0.xml");
-    expect(existsSync(sitemapPath), `sitemap-0.xml not found at ${sitemapPath}`).toBe(true);
-    const sitemap = readFileSync(sitemapPath, "utf-8");
-    expect(sitemap).toContain("https://mentoria.sertaoseracloud.com/deep-dive-vm/");
-  });
 
-  it("15. dist/index.html og:image points to hub-og.png", () => {
+  it("16. dist/index.html og:image points to hub-og.png", () => {
     const hubIndexPath = join(DIST_DIR, "index.html");
     expect(existsSync(hubIndexPath), `dist/index.html not found at ${hubIndexPath}`).toBe(true);
     const hubHtml = readFileSync(hubIndexPath, "utf-8");
@@ -182,59 +176,24 @@ describe("SEO meta-tag static assertions (dist/index.html)", () => {
     expect(ogImage).toContain("hub-og.png");
   });
 
-  it("16. dist/deep-dive-ec2/index.html og:image points to ec2-og.png", () => {
-    const ec2IndexPath = join(DIST_DIR, "deep-dive-ec2/index.html");
-    expect(
-      existsSync(ec2IndexPath),
-      `dist/deep-dive-ec2/index.html not found at ${ec2IndexPath}`
-    ).toBe(true);
-    const ec2Html = readFileSync(ec2IndexPath, "utf-8");
-    const ogImage = extractMetaContent(ec2Html, "og:image");
-    expect(ogImage).toBeTruthy();
-    expect(ogImage).toContain("ec2-og.png");
-  });
-
-  it("17. dist/deep-dive-python-neurodivergentes/index.html og:image points to python-neurodivergentes-og.png", () => {
-    const pythonIndexPath = join(DIST_DIR, "deep-dive-python-neurodivergentes/index.html");
-    expect(
-      existsSync(pythonIndexPath),
-      `dist/deep-dive-python-neurodivergentes/index.html not found. Run 'npm run build' first.`
-    ).toBe(true);
-    const pythonHtml = readFileSync(pythonIndexPath, "utf-8");
-    const ogImage = extractMetaContent(pythonHtml, "og:image");
-    expect(ogImage).toBeTruthy();
-    expect(ogImage).toContain("python-neurodivergentes-og.png");
-  });
-
-  it("18. sitemap-0.xml contains /deep-dive-python-neurodivergentes/", () => {
-    const sitemapPath = join(DIST_DIR, "sitemap-0.xml");
-    expect(existsSync(sitemapPath), "sitemap-0.xml not found. Run 'npm run build' first.").toBe(true);
-    const sitemap = readFileSync(sitemapPath, "utf-8");
-    expect(sitemap).toContain("deep-dive-python-neurodivergentes");
-  });
 });
 
 describe("Sitemap content assertions (dist/sitemap-0.xml)", () => {
   const SITEMAP_PATH = join(DIST_DIR, "sitemap-0.xml");
 
-  it("19. sitemap-0.xml contains the deep-dive-vm URL", () => {
-    if (!existsSync(SITEMAP_PATH)) {
-      throw new Error(
-        `sitemap-0.xml not found. Run 'npm run build' before running SEO tests.\nExpected path: ${SITEMAP_PATH}`
-      );
-    }
+  it("14. sitemap-0.xml lists the hub and the accessibility statement, and nothing else", () => {
+    expect(existsSync(SITEMAP_PATH), `sitemap-0.xml not found. Run 'npm run build' first.`).toBe(true);
     const sitemap = readFileSync(SITEMAP_PATH, "utf-8");
-    expect(sitemap).toContain("deep-dive-vm");
+    const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]).sort();
+    expect(locs).toEqual([
+      "https://mentoria.sertaoseracloud.com/",
+      "https://mentoria.sertaoseracloud.com/acessibilidade/",
+    ]);
   });
 
-  it("20. sitemap-0.xml does NOT contain the hub root URL (mentoria.sertaoseracloud.com/)", () => {
-    if (!existsSync(SITEMAP_PATH)) {
-      throw new Error(
-        `sitemap-0.xml not found. Run 'npm run build' before running SEO tests.\nExpected path: ${SITEMAP_PATH}`
-      );
+  it("15. the removed landing pages are not built", () => {
+    for (const rota of ["deep-dive-vm", "deep-dive-ec2", "deep-dive-python-neurodivergentes"]) {
+      expect(existsSync(join(DIST_DIR, rota, "index.html")), rota).toBe(false);
     }
-    const sitemap = readFileSync(SITEMAP_PATH, "utf-8");
-    // A rota raiz não deve aparecer no sitemap — apenas /deep-dive-vm/ é indexável
-    expect(sitemap).not.toMatch(/<loc>https:\/\/mentoria\.sertaoseracloud\.com\/<\/loc>/);
   });
 });

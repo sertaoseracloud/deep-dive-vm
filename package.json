@@ -1,7 +1,7 @@
 {
   "name": "template-dd",
   "type": "module",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "engines": {
     "node": ">=22.18.0"
   },
@@ -15,9 +15,9 @@
     "test:integration": "vitest run --reporter=verbose tests/integration",
     "test:unit:watch": "vitest --watch",
     "test:all": "vitest run --coverage",
-    "lighthouse": "lighthouse https://mentoria.sertaoseracloud.com/deep-dive-vm/ --output json --output-path lighthouse-report.json --chrome-flags=\"--headless --no-sandbox\"",
+    "lighthouse": "lighthouse https://mentoria.sertaoseracloud.com/ --output json --output-path lighthouse-report.json --chrome-flags=\"--headless --no-sandbox\"",
     "lighthouse:ci": "npm run build && npx astro preview & sleep 3 && npm run lighthouse",
-    "test:axe": "npx playwright test tests/e2e/motion-accessibility.spec.ts --project=chromium",
+    "test:axe": "npx playwright test tests/e2e/acessibilidade-telas.spec.ts --project=chromium",
     "test:perf": "lhci autorun"
   },
   "dependencies": {

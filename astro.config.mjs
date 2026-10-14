@@ -45,9 +45,6 @@ export default defineConfig({
     },
   ],
   integrations: [
-    sitemap({
-      // Excluir a rota raiz do hub do sitemap — apenas /deep-dive-vm/ deve ser indexada
-      filter: (page) => !page.endsWith('https://mentoria.sertaoseracloud.com/'),
-    }),
+    sitemap(),
   ],
 });

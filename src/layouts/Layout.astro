@@ -9,19 +9,18 @@ interface Props {
 	title: string;
 	description?: string;
 	url?: string;
-	offersUrl?: string;
 	ogImage?: string;
 	noindex?: boolean;
 	jsonLd?: Record<string, unknown>;
 }
 
-const { title, description, url, offersUrl, ogImage, noindex, jsonLd } = Astro.props;
+const { title, description, url, ogImage, noindex, jsonLd } = Astro.props;
 
 const siteOrigin = "https://mentoria.sertaoseracloud.com";
 const ogImageUrl = ogImage
 	? `${siteOrigin}${ogImage}`
 	: `${siteOrigin}${claudio1.src}`;
-const resolvedDescription = description ?? "Formação técnica de alto impacto em cloud. Aprenda com Cláudio Raposo, Microsoft MVP.";
+const resolvedDescription = description ?? "Cursos gratuitos e acessíveis e eventos da comunidade com Cláudio Rapôso, Microsoft MVP.";
 ---
 
 <!doctype html>
@@ -65,7 +64,7 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 					description: resolvedDescription,
 				},
 				image: {
-					alt: "Mentoria O Sertao será Cloud - Deep Dive Azure VM",
+					alt: "O Sertão será Cloud: cursos gratuitos e eventos com Cláudio Rapôso",
 				},
 			}}
 			twitter={{
@@ -95,7 +94,7 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 					{
 						name: "keywords",
 						content:
-							"O Sertão será Cloud, Deep Dive Azure VM, Arquiteto de Nuvem, Microsoft MVP, Cláudio Rapôso, Terraform Azure, Azure CLI, Spec-Driven Development, Well-Architected Framework, Zero Trust Azure, FinOps Azure, Cloud Architecture",
+							"O Sertão será Cloud, Cláudio Rapôso, Microsoft MVP, cursos gratuitos, acessibilidade, DivergePHP, DivergeTerraform, DivergePython, MVPConf, eventos de tecnologia",
 					},
 				],
 			}}
@@ -113,28 +112,6 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 		<div class="ambient" aria-hidden="true"></div>
 		<slot />
 		<AccessibilityPanel />
-		<script>
-			const revealEls = document.querySelectorAll("[data-reveal]");
-			if (revealEls.length > 0) {
-				const observer = new IntersectionObserver(
-					(entries) => {
-						entries.forEach((entry) => {
-							if (entry.isIntersecting) {
-								entry.target.setAttribute("data-revealed", "");
-								observer.unobserve(entry.target);
-							}
-						});
-					},
-					{ threshold: 0.15 }
-				);
-				revealEls.forEach((el) => observer.observe(el));
-				document.addEventListener(
-					"astro:before-swap",
-					() => observer.disconnect(),
-					{ once: true }
-				);
-			}
-		</script>
 	</body>
 </html>
 
@@ -359,12 +336,6 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 		scroll-behavior: auto !important;
 	}
 
-	:root.a11y-sem-movimento [data-reveal],
-	:root.a11y-sem-movimento [data-stagger] {
-		opacity: 1 !important;
-		transform: none !important;
-		animation: none !important;
-	}
 
 	@media (prefers-reduced-motion: reduce) {
 		html {
@@ -382,45 +353,6 @@ const resolvedDescription = description ?? "Formação técnica de alto impacto 
 		}
 	}
 
-	/* Scroll reveal — ANIM-02 */
-	[data-reveal] {
-		opacity: 0;
-		transform: translateY(20px);
-		transition:
-			opacity 400ms var(--ease-entrance),
-			transform 400ms var(--ease-entrance);
-	}
-
-	[data-reveal][data-revealed] {
-		opacity: 1;
-		transform: none;
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		[data-reveal] {
-			opacity: 1;
-			transform: none;
-			transition: none;
-		}
-	}
-
-	@keyframes fade-up {
-		from { opacity: 0; transform: translateY(16px); }
-		to { opacity: 1; transform: none; }
-	}
-
-	[data-stagger] {
-		animation: fade-up 400ms var(--ease-entrance) forwards;
-		animation-play-state: paused;
-	}
-
-	[data-revealed] [data-stagger] {
-		animation-play-state: running;
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		[data-stagger] { animation: none; opacity: 1; transform: none; }
-	}
 
 	body {
 		margin: 0;

@@ -10,9 +10,6 @@ import AxeBuilder from "@axe-core/playwright";
 
 const PAGINAS = [
   { nome: "hub", url: "./" },
-  { nome: "LP Azure VM", url: "./deep-dive-vm/" },
-  { nome: "LP Python", url: "./deep-dive-python-neurodivergentes/" },
-  { nome: "EC2 (em breve)", url: "./deep-dive-ec2/" },
   { nome: "declaração de acessibilidade", url: "./acessibilidade/" },
 ];
 
@@ -44,12 +41,6 @@ async function comPreferencias(page: Page, prefs: Record<string, unknown>) {
   }, prefs);
 }
 
-/** Mostra tudo o que entra com animação de rolagem, para o axe ver as cores finais. */
-async function revelarTudo(page: Page) {
-  await page.evaluate(() => {
-    document.querySelectorAll("[data-reveal]").forEach((el) => el.setAttribute("data-revealed", ""));
-  });
-}
 
 async function violacoes(page: Page) {
   const resultado = await new AxeBuilder({ page }).withTags(TAGS).analyze();
@@ -67,7 +58,6 @@ for (const pagina of PAGINAS) {
         await comPreferencias(page, { tema, reduzirMovimento: true });
         await page.goto(pagina.url);
         await expect(page.locator("html")).toHaveAttribute("data-tema", tema);
-        await revelarTudo(page);
         expect(await violacoes(page)).toEqual([]);
       });
     }
@@ -101,7 +91,6 @@ for (const pagina of PAGINAS) {
 
     test("nenhum texto visível abaixo de 12 px", async ({ page }) => {
       await page.goto(pagina.url);
-      await revelarTudo(page);
       const pequenos = await page.evaluate(() => {
         const achados: string[] = [];
         const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -161,7 +150,7 @@ test.describe("painel ♿ Acessibilidade", () => {
   });
 
   test("tema escolhido vale na hora, fica salvo e volta antes da primeira pintura", async ({ page }) => {
-    await page.goto("./deep-dive-vm/");
+    await page.goto("./");
     await page.locator("#btn-acessibilidade").click();
     await page.getByRole("radio", { name: "Alto contraste" }).check();
     await expect(page.locator("html")).toHaveAttribute("data-tema", "alto-contraste");
@@ -205,15 +194,6 @@ test.describe("painel ♿ Acessibilidade", () => {
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).fontSize)).toBe("28px");
   });
 
-  test("reduzir animações mostra o conteúdo sem esperar a rolagem", async ({ page }) => {
-    await comPreferencias(page, { reduzirMovimento: true });
-    await page.goto("./deep-dive-vm/");
-    const opacidade = await page
-      .locator("[data-reveal]")
-      .last()
-      .evaluate((el) => getComputedStyle(el).opacity);
-    expect(opacidade).toBe("1");
-  });
 
   test("sem escolha salva, segue o contraste alto do sistema", async ({ page }) => {
     await page.emulateMedia({ contrast: "more" } as Parameters<Page["emulateMedia"]>[0]);
@@ -223,7 +203,7 @@ test.describe("painel ♿ Acessibilidade", () => {
 
   test("sem escolha salva, o modo claro do sistema aplica o tema Claro antes da pintura", async ({ page }) => {
     await page.emulateMedia({ colorScheme: "light" });
-    await page.goto("./deep-dive-vm/", { waitUntil: "commit" });
+    await page.goto("./", { waitUntil: "commit" });
     const temaNoInicio = await page.evaluate(
       () =>
         new Promise<string | null>((ok) => {
@@ -253,24 +233,6 @@ test.describe("painel ♿ Acessibilidade", () => {
   });
 });
 
-test.describe("termos e privacidade (LP)", () => {
-  test("botões do rodapé abrem diálogos nomeados; Esc fecha e devolve o foco", async ({ page }) => {
-    await page.goto("./deep-dive-vm/");
-    const termos = page.getByRole("button", { name: "Termos" });
-    await termos.focus();
-    await page.keyboard.press("Enter");
-    const dialogo = page.getByRole("dialog", { name: "Termos de Uso" });
-    await expect(dialogo).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(dialogo).toBeHidden();
-    await expect(termos).toBeFocused();
-
-    await page.getByRole("button", { name: "Privacidade" }).click();
-    await expect(page.locator("#modal-privacy")).toBeVisible();
-    await page.locator("#modal-privacy").getByRole("button", { name: "Fechar" }).click();
-    await expect(page.locator("#modal-privacy")).toBeHidden();
-  });
-});
 
 test.describe("hub: cards dos cursos", () => {
   test("cada curso tem link de acesso e de star com nomes distintos", async ({ page }) => {
