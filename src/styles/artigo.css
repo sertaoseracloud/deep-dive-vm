@@ -293,3 +293,53 @@
     font-size: 0.8125rem;
   }
 }
+
+/* ── Diagramas Mermaid ── */
+.artigo-corpo .diagrama {
+  margin: 0 0 1.5em;
+  padding: 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--abismo-profundo);
+}
+
+.artigo-corpo .diagrama-desenho {
+  overflow-x: auto;
+  text-align: center;
+}
+
+.artigo-corpo .diagrama-desenho svg {
+  max-width: none;
+  height: auto;
+}
+
+.artigo-corpo .diagrama-codigo {
+  margin-top: 12px;
+}
+
+.artigo-corpo .diagrama-codigo summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--texto-secundario);
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.artigo-corpo .diagrama-codigo summary:hover {
+  color: var(--nucleo-eletrico);
+}
+
+.artigo-corpo .diagrama-codigo pre {
+  margin-top: 8px;
+}
+
+.artigo-corpo .diagrama-dica {
+  margin: 8px 0 0;
+  font-size: 0.875rem;
+  color: var(--texto-terciario);
+}
+
+.artigo-corpo .diagrama-dica[hidden] {
+  display: none;
+}

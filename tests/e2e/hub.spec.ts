@@ -327,6 +327,38 @@ test.describe("Hub blog (dev.to)", () => {
     await expect(page.getByRole("tab", { name: "Blog" })).toHaveAttribute("aria-selected", "true");
   });
 
+  test("diagramas Mermaid viram desenho nas cores do tema, com o código ao lado", async ({ page }) => {
+    // Primeiro artigo salvo que tem um bloco ```mermaid
+    const { readdirSync, readFileSync } = await import("node:fs");
+    const pasta = new URL("../../src/data/devto/", import.meta.url);
+    const arquivo = readdirSync(pasta).find((f) => readFileSync(new URL(f, pasta), "utf8").includes('data-lang="mermaid"'));
+    test.skip(!arquivo, "nenhum artigo com diagrama na lista salva");
+    const { default: lista } = await import("../../src/data/devto-artigos.json", { with: { type: "json" } });
+    const artigo = lista.find((a: { id: number }) => `${a.id}.html` === arquivo)!;
+
+    await page.goto(`./blog/${artigo.slug}/`);
+    const figura = page.locator("figure.diagrama").first();
+    await expect(figura).toHaveAttribute("aria-label", /^(Fluxograma|Diagrama)/);
+    const desenho = figura.locator(".diagrama-desenho svg");
+    await expect(desenho).toBeVisible({ timeout: 15000 });
+    // O diagrama fica no tamanho real; se não couber, a dica aparece e o quadro rola pelo teclado.
+    const desenhoBox = figura.locator(".diagrama-desenho");
+    await expect(desenhoBox).toHaveAttribute("tabindex", "0");
+    const naoCabe = await desenhoBox.evaluate((el) => el.scrollWidth > el.clientWidth + 4);
+    await expect(figura.locator(".diagrama-dica")).toBeVisible({ visible: naoCabe });
+    await expect(figura.locator("details.diagrama-codigo summary")).toHaveText("Ver o código do diagrama");
+    await expect(figura.locator("details.diagrama-codigo pre")).toBeHidden();
+    await figura.locator("summary").click();
+    await expect(figura.locator("details.diagrama-codigo pre")).toBeVisible();
+
+    // Troca para o tema claro: o diagrama é redesenhado com o texto escuro do tema.
+    const corDoTexto = () => desenho.evaluate((svg) => getComputedStyle(svg.querySelector("text")!).fill);
+    const antes = await corDoTexto();
+    await page.locator("#btn-acessibilidade").click();
+    await page.getByRole("radio", { name: "Claro" }).check();
+    await expect.poll(corDoTexto, { timeout: 15000 }).not.toBe(antes);
+  });
+
   test("no serious axe-core violations on the Blog tab", async ({ page }) => {
     await page.goto("./#blog");
     const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag22aa"]).analyze();

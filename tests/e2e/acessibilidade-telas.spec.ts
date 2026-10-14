@@ -84,8 +84,8 @@ for (const pagina of PAGINAS) {
         const cortados = [...document.querySelectorAll<HTMLElement>("body *")]
           .filter((el) => {
             if (!el.textContent?.trim() || el.closest("[aria-hidden='true'], .sr-only, dialog:not([open])")) return false;
-            // Código e tabelas rolam na horizontal dentro do próprio bloco (exceção da WCAG 1.4.10).
-            if (el.closest("pre, table")) return false;
+            // Código, tabelas e diagramas rolam na horizontal dentro do próprio bloco (exceção da WCAG 1.4.10).
+            if (el.closest("pre, table, .diagrama-desenho")) return false;
             if (getComputedStyle(el).position === "fixed") return false;
             const r = el.getBoundingClientRect();
             if (r.width === 0 || r.right <= janela + 1) return false;

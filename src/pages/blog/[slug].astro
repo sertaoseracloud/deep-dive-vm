@@ -112,3 +112,89 @@ const lang = artigo.language === "pt" ? undefined : artigo.language;
     </article>
   </main>
 </Layout>
+
+<script>
+  // Diagramas Mermaid (```mermaid no dev.to): viram desenho SVG nas cores do
+  // tema do painel ♿, com o código logo abaixo num <details>. A biblioteca só
+  // é baixada nas páginas que têm diagrama. Sem JavaScript, ou se a fonte tiver
+  // erro, o bloco continua aparecendo como código.
+  import { rotuloDoDiagrama, SELETOR_MERMAID, tipoDoDiagrama, tituloAcessivel, variaveisDoTema } from "../../lib/diagramas";
+
+  const blocos = [...document.querySelectorAll<HTMLElement>(SELETOR_MERMAID)];
+  if (blocos.length > 0) {
+    const figuras = blocos.map((pre, i) => {
+      const fonte = (pre.textContent ?? "").trim();
+      const titulo = tituloAcessivel(fonte);
+      const rotulo = rotuloDoDiagrama(tipoDoDiagrama(fonte)) + (titulo ? `: ${titulo}` : "");
+
+      const figura = document.createElement("figure");
+      figura.className = "diagrama";
+      figura.setAttribute("aria-label", rotulo);
+      const desenho = document.createElement("div");
+      desenho.className = "diagrama-desenho";
+      desenho.hidden = true;
+      // Diagramas largos rolam na horizontal: precisam de foco pelo teclado.
+      desenho.tabIndex = 0;
+      desenho.setAttribute("role", "group");
+      desenho.setAttribute("aria-label", rotulo);
+      const dica = document.createElement("p");
+      dica.className = "diagrama-dica";
+      dica.hidden = true;
+      dica.textContent = "O diagrama continua para o lado: role na horizontal ou use as setas do teclado depois de selecioná-lo.";
+      const detalhes = document.createElement("details");
+      detalhes.className = "diagrama-codigo";
+      const resumo = document.createElement("summary");
+      resumo.textContent = "Ver o código do diagrama";
+
+      pre.replaceWith(figura);
+      detalhes.append(resumo, pre);
+      figura.append(desenho, dica, detalhes);
+      return { id: `diagrama-${i}`, fonte, desenho, dica, detalhes };
+    });
+
+    // A dica só aparece quando o diagrama não cabe na largura do texto.
+    const conferirLargura = () => {
+      for (const f of figuras) f.dica.hidden = f.desenho.hidden || f.desenho.scrollWidth <= f.desenho.clientWidth + 4;
+    };
+    addEventListener("resize", conferirLargura);
+
+    let mermaid: typeof import("mermaid").default | undefined;
+    let rodada = 0;
+
+    const desenhar = async () => {
+      const esta = ++rodada;
+      mermaid ??= (await import("mermaid")).default;
+      const css = getComputedStyle(document.documentElement);
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+        theme: "base",
+        themeVariables: variaveisDoTema((nome) => css.getPropertyValue(nome).trim()),
+        // Tamanho real (letra de 15 px): diagramas largos rolam dentro do
+        // quadro em vez de encolher até ficarem ilegíveis.
+        flowchart: { htmlLabels: false, useMaxWidth: false },
+        sequence: { useMaxWidth: false },
+      });
+      for (const f of figuras) {
+        if (esta !== rodada) return; // o tema mudou de novo no meio do caminho
+        const valido = await mermaid.parse(f.fonte, { suppressErrors: true });
+        if (!valido) {
+          f.desenho.hidden = true;
+          f.detalhes.open = true;
+          continue;
+        }
+        const { svg } = await mermaid.render(`${f.id}-${esta}`, f.fonte);
+        f.desenho.innerHTML = svg;
+        f.desenho.hidden = false;
+      }
+      conferirLargura();
+    };
+
+    desenhar();
+    // Redesenha quando o tema ou a fonte mudam no painel ♿.
+    new MutationObserver(() => desenhar()).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-tema", "class"],
+    });
+  }
+</script>
