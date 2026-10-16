@@ -1,9 +1,11 @@
 name: Deploy to GitHub Pages
 
 on:
-  # Trigger the workflow every time you push to the `main` branch
-  # Using a different branch name? Replace `main` with your branch’s name
-  push:
+  # Push na main: só publica depois que a Test Suite (tipos, unitários com
+  # cobertura, audit, E2E e Lighthouse) termina com sucesso naquele commit.
+  workflow_run:
+    workflows: ["Test Suite"]
+    types: [completed]
     branches: [main]
   # Allows you to run this workflow manually from the Actions tab on GitHub.
   workflow_dispatch:
@@ -26,9 +28,17 @@ concurrency:
 
 jobs:
   build:
+    # Test Suite com falha (ou disparada por PR) não publica.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # O commit que passou na Test Suite, não o topo atual da main.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22

@@ -47,4 +47,4 @@ O objetivo é WCAG 2.2 AA, com o mesmo padrão dos playgrounds DivergePHP, Diver
 
 ## Publicação
 
-Cada push na `main` publica no GitHub Pages ([`deploy.yaml`](.github/workflows/deploy.yaml)). A [`test.yml`](.github/workflows/test.yml) roda os testes, o `npm audit` das dependências de produção, o E2E e o Lighthouse. O Lighthouse também roda toda semana.
+A [`test.yml`](.github/workflows/test.yml) roda em cada push e PR: checagem de tipos, testes unitários (cobertura mínima de 95%), `npm audit` (barra vulnerabilidades altas), E2E e Lighthouse. Num push na `main`, o [`deploy.yaml`](.github/workflows/deploy.yaml) só publica no GitHub Pages depois que a `test.yml` termina com sucesso, e publica exatamente o commit testado. O deploy também roda todo dia à meia-noite de Brasília (blog e eventos) e pode ser disparado à mão. O Lighthouse também roda toda semana.
