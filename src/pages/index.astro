@@ -33,7 +33,7 @@ const ano = new Date().getFullYear();
 
 <Layout
   title="Cláudio Rapôso — O Sertão será Cloud"
-  description="Cursos gratuitos e acessíveis no navegador (DivergePHP, DivergeTerraform e DivergePython), eventos da comunidade e redes do mentor."
+  description="Cursos gratuitos e acessíveis: DivergePHP, DivergeTerraform, DivergePython e DivergeKubernetes no navegador, além de eventos e blog."
   url="https://mentoria.sertaoseracloud.com/"
   ogImage="/hub-og.png"
   jsonLd={{
@@ -231,7 +231,7 @@ const ano = new Date().getFullYear();
       abas[destino].focus();
     });
 
-    // Atalhos do perfil ("3 cursos gratuitos", "6 próximos eventos"): abrem a aba e levam o foco até ela.
+    // Atalhos do perfil: abrem a aba e levam o foco até ela.
     document.querySelectorAll<HTMLAnchorElement>("[data-ir-aba]").forEach((link) => {
       link.addEventListener("click", (e) => {
         const i = abas.findIndex((a) => a.dataset.aba === link.dataset.irAba);
@@ -309,4 +309,3 @@ const ano = new Date().getFullYear();
     mostrar();
   }
 </script>
-
