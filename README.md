@@ -57,6 +57,7 @@ A [`test.yml`](.github/workflows/test.yml) roda em cada push e PR: checagem de t
 Revisão de 2026-10-21:
 
 - Astro 7.4, Mermaid 12, Playwright 1.64, Vitest 5.0.5 e demais dependências diretas atualizados. TypeScript permanece em 6.0.3: o peer de `@astrojs/check` 0.9.12 aceita TypeScript 5/6, não 7. Não use `--force` ou `--legacy-peer-deps` para contornar esse contrato.
+- O lockfile foi conferido com npm 10.9.9, usado pelo Node 22 da CI. Ao atualizá-lo com outro npm, valide também `npm ci` nessa versão: npm 11 omitiu peers opcionais de `@puppeteer/browsers` que o npm 10 exige no lockfile.
 - `test:all` e `test:unit` refazem o build antes dos testes, evitando validar HTML antigo. Chamadas diretas a `vitest` continuam exigindo build atualizado quando os testes leem `dist/`.
 - A cobertura gera `coverage-summary.json`, consumido pelo badge; relatório ausente ou inválido agora falha explicitamente, em vez de publicar `0%`.
 - `lighthouse:ci` audita o build local com o servidor gerenciado pelo LHCI, sem `sleep`, processo de preview solto ou consulta acidental ao site de produção.
