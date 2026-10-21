@@ -15,6 +15,7 @@ Hub do Cláudio Filipe Lima Rapôso, Arquiteto de Soluções e Staff Software En
 - DivergePHP: https://sertaoseracloud.github.io/php-playground/
 - DivergeTerraform: https://sertaoseracloud.github.io/terraform-playground/
 - DivergePython: https://sertaoseracloud.github.io/python-playground/
+- DivergeKubernetes: https://sertaoseracloud.github.io/kubernetes-playground/
 
 ## Blog
 Artigos sobre arquitetura de software, cloud (AWS e Azure), Terraform, Kubernetes e IA, em português e inglês: https://dev.to/sertaoseracloud (aba Blog do hub, /#blog, atualizada todo dia).

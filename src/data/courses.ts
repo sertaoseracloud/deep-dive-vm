@@ -60,4 +60,13 @@ export const courses: Course[] = [
       alt: 'DivergePython: aprenda Python, dados e paralelismo no navegador. Gratuito e sem cadastro, com leitor de tela, Libras, uso só pelo teclado, alto contraste e perfis para TDAH, dislexia e autismo.',
     },
   },
+  {
+    title: 'DivergeKubernetes',
+    description: 'Aprenda Kubernetes no navegador: manifestos YAML, kubectl, AWS (EKS) e Azure (AKS) num simulador, sem cluster real e sem custo.',
+    exercises: 261,
+    url: 'https://sertaoseracloud.github.io/kubernetes-playground/',
+    status: 'active',
+    external: true,
+    repo: 'https://github.com/sertaoseracloud/kubernetes-playground',
+  },
 ];

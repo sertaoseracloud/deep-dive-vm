@@ -42,7 +42,7 @@ const config: ViteUserConfig = {
         "src/data/**",
         "src/**/*.astro",
       ],
-      reporter: ["text", "json", "html"],
+      reporter: ["text", "json", "json-summary", "html"],
       thresholds: {
         statements: 95,
         branches: 95,

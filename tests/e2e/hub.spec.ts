@@ -6,7 +6,7 @@ import AxeBuilder from "@axe-core/playwright";
  *
  * Covers HUB-01 through HUB-04:
  *   HUB-01: Mentor identity section (h1 visible, responsive viewport)
- *   HUB-02: Course cards (PHP, Terraform and Python playgrounds, external links)
+ *   HUB-02: Course cards (PHP, Terraform, Python and Kubernetes playgrounds, external links)
  *   HUB-05: Carrossel acessível com os banners dos cursos
  *   HUB-06: Abas Cursos | Eventos, com a MVPConf 2027 (inscrição e call for papers)
  *   HUB-03: Social icon links (4 networks, aria-label per link)
@@ -42,9 +42,11 @@ test.describe("Hub load", () => {
     }
   });
 
-  test("3 course cards are present", async ({ page }) => {
+  test("4 course cards are present", async ({ page }) => {
     await page.goto("./");
-    await expect(page.locator("#painel-cursos .course-card")).toHaveCount(3);
+    await expect(page.locator("#painel-cursos .course-card")).toHaveCount(4);
+    await expect(page.locator('[data-ir-aba="cursos"]')).toHaveText("4 cursos gratuitos");
+    await expect(page.locator("#aba-cursos .aba-contador")).toHaveText("4");
   });
 
   test("active course card is visible", async ({ page }) => {
@@ -65,25 +67,38 @@ test.describe("Hub load", () => {
     await expect(page.locator("h1")).toHaveText("Cláudio Filipe Lima Rapôso");
   });
 
-  test("course links point to the PHP, Terraform and Python playgrounds", async ({ page }) => {
+  test("course links point to the PHP, Terraform, Python and Kubernetes playgrounds", async ({ page }) => {
     await page.goto("./");
     const courseLinks = page.locator("#painel-cursos .course-card.active .course-link");
-    await expect(courseLinks).toHaveCount(3); // PHP, Terraform e Python, todos active
+    await expect(courseLinks).toHaveCount(4);
     const hrefs = await courseLinks.evaluateAll(links => links.map(l => l.getAttribute("href")));
     expect(hrefs).toEqual([
       "https://sertaoseracloud.github.io/php-playground/",
       "https://sertaoseracloud.github.io/terraform-playground/",
       "https://sertaoseracloud.github.io/python-playground/",
+      "https://sertaoseracloud.github.io/kubernetes-playground/",
     ]);
   });
 
   test("external course links open in a new tab with noopener noreferrer", async ({ page }) => {
     await page.goto("./");
     const courseLinks = page.locator("#painel-cursos .course-card.active .course-link");
-    for (let i = 0; i < 3; i++) {
+    await expect(courseLinks).toHaveCount(4);
+    for (let i = 0; i < 4; i++) {
       await expect(courseLinks.nth(i)).toHaveAttribute("target", "_blank");
       await expect(courseLinks.nth(i)).toHaveAttribute("rel", "noopener noreferrer");
     }
+  });
+
+  test("Kubernetes card shows exercises and repository link", async ({ page }) => {
+    await page.goto("./");
+    const card = page.locator("#painel-cursos .course-card").filter({ hasText: "DivergeKubernetes" });
+    await expect(card).toBeVisible();
+    await expect(card.locator(".chip-forte")).toHaveText("261 exercícios");
+    const repo = card.getByRole("link", { name: /Dar uma star/ });
+    await expect(repo).toHaveAttribute("href", "https://github.com/sertaoseracloud/kubernetes-playground");
+    await expect(repo).toHaveAttribute("target", "_blank");
+    await expect(repo).toHaveAttribute("rel", "noopener noreferrer");
   });
 
   test("all active social icon links have rel containing noopener", async ({ page }) => {
@@ -104,7 +119,7 @@ test.describe("Hub carrossel", () => {
     "https://sertaoseracloud.github.io/python-playground/",
   ];
 
-  test("tem um slide por curso, com banner, texto alternativo e link", async ({ page }) => {
+  test("tem um slide por curso com banner cadastrado, texto alternativo e link", async ({ page }) => {
     await page.goto("./");
     const carrossel = page.getByRole("region", { name: "Banners dos cursos" });
     await expect(carrossel).toHaveAttribute("aria-roledescription", "carrossel");

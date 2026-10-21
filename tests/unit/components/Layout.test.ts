@@ -30,6 +30,7 @@ describe("Layout component", () => {
 
   it("description appears in meta description content", () => {
     expect(meta(hubHtml, "description")).toContain("DivergePython");
+    expect(meta(hubHtml, "description")).toContain("DivergeKubernetes");
   });
 
   it("Open Graph og:title and og:type=website are present", () => {

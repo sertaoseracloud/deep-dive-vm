@@ -10,7 +10,7 @@ Pessoas que querem aprender programação e cloud de graça, no navegador: estud
 
 ## Product Purpose
 
-Ser o ponto de entrada do Cláudio Filipe Lima Rapôso (Arquiteto de Soluções, Microsoft MVP, Docker Captain e AWS Golden Jacket): levar aos cursos gratuitos DivergePHP, DivergeTerraform e DivergePython e à agenda de eventos da comunidade (MVP Conference, AWS User Group e outros), com inscrição e call for papers. Sucesso é a pessoa achar em segundos o curso ou o evento certo e conseguir usar o site do jeito que precisa.
+Ser o ponto de entrada do Cláudio Filipe Lima Rapôso (Arquiteto de Soluções, Microsoft MVP, Docker Captain e AWS Golden Jacket): levar aos cursos gratuitos DivergePHP, DivergeTerraform, DivergePython e DivergeKubernetes e à agenda de eventos da comunidade (MVP Conference, AWS User Group e outros), com inscrição e call for papers. Sucesso é a pessoa achar em segundos o curso ou o evento certo e conseguir usar o site do jeito que precisa.
 
 ## Brand Personality
 
