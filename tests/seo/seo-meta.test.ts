@@ -190,6 +190,7 @@ describe("Sitemap content assertions (dist/sitemap-0.xml)", () => {
     expect(locs).toEqual([
       "https://mentoria.sertaoseracloud.com/",
       "https://mentoria.sertaoseracloud.com/acessibilidade/",
+      "https://mentoria.sertaoseracloud.com/workshop-assessment/",
     ]);
   });
 
