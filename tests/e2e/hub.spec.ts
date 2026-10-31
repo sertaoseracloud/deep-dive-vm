@@ -42,11 +42,11 @@ test.describe("Hub load", () => {
     }
   });
 
-  test("4 course cards are present", async ({ page }) => {
+  test("5 course cards are present", async ({ page }) => {
     await page.goto("./");
-    await expect(page.locator("#painel-cursos .course-card")).toHaveCount(4);
-    await expect(page.locator('[data-ir-aba="cursos"]')).toHaveText("4 cursos gratuitos");
-    await expect(page.locator("#aba-cursos .aba-contador")).toHaveText("4");
+    await expect(page.locator("#painel-cursos .course-card")).toHaveCount(5);
+    await expect(page.locator('[data-ir-aba="cursos"]')).toHaveText("5 cursos gratuitos");
+    await expect(page.locator("#aba-cursos .aba-contador")).toHaveText("5");
   });
 
   test("active course card is visible", async ({ page }) => {
@@ -67,26 +67,24 @@ test.describe("Hub load", () => {
     await expect(page.locator("h1")).toHaveText("Cláudio Filipe Lima Rapôso");
   });
 
-  test("course links point to the PHP, Terraform, Python and Kubernetes playgrounds", async ({ page }) => {
+  test("course links point to the PHP, Terraform, Python, Kubernetes playgrounds and workshop", async ({ page }) => {
     await page.goto("./");
     const courseLinks = page.locator("#painel-cursos .course-card.active .course-link");
-    await expect(courseLinks).toHaveCount(4);
+    await expect(courseLinks).toHaveCount(5);
     const hrefs = await courseLinks.evaluateAll(links => links.map(l => l.getAttribute("href")));
-    expect(hrefs).toEqual([
-      "https://sertaoseracloud.github.io/php-playground/",
-      "https://sertaoseracloud.github.io/terraform-playground/",
-      "https://sertaoseracloud.github.io/python-playground/",
-      "https://sertaoseracloud.github.io/kubernetes-playground/",
-    ]);
+    expect(hrefs).toContain("https://sertaoseracloud.github.io/php-playground/");
+    expect(hrefs).toContain("https://sertaoseracloud.github.io/terraform-playground/");
+    expect(hrefs).toContain("https://sertaoseracloud.github.io/python-playground/");
+    expect(hrefs).toContain("https://sertaoseracloud.github.io/kubernetes-playground/");
+    expect(hrefs).toContain("/workshop-assessment/");
   });
 
   test("external course links open in a new tab with noopener noreferrer", async ({ page }) => {
     await page.goto("./");
-    const courseLinks = page.locator("#painel-cursos .course-card.active .course-link");
-    await expect(courseLinks).toHaveCount(4);
+    const externalLinks = page.locator("#painel-cursos .course-card.active .course-link[target='_blank']");
+    await expect(externalLinks).toHaveCount(4);
     for (let i = 0; i < 4; i++) {
-      await expect(courseLinks.nth(i)).toHaveAttribute("target", "_blank");
-      await expect(courseLinks.nth(i)).toHaveAttribute("rel", "noopener noreferrer");
+      await expect(externalLinks.nth(i)).toHaveAttribute("rel", "noopener noreferrer");
     }
   });
 
@@ -243,19 +241,7 @@ test.describe("Hub UX", () => {
     await expect(page.locator(".mes-titulo")).toHaveText(["outubro de 2027"]);
   });
 
-  test("encontro do AWS UG: destaque da palestra e um só botão de inscrição", async ({ page }) => {
-    await page.clock.setFixedTime(new Date("2026-10-20T10:00:00"));
-    await page.goto("./#eventos");
-    const card = page.locator(".event-card").filter({ hasText: "AWS User Group Floripa" });
-    await expect(card.locator(".chip")).toHaveText(["Presencial", "Palestra do Cláudio"]);
-    await expect(card.getByRole("link")).toHaveCount(1);
-    await expect(card.getByRole("link", { name: /Inscrever-se\s+—\s+21º Encontro AWS User Group Floripa/ })).toHaveAttribute(
-      "href",
-      "https://www.meetup.com/pt-br/aws-user-group-floripa/events/316963249/"
-    );
-    await expect(card.locator("[data-faltam]")).toHaveText(" · faltam 8 dias");
-    await expect(page.locator(".mes-titulo").first()).toHaveText("outubro de 2026");
-  });
+  // REMOVED: AWS UG Floripa event (2026-10-28) is past; upcomingEvents() filters it at build time.
 
   test("regionais aparecem como gratuitas", async ({ page }) => {
     await page.goto("./#eventos");
