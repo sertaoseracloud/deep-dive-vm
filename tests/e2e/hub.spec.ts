@@ -241,19 +241,7 @@ test.describe("Hub UX", () => {
     await expect(page.locator(".mes-titulo")).toHaveText(["outubro de 2027"]);
   });
 
-  test("encontro do AWS UG: destaque da palestra e um só botão de inscrição", async ({ page }) => {
-    await page.clock.setFixedTime(new Date("2026-10-20T10:00:00"));
-    await page.goto("./#eventos");
-    const card = page.locator(".event-card").filter({ hasText: "AWS User Group Floripa" });
-    await expect(card.locator(".chip")).toHaveText(["Presencial", "Palestra do Cláudio"]);
-    await expect(card.getByRole("link")).toHaveCount(1);
-    await expect(card.getByRole("link", { name: /Inscrever-se\s+—\s+21º Encontro AWS User Group Floripa/ })).toHaveAttribute(
-      "href",
-      "https://www.meetup.com/pt-br/aws-user-group-floripa/events/316963249/"
-    );
-    await expect(card.locator("[data-faltam]")).toHaveText(" · faltam 8 dias");
-    await expect(page.locator(".mes-titulo").first()).toHaveText("outubro de 2026");
-  });
+  // REMOVED: AWS UG Floripa event (2026-10-28) is past; upcomingEvents() filters it at build time.
 
   test("regionais aparecem como gratuitas", async ({ page }) => {
     await page.goto("./#eventos");
