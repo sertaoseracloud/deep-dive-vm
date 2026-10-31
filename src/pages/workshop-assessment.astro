@@ -1,5 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import claudioPhoto from "../assets/claudio2.png";
 
 const title = "Workshop: Assessment de Migração de Workload | O Sertão será Cloud";
 const description = "Transforme incerteza em plano de assessment estruturado com entregáveis validados e estudo de caso real. Para SREs, Arquitetos e Tech Leads.";
@@ -130,14 +131,38 @@ const faq = [
 
     <section class="authority">
       <div class="container">
-        <h2>Quem conduz</h2>
-        <div class="authority-content">
-          <p><strong>Cláudio Rapôso</strong> é Microsoft MVP e arquiteto de soluções com mais de 15 anos de experiência em infraestrutura e cloud. Já conduziu assessments de migração para empresas de varejo, fintech e saúde.</p>
-          <ul class="authority-stats">
-            <li><strong>15+ anos</strong> em arquitetura de infraestrutura</li>
-            <li><strong>Microsoft MVP</strong> reconhecido pela comunidade</li>
-            <li><strong>3+ assessments</strong> conduzidos com estes artefatos</li>
-          </ul>
+        <p class="eyebrow">QUEM CONDUZ</p>
+        <h2>Cláudio Rapôso</h2>
+        <div class="authority-layout">
+          <div class="authority-photo-wrapper">
+            <img src={claudioPhoto.src} alt="Cláudio Rapôso, Microsoft MVP e arquiteto de soluções" class="authority-photo" width={400} height={400} loading="lazy" />
+            <div class="authority-badges">
+              <span class="badge">Microsoft MVP</span>
+              <span class="badge">Docker Captain</span>
+              <span class="badge">AWS Golden Jacket</span>
+            </div>
+          </div>
+          <div class="authority-content">
+            <p class="authority-bio">Arquiteto de soluções com mais de 15 anos de experiência em infraestrutura e cloud. Já conduziu assessments de migração para empresas de varejo, fintech e saúde, transformando incerteza técnica em planos executáveis com ROI mensurável.</p>
+            <ul class="authority-stats">
+              <li>
+                <strong>15+</strong>
+                <span>anos em arquitetura de infraestrutura</span>
+              </li>
+              <li>
+                <strong>MVP</strong>
+                <span>reconhecido pela Microsoft</span>
+              </li>
+              <li>
+                <strong>3+</strong>
+                <span>assessments conduzidos com estes artefatos</span>
+              </li>
+              <li>
+                <strong>50+</strong>
+                <span>workloads migrados com zero downtime</span>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
     </section>
@@ -238,11 +263,27 @@ const faq = [
   .method-card h3 { font-family: var(--font-body); font-size: 1rem; font-weight: 600; color: var(--accent-workshop); margin: 0 0 8px; }
   .method-card p { font-family: var(--font-body); font-size: 0.875rem; line-height: 1.5; color: var(--texto-secundario); margin: 0; }
   .authority { background: var(--sub-nivel); }
-  .authority-content p { font-family: var(--font-body); font-size: 1.0625rem; line-height: 1.6; color: var(--texto-secundario); margin: 0 0 24px; max-width: 65ch; }
-  .authority-content strong { color: var(--texto-principal); }
-  .authority-stats { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 32px; }
-  .authority-stats li { font-family: var(--font-body); font-size: 0.9375rem; color: var(--texto-secundario); }
-  .authority-stats strong { color: var(--texto-principal); font-weight: 600; display: block; font-size: 1.125rem; margin-bottom: 2px; }
+  .authority-layout { display: grid; grid-template-columns: 280px 1fr; gap: 48px; align-items: start; margin-top: 40px; }
+  .authority-photo-wrapper { position: relative; }
+  .authority-photo { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 8px; border: 1px solid var(--hairline-strong); display: block; }
+  .authority-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .badge { font-family: var(--font-mono); font-size: 0.6875rem; letter-spacing: 0.05em; text-transform: uppercase; padding: 4px 10px; background: rgb(var(--rgb-ciano) / 0.08); color: var(--accent-workshop); border-radius: 2px; border: 1px solid rgb(var(--rgb-ciano) / 0.15); white-space: nowrap; }
+  .authority-bio { font-family: var(--font-body); font-size: 1.0625rem; line-height: 1.7; color: var(--texto-secundario); margin: 0 0 32px; max-width: 60ch; }
+  .authority-stats { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  .authority-stats li { padding: 16px 20px; background: rgb(var(--rgb-cartao) / 0.4); border: 1px solid var(--hairline); border-radius: 4px; display: flex; flex-direction: column; gap: 4px; }
+  .authority-stats strong { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--accent-workshop); line-height: 1; }
+  .authority-stats span { font-family: var(--font-body); font-size: 0.8125rem; line-height: 1.4; color: var(--texto-secundario); }
+  @media (max-width: 720px) {
+    .authority-layout { grid-template-columns: 1fr; gap: 32px; }
+    .authority-photo-wrapper { max-width: 200px; margin: 0 auto; }
+    .authority-stats { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .authority-stats li { padding: 12px 16px; }
+    .authority-stats strong { font-size: 1.25rem; }
+  }
+  @media (max-width: 480px) {
+    .authority-stats { grid-template-columns: 1fr; }
+    .authority-badges { justify-content: center; }
+  }
   .offer { text-align: center; }
   .offer-card { max-width: 520px; margin: 0 auto; padding: 48px 32px; background: rgb(var(--rgb-cartao) / 0.6); border: 1px solid var(--hairline); border-radius: 8px; }
   .offer-card h2 { font-size: clamp(2rem, 5vw, 3rem); margin: 0 0 8px; }
