@@ -69,4 +69,10 @@ export const courses: Course[] = [
     external: true,
     repo: 'https://github.com/sertaoseracloud/kubernetes-playground',
   },
+  {
+    title: 'Workshop: Assessment de Migração',
+    description: 'Transforme incerteza em plano de assessment estruturado com entregáveis validados e estudo de caso real. Para SREs, Arquitetos e Tech Leads.',
+    url: '/workshop-assessment/',
+    status: 'active',
+  },
 ];
